@@ -14,7 +14,7 @@ A scalable, web-based solution that centralizes resource data, streamlines activ
 ### Prerequisites
 
 - Node.js (v18 or higher)
-- MySQL database
+- Mongodb database
 
 ### Installation
 
