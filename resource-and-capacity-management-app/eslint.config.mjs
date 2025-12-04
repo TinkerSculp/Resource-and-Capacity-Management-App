@@ -11,6 +11,13 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // Disable React Hooks rule for MongoDB playground scripts
+  {
+    files: ["*.mongodb.js"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off"
+    }
+  },
 ]);
 
 export default eslintConfig;
