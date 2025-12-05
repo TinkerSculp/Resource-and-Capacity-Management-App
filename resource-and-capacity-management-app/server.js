@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const cors = require('cors');
@@ -6,7 +7,11 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // MongoDB configuration
@@ -77,6 +82,86 @@ app.post('/api/data', async (req, res) => {
   } catch (error) {
     console.error('Error inserting data:', error);
     res.status(500).json({ error: 'Error inserting data' });
+  }
+});
+
+// Authentication endpoints
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const collection = db.collection('users');
+    const user = await collection.findOne({ email: email.toLowerCase() });
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Simple password check (in production, use bcrypt to hash passwords)
+    if (user.password !== password) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Don't send password back to client
+    const { password: _, ...userWithoutPassword } = user;
+    
+    res.json({ 
+      message: 'Login successful',
+      user: userWithoutPassword
+    });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Register new user
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, title, department, role } = req.body;
+    
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ error: 'Required fields missing' });
+    }
+
+    const collection = db.collection('users');
+    
+    // Check if user already exists
+    const existingUser = await collection.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({ error: 'User already exists' });
+    }
+
+    // Create new user (in production, hash the password with bcrypt)
+    const newUser = {
+      email: email.toLowerCase(),
+      password: password, // TODO: Hash this in production
+      firstName,
+      lastName,
+      title: title || '',
+      department: department || '',
+      role: role || 'user',
+      permissions: [],
+      status: true,
+      createdAt: new Date()
+    };
+
+    const result = await collection.insertOne(newUser);
+    
+    // Don't send password back
+    const { password: _, ...userWithoutPassword } = newUser;
+    
+    res.status(201).json({ 
+      message: 'User registered successfully',
+      user: { ...userWithoutPassword, _id: result.insertedId }
+    });
+  } catch (error) {
+    console.error('Error during registration:', error);
+    res.status(500).json({ error: 'Registration failed' });
   }
 });
 
@@ -151,15 +236,7 @@ async function shutdown(code = 0) {
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
-// Start server after DB connects
-(async () => {
-  try {
-    await connectDB();
-    app.listen(port, () => {
-      console.log(`API server running on port ${port}`);
-    });
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    await shutdown(1);
-  }
-})();
+// Start server
+app.listen(port, () => {
+  console.log(`API server running on port ${port}`);
+});
