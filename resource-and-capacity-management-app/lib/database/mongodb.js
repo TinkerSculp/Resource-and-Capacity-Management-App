@@ -4,7 +4,7 @@ let client;
 let db;
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-const dbName = process.env.DB_NAME || 'resource_management';
+const dbName = process.env.DB_NAME || 'ResourceManagementAPP_DB';
 
 /**
  * Connect to MongoDB
