@@ -97,14 +97,14 @@ app.post('/api/data', async (req, res) => {
 // Authentication endpoints
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
     
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
     }
 
     const collection = db.collection('users');
-    const user = await collection.findOne({ email: email.toLowerCase() });
+    const user = await collection.findOne({ username: username.toLowerCase() });
     
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });

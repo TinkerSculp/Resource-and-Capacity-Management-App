@@ -21,18 +21,19 @@ async function createTestUser() {
     const usersCollection = db.collection('users');
     
     // Check if test user already exists
-    const existingUser = await usersCollection.findOne({ email: 'test@example.com' });
+    const existingUser = await usersCollection.findOne({ username: 'testuser' });
     
     if (existingUser) {
       console.log('\n⚠️  Test user already exists!');
       console.log('\nLogin credentials:');
-      console.log('Email: test@example.com');
+      console.log('Username: testuser');
       console.log('Password: password123');
       return;
     }
     
     // Create test user
     const testUser = {
+      username: 'testuser',
       email: 'test@example.com',
       password: 'password123', // Plain text for development only
       firstName: 'Test',
@@ -49,7 +50,7 @@ async function createTestUser() {
     
     console.log('\n✅ Test user created successfully!');
     console.log('\nLogin credentials:');
-    console.log('Email: test@example.com');
+    console.log('Username: testuser');
     console.log('Password: password123');
     
   } catch (error) {

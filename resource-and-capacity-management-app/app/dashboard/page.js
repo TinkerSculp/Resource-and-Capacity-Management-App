@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Universal styles
+const styles = {
+  outfitFont: { fontFamily: 'Outfit, sans-serif' }
+};
+
 export default function DashboardPage() {
   const [user, setUser] = useState(null);
   const router = useRouter();
@@ -40,21 +45,21 @@ export default function DashboardPage() {
             <div className="flex items-center">
               <img src="/CapstoneDynamicsLogo.png" alt="Logo" className="h-12 w-auto" />
               <div className="flex flex-col ml-3">
-                <h1 className="text-2xl font-bold text-white leading-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                <h1 className="text-2xl font-bold text-white leading-tight" style={styles.outfitFont}>
                   Capstone Dynamics
                 </h1>
               </div>
             </div>
             <div className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center">
-              <h1 className="text-xl font-bold text-white leading-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h1 className="text-xl font-bold text-white leading-tight" style={styles.outfitFont}>
                 Resource & Capacity
               </h1>
-              <h2 className="text-xl font-bold text-white leading-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h2 className="text-xl font-bold text-white leading-tight" style={styles.outfitFont}>
                 Management Planner
               </h2>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-white font-semibold">{user.firstName} {user.lastName}</span>
+              <span className="text-white font-semibold" style={styles.outfitFont}>{user.firstName} {user.lastName}</span>
               <button
                 onClick={handleLogout}
                 className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden hover:opacity-90 transition cursor-pointer"
@@ -80,67 +85,67 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Message */}
-        <h2 className="text-2xl text-gray-900 mb-6">Welcome back, {user.firstName} {user.lastName}</h2>
+        <h2 className="text-2xl text-gray-900 mb-6" style={styles.outfitFont}>Welcome back, {user.firstName} {user.lastName}</h2>
 
         {/* filter switch */}
         <div>
-          <button>All</button>
-          <button>Mine</button>
+          <button className="p-1 w-15 border border-gray-300 text-center cursor-pointer text-gray-600" style={styles.outfitFont}>All</button>
+          <button className="p-1 w-15 border border-gray-300 text-center cursor-pointer text-gray-600" style={styles.outfitFont}>Mine</button>
         </div>
 
-        {/* First Row - 4 Cards */}
+        {/* count board */}
         <div className="grid grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 1</h3>
-            <p className="text-gray-600 text-sm">Description for card 1</p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
+            <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Active Initiatives</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>✅ 2</h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 2</h3>
-            <p className="text-gray-600 text-sm">Description for card 2</p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
+            <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Planned Initiatives</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>📝 0</h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 3</h3>
-            <p className="text-gray-600 text-sm">Description for card 3</p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
+            <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Initiatives on Hold</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>⏸️ 0</h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 4</h3>
-            <p className="text-gray-600 text-sm">Description for card 4</p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
+            <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Initiatives in Back Log</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>📆 1</h3>
           </div>
         </div>
 
-        {/* Second Row - 6 Cards (3 per line) */}
+        {/* navigation */}
         <div className="grid grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 5</h3>
-            <p className="text-gray-600 text-sm">Description for card 5</p>
+          <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
+            <div className="text-4xl mb-2 text-gray-700">place icon</div> {/* Replace with icon */}
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Capacity Summary</h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 6</h3>
-            <p className="text-gray-600 text-sm">Description for card 6</p>
+          <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
+            <div className="text-4xl mb-2 text-gray-700">place icon</div> {/* Replace with icon */}
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Resources</h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 7</h3>
-            <p className="text-gray-600 text-sm">Description for card 7</p>
+          <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
+            <div className="text-4xl mb-2 text-gray-700">place icon</div> {/* Replace with icon */}
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Initiatives</h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 8</h3>
-            <p className="text-gray-600 text-sm">Description for card 8</p>
+          <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
+            <div className="text-4xl mb-2 text-gray-700">place icon</div> {/* Replace with icon */}
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Assignments</h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 9</h3>
-            <p className="text-gray-600 text-sm">Description for card 9</p>
+          <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
+            <div className="text-4xl mb-2 text-gray-700">place icon</div> {/* Replace with icon */}
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Calendar</h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Card 10</h3>
-            <p className="text-gray-600 text-sm">Description for card 10</p>
+          <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
+            <div className="text-4xl mb-2 text-gray-700">place icon</div> {/* Replace with icon */}
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Report</h3>
           </div>
         </div>
       </main>

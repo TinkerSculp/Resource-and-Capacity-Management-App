@@ -1,91 +1,123 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 font-sans">
-      <main className="flex w-full max-w-5xl flex-col gap-8 p-8">
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-4xl font-bold text-gray-900">
-              Resource & Capacity Management
-            </h1>
-            <Link
-              href="/login"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+export default function LoginPage() {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const router = useRouter();
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                alert(data.error || 'Login failed. Please try again.');
+                return;
+            }
+            
+            // Store user data in localStorage (or use a state management solution)
+            localStorage.setItem('user', JSON.stringify(data.user));
+            
+            // Redirect to dashboard after successful login
+            router.push('/dashboard');
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed. Please check your connection and try again.');
+        }
+    };
+
+    return (
+        <div 
+            className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => router.push('/')}
+        >
+            <div 
+                className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md m-4 border border-gray-200"
+                onClick={(e) => e.stopPropagation()}
             >
-              Sign In
-            </Link>
-          </div>
-          <p className="text-lg text-gray-600">
-            A centralized platform for resource management, activity assignments, and capacity planning.
-          </p>
+                <div className="flex justify-between items-center mb-4">
+                    <img src="/CapstoneDynamicsLogo.png" alt="Logo" className="h-20 flex-shrink-0"/>
+                    <div className="flex flex-col items-center justify-center flex-1 mx-4">
+                        <h3 className="text-xl font-bold text-[#017ACB] whitespace-nowrap leading-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>Capstone Dynamics</h3>
+                        <h4 className="text-sm font-bold text-black whitespace-nowrap leading-tight mt-1" style={{ fontFamily: 'Outfit, sans-serif' }}>Resource & Capacity Management</h4>
+                    </div>
+                    <button
+                        onClick={() => router.push('/')}
+                        className="text-gray-500 hover:text-gray-700 text-2xl cursor-pointer flex-shrink-0 w-8 h-8 flex items-center justify-center"
+                    >
+                        ×
+                    </button>
+                </div>
+                
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <div>
+                        <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                            Username
+                        </label>
+                        <input
+                            type="text"
+                            id="username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            placeholder="Enter your username"
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                            Password
+                        </label>
+                        <input
+                            type="password"
+                            id="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            placeholder="Enter your password"
+                            required
+                        />
+                    </div>
+                    
+                    <div className="text-right">
+                        <Link
+                            href="/forgot-password"
+                            className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+                        >
+                            Forgot Password?
+                        </Link>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                        <button
+                            type="button"
+                            onClick={() => router.push('/')}
+                            className="flex-1 px-4 py-2 text-gray-700 border border-gray-500 rounded-lg hover:bg-gray-300 cursor-pointer transition"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition"
+                        >
+                            Sign In
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-xl font-semibold text-gray-900">
-              Resource Management
-            </h2>
-            <p className="text-gray-600">
-              Track and manage resources across your organization with centralized data.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-xl font-semibold text-gray-900">
-              Activity Assignments
-            </h2>
-            <p className="text-gray-600">
-              Streamline workflows with efficient activity assignment tools.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-xl font-semibold text-gray-900">
-              Capacity Planning
-            </h2>
-            <p className="text-gray-600">
-              Dynamic dashboards for real-time capacity insights and analytics.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-xl font-semibold text-gray-900">
-              Role-Based Access
-            </h2>
-            <p className="text-gray-600">
-              Secure access control with customizable permissions for different user roles.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-xl font-semibold text-gray-900">
-              Analytics
-            </h2>
-            <p className="text-gray-600">
-              Comprehensive analytics and reporting for data-driven decisions.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-xl font-semibold text-gray-900">
-              Collaboration
-            </h2>
-            <p className="text-gray-600">
-              Inline comments, notifications, and team collaboration features.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-2 text-sm font-medium text-gray-500">
-            Getting Started
-          </h3>
-          <p className="text-gray-600">
-            Configure your database connection in <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">server.js</code> and start building your resource management solution.
-          </p>
-        </div>
-      </main>
-    </div>
-  );
+    );
 }
