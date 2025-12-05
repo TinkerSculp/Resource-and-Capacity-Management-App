@@ -129,10 +129,16 @@ app.post('/api/auth/login', async (req, res) => {
     
     console.log('Login successful for:', username);
 
+    // Fetch employee name from employee collection
+    const employeeCollection = db.collection('employee');
+    const employee = await employeeCollection.findOne({ emp_id: user.emp_id });
+    console.log('Employee lookup for emp_id:', user.emp_id, employee ? `Found: ${employee.emp_name}` : 'Not found');
+
     // Don't send password back to client
     const userWithoutPassword = {
       _id: user._id,
       emp_id: user.emp_id,
+      emp_name: employee?.emp_name || null,
       account: {
         username: user.account.username,
         acc_type_id: user.account.acc_type_id,
@@ -253,6 +259,96 @@ app.post('/api/activities', async (req, res) => {
   } catch (error) {
     console.error('Error creating activity:', error);
     res.status(500).json({ error: 'Error creating activity' });
+  }
+});
+
+// Assignment count endpoints
+app.get('/api/assignments/counts/all', async (req, res) => {
+  try {
+    const collection = db.collection('assignment');
+    
+    const active = await collection.countDocuments({ 
+      status: { $in: ["On Going", "In Progress"] } 
+    });
+    
+    const planned = await collection.countDocuments({ 
+      status: "Planned" 
+    });
+    
+    const onHold = await collection.countDocuments({ 
+      status: "On Hold" 
+    });
+    
+    const backlog = await collection.countDocuments({ 
+      status: "Backlog" 
+    });
+    
+    res.json({ active, planned, onHold, backlog });
+  } catch (error) {
+    console.error('Error fetching assignment counts:', error);
+    res.status(500).json({ error: 'Error fetching counts' });
+  }
+});
+
+app.get('/api/assignments/counts/mine', async (req, res) => {
+  try {
+    const { empId } = req.query;
+    
+    console.log('Mine filter requested for empId:', empId);
+    
+    if (!empId) {
+      return res.status(400).json({ error: 'Employee ID required' });
+    }
+    
+    const collection = db.collection('assignment');
+    
+    // First get the employee name from emp_id
+    const employeeCollection = db.collection('employee');
+    const employee = await employeeCollection.findOne({ emp_id: parseInt(empId) });
+    
+    console.log('Employee found:', employee ? employee.emp_name : 'NOT FOUND');
+    
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    
+    const leaderName = employee.emp_name;
+    console.log('Searching for leader name:', leaderName);
+    
+    // Check if any assignments exist for this leader
+    const sampleAssignment = await collection.findOne({ leader: leaderName });
+    console.log('Sample assignment found:', sampleAssignment ? 'YES' : 'NO');
+    if (sampleAssignment) {
+      console.log('Assignment leader:', sampleAssignment.leader);
+      console.log('Assignment status:', sampleAssignment.status);
+    }
+    
+    const active = await collection.countDocuments({ 
+      leader: leaderName,
+      status: { $in: ["On Going", "In Progress"] } 
+    });
+    
+    const planned = await collection.countDocuments({ 
+      leader: leaderName,
+      status: "Planned" 
+    });
+    
+    const onHold = await collection.countDocuments({ 
+      leader: leaderName,
+      status: "On Hold" 
+    });
+    
+    const backlog = await collection.countDocuments({ 
+      leader: leaderName,
+      status: "Backlog" 
+    });
+    
+    console.log('Counts for', leaderName, ':', { active, planned, onHold, backlog });
+    
+    res.json({ active, planned, onHold, backlog });
+  } catch (error) {
+    console.error('Error fetching user assignment counts:', error);
+    res.status(500).json({ error: 'Error fetching counts' });
   }
 });
 

@@ -11,6 +11,14 @@ const styles = {
 
 export default function DashboardPage() {
   const [user, setUser] = useState(null);
+  const [filter, setFilter] = useState('all'); // 'all' or 'mine'
+  const [counts, setCounts] = useState({
+    active: 0,
+    planned: 0,
+    onHold: 0,
+    backlog: 0
+  });
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -22,6 +30,34 @@ export default function DashboardPage() {
     }
     setUser(JSON.parse(userData));
   }, [router]);
+
+  // Fetch assignment counts when filter changes
+  useEffect(() => {
+    if (user) {
+      fetchCounts();
+    }
+  }, [filter, user]);
+
+  const fetchCounts = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const endpoint = filter === 'mine' 
+        ? `/api/assignments/counts/mine?empId=${user.emp_id}`
+        : '/api/assignments/counts/all';
+      
+      const response = await fetch(`${apiUrl}${endpoint}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setCounts(data);
+      }
+    } catch (error) {
+      console.error('Error fetching counts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -59,7 +95,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-white font-semibold" style={styles.outfitFont}>{user.account?.username || 'User'}</span>
+              <span className="text-white font-semibold" style={styles.outfitFont}>{user.emp_name || user.account?.username || 'User'}</span>
               <button
                 onClick={handleLogout}
                 className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden hover:opacity-90 transition cursor-pointer"
@@ -73,7 +109,7 @@ export default function DashboardPage() {
                   />
                 ) : (
                   <span className="text-[#017ACB] font-bold text-lg">
-                    {user.account?.username?.charAt(0).toUpperCase() || 'U'}
+                    {(user.emp_name || user.account?.username || 'U').charAt(0).toUpperCase()}
                   </span>
                 )}
               </button>
@@ -85,34 +121,54 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Message */}
-        <h2 className="text-2xl text-gray-900 mb-6" style={styles.outfitFont}>Welcome back, {user.account?.username || 'User'}</h2>
+        <h2 className="text-2xl text-gray-900 mb-6" style={styles.outfitFont}>Welcome back, {user.emp_name || user.account?.username || 'User'}</h2>
 
         {/* filter switch */}
-        <div>
-          <button className="p-1 w-15 border bg-gray-200 border-gray-300 text-center cursor-pointer text-gray-600" style={styles.outfitFont}>All</button>
-          <button className="p-1 w-15 border border-gray-300 text-center cursor-pointer text-gray-600" style={styles.outfitFont}>Mine</button>
+        <div className="mb-6">
+          <button 
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 border text-center cursor-pointer ${filter === 'all' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-600 border-gray-300'}`}
+            style={styles.outfitFont}
+          >
+            All
+          </button>
+          <button 
+            onClick={() => setFilter('mine')}
+            className={`px-4 py-2 border text-center cursor-pointer ${filter === 'mine' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-600 border-gray-300'}`}
+            style={styles.outfitFont}
+          >
+            Mine
+          </button>
         </div>
 
         {/* count board */}
         <div className="grid grid-cols-4 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
             <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Active Initiatives</p>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>✅ 2</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>
+              ✅ {loading ? '...' : counts.active}
+            </h3>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
             <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Planned Initiatives</p>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>📝 0</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>
+              📝 {loading ? '...' : counts.planned}
+            </h3>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
             <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Initiatives on Hold</p>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>⏸️ 0</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>
+              ⏸️ {loading ? '...' : counts.onHold}
+            </h3>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
             <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Initiatives in Back Log</p>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>📋 1</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>
+              📋 {loading ? '...' : counts.backlog}
+            </h3>
           </div>
         </div>
 
