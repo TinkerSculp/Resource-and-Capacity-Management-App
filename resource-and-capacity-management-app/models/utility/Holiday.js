@@ -1,11 +1,12 @@
 /**
- * Holiday class that uses Calendar
+ * Holiday class for tracking holidays
  */
-import { Calendar } from './Calendar';
-
 export class Holiday {
   constructor(data = {}) {
-    this.calendar = data.calendar || null; // Calendar instance
-    // Holiday properties
+    this.HolidayID = data.HolidayID || 0;
+    this.name = data.name || '';
+    this.day = data.day || 0; // Integer (1-31)
+    this.Month = data.Month || 0; // Integer (1-12)
+    this.year = data.year || 0; // Integer
   }
 }
