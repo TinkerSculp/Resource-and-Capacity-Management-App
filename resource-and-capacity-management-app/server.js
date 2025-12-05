@@ -35,14 +35,24 @@ function requireDB(req, res, next) {
   next();
 }
 
+// Connect to MongoDB
 async function connectDB() {
-  await client.connect();
-  db = client.db(dbName);
-  await db.command({ ping: 1 });
-  console.log(`Connected to MongoDB: ${dbName}`);
+  try {
+    await client.connect();
+    db = client.db(dbName);
+    console.log('Connected to MongoDB successfully');
+    console.log('Using database:', dbName);
+    
+    // Test connection
+    await db.command({ ping: 1 });
+    console.log('MongoDB connection verified');
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    process.exit(1);
+  }
 }
 
-// Health check (doesn’t require DB)
+// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -236,7 +246,24 @@ async function shutdown(code = 0) {
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
+<<<<<<<<< Temporary merge branch 1
+// Start server after DB connects
+(async () => {
+  try {
+    await connectDB();
+    app.listen(port, () => {
+      console.log(`API server running on port ${port}`);
+    });
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    await shutdown(1);
+  }
+})();
+=========
 // Start server
-app.listen(port, () => {
-  console.log(`API server running on port ${port}`);
+const host = process.env.HOST || '0.0.0.0';
+app.listen(port, host, () => {
+  console.log(`API server running on ${host}:${port}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
+>>>>>>>>> Temporary merge branch 2
