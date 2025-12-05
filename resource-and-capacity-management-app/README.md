@@ -25,14 +25,14 @@ npm install
 
 2. Configure your database connection in `server.js`
 
-3. Run the development server:
-```bash
-npm run dev
-```
-
-4. In a separate terminal, start the API server:
+3. In a separate terminal, start the API server:
 ```bash
 node server.js
+```
+
+4. Run the development server:
+```bash
+npm run dev
 ```
 
 5. Open [http://localhost:3000](http://localhost:3000) to view the application
