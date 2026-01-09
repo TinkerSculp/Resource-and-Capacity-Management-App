@@ -13,30 +13,89 @@ A scalable, web-based solution that centralizes resource data, streamlines activ
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- Mongodb database
-- Git
+- **Node.js** (v18 or higher) - [Download here](https://nodejs.org/)
+- **MongoDB** database with access credentials (local installation or MongoDB Atlas account)
+- **Git** - [Download here](https://git-scm.com/)
 
 ### Installation
 
-1. Install dependencies:
+1. **Clone the repository**:
+```bash
+git clone <your-repository-url>
+cd resource-and-capacity-management-app
+```
+
+2. **Install dependencies**:
 ```bash
 npm install
 ```
 
-2. Configure your database connection in `server.js`
+3. **Configure environment variables**:
+   - Copy the `.env.example` file to `.env`:
+     ```bash
+     # On Windows (PowerShell)
+     Copy-Item .env.example .env
+     
+     # On macOS/Linux
+     cp .env.example .env
+     ```
+   
+   - Edit the `.env` file with your MongoDB credentials:
+     ```env
+     MONGODB_URI=your-mongodb-connection-string
+     DB_NAME=ResourceManagementAPP_DB
+     PORT=3001
+     FRONTEND_URL=http://localhost:3000
+     ```
+   
+   **MongoDB Connection String Examples:**
+   - **Local MongoDB**: `mongodb://localhost:27017`
+   - **MongoDB Atlas**: `mongodb+srv://username:password@cluster.mongodb.net`
+   - **Docker MongoDB**: `mongodb://localhost:27017`
 
-3. In a separate terminal, start the API server:
+4. **Verify MongoDB Connection**:
+   - Ensure your MongoDB server is running
+   - For local MongoDB: Start the MongoDB service
+   - For MongoDB Atlas: Whitelist your IP address in Atlas Network Access settings
+
+5. **Start the API server** (in one terminal):
 ```bash
 node server.js
+# or with auto-reload
+npm run server:dev
 ```
 
-4. Run the development server:
+You should see:
+```
+Connected to MongoDB successfully
+Using database: ResourceManagementAPP_DB
+MongoDB connection verified
+Server listening on port 3001
+```
+
+6. **Start the Next.js development server** (in a separate terminal):
 ```bash
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) to view the application
+7. **Open the application**:
+   - Navigate to [http://localhost:3000](http://localhost:3000) in your browser
+   - The API health endpoint is available at [http://localhost:3001/api/health](http://localhost:3001/api/health)
+
+### Troubleshooting
+
+**"Database not connected yet" error:**
+- Verify your `MONGODB_URI` in the `.env` file
+- Check that MongoDB is running and accessible
+- Ensure your IP is whitelisted (for MongoDB Atlas)
+
+**Port already in use:**
+- Change `PORT` in `.env` to a different port (e.g., 3002)
+- Or stop the process using that port
+
+**Dependencies errors:**
+- Delete `node_modules` and `package-lock.json`
+- Run `npm install` again
 
 ## Project Structure
 

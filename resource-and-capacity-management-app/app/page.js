@@ -13,36 +13,36 @@ export default function LoginPage() {
         e.preventDefault();
         
         try {
-            // const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-            // const response = await fetch(`${apiUrl}/api/auth/login`, {
-            //     method: 'POST',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify({ username, password })
-            // });
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
             
-            // const data = await response.json();
+            const data = await response.json();
             
-            // if (!response.ok) {
-            //     alert(data.error || 'Login failed. Please try again.');
-            //     return;
-            // }
-            
-            // // Store user data in localStorage (or use a state management solution)
-            // localStorage.setItem('user', JSON.stringify(data.user));
-            
-            // // Redirect to dashboard after successful login
-            // router.push('/dashboard');
-
-
-            // dummy user login (only for development)
-            const devUser = { 
-            emp_id: 1,
-            name: 'devUser',
-            username: 'devUser',
-            role: 'admin'
+            if (!response.ok) {
+                alert(data.error || 'Login failed. Please try again.');
+                return;
             }
-            localStorage.setItem('user', JSON.stringify(devUser));
+            
+            // Store user data in localStorage (or use a state management solution)
+            localStorage.setItem('user', JSON.stringify(data.user));
+            
+            // Redirect to dashboard after successful login
             router.push('/dashboard');
+
+
+        //     // dummy user login (only for development)
+        //     const devUser = { 
+        //     emp_id: 1,
+        //     name: 'devUser',
+        //     username: 'devUser',
+        //     role: 'admin'
+        //     }
+        //     localStorage.setItem('user', JSON.stringify(devUser));
+        //     router.push('/dashboard');
 
         } catch (error) {
             console.error('Login error:', error);
@@ -76,10 +76,10 @@ export default function LoginPage() {
                             type="text"
                             id="username"
                             value={username}
-                            // onChange={(e) => setUsername(e.target.value)}
+                            onChange={(e) => setUsername(e.target.value)}
                             className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                             placeholder="Enter your username"
-                            // required
+                            required
                         />
                     </div>
                     
@@ -91,10 +91,10 @@ export default function LoginPage() {
                             type="password"
                             id="password"
                             value={password}
-                            // onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                             placeholder="Enter your password"
-                            // required
+                            required
                         />
                     </div>
                     
