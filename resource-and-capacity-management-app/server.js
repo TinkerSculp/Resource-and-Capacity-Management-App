@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Load environment variables from .env
+
 const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const cors = require('cors');
@@ -6,18 +8,27 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3001;
 
+// -----------------------------------------------------------------------------
 // Middleware
+// -----------------------------------------------------------------------------
+
+// CORS configuration (allows frontend to access API)
 const corsOptions = {
   origin: process.env.FRONTEND_URL || '*',
   credentials: true
 };
-app.use(cors(corsOptions));
-app.use(express.json());
 
-// MongoDB configuration
+app.use(cors(corsOptions));   // Enable CORS
+app.use(express.json());      // Parse JSON request bodies
+
+// -----------------------------------------------------------------------------
+// MongoDB Configuration
+// -----------------------------------------------------------------------------
+
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 const dbName = process.env.DB_NAME || 'ResourceManagementAPP_DB';
 
+// Create MongoDB client with stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -26,33 +37,37 @@ const client = new MongoClient(uri, {
   }
 });
 
-let db;
+let db; // Will hold the connected database instance
 
-// Ensure requests wait for DB readiness
+// Middleware to ensure DB is ready before handling requests
 function requireDB(req, res, next) {
   if (!db) return res.status(503).json({ error: 'Database not connected yet' });
-  req.db = db;
+  req.db = db; // Attach DB instance to request
   next();
 }
 
-// Connect to MongoDB
+// Connect to MongoDB and verify connection
 async function connectDB() {
   try {
     await client.connect();
     db = client.db(dbName);
+
     console.log('Connected to MongoDB successfully');
     console.log('Using database:', dbName);
 
-    // Test connection
+    // Ping to confirm connection
     await db.command({ ping: 1 });
     console.log('MongoDB connection verified');
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    process.exit(1);
+    process.exit(1); // Exit if DB connection fails
   }
 }
 
-// Health check endpoint
+// -----------------------------------------------------------------------------
+// Health Check Endpoint
+// -----------------------------------------------------------------------------
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -61,12 +76,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Routes that require the DB
+// Apply DB requirement middleware to all routes below
 app.use(requireDB);
 
 // -----------------------------------------------------------------------------
-// Debug route: sample data from account collection
+// Debug Route: Return sample data from "account" collection
 // -----------------------------------------------------------------------------
+
 app.get('/api/data', async (req, res) => {
   try {
     const collection = req.db.collection('account');
@@ -80,33 +96,32 @@ app.get('/api/data', async (req, res) => {
 
 // -----------------------------------------------------------------------------
 // Authentication: LOGIN
-// Uses:
-//   - collection: account
-//   - structure: { emp_id, account: { username, password, acc_type_id, account_id } }
 // -----------------------------------------------------------------------------
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    // Validate required fields
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
     const collection = db.collection('account');
 
-    // Find user by nested username
+    // Find user by nested username field
     const user = await collection.findOne({ 'account.username': username });
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check password (in production, use bcrypt)
+    // Password check (plaintext for now — replace with bcrypt in production)
     if (user.account.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Build safe user object (no password)
+    // Build safe user object (exclude password)
     const safeUser = {
       emp_id: user.emp_id,
       username: user.account.username,
@@ -127,16 +142,13 @@ app.post('/api/auth/login', async (req, res) => {
 
 // -----------------------------------------------------------------------------
 // Authentication: REGISTER
-// Inserts into:
-//   - collection: account
-//   - structure: { emp_id, account: { username, password, acc_type_id, account_id } }
-// Expect body:
-//   { emp_id, username, password, acc_type_id? }
 // -----------------------------------------------------------------------------
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { emp_id, username, password, acc_type_id } = req.body;
 
+    // Validate required fields
     if (!emp_id || !username || !password) {
       return res.status(400).json({ error: 'emp_id, username, and password are required' });
     }
@@ -151,10 +163,10 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Build new account document
     const newAccount = {
-      emp_id: emp_id,
+      emp_id,
       account: {
-        username: username,
-        password: password, // In production: hash this
+        username,
+        password, // TODO: hash in production
         acc_type_id: acc_type_id || 2,
         account_id: String(emp_id).padStart(7, '0') // e.g., "0001503"
       }
@@ -162,7 +174,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     const result = await collection.insertOne(newAccount);
 
-    // Safe user (no password)
+    // Safe user object
     const safeUser = {
       emp_id: newAccount.emp_id,
       username: newAccount.account.username,
@@ -182,8 +194,9 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// Resources endpoints (will create/use "resources" collection)
+// Resources Endpoints
 // -----------------------------------------------------------------------------
+
 app.get('/api/resources', async (req, res) => {
   try {
     const resources = await req.db.collection('resources').find({}).toArray();
@@ -202,6 +215,7 @@ app.post('/api/resources', async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date()
     });
+
     res.status(201).json({ message: 'Resource created successfully', id: result.insertedId });
   } catch (error) {
     console.error('Error creating resource:', error);
@@ -210,8 +224,9 @@ app.post('/api/resources', async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// Activities endpoints (will create/use "activities" collection)
+// Activities Endpoints
 // -----------------------------------------------------------------------------
+
 app.get('/api/activities', async (req, res) => {
   try {
     const activities = await req.db.collection('activities').find({}).toArray();
@@ -230,6 +245,7 @@ app.post('/api/activities', async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date()
     });
+
     res.status(201).json({ message: 'Activity created successfully', id: result.insertedId });
   } catch (error) {
     console.error('Error creating activity:', error);
@@ -237,12 +253,18 @@ app.post('/api/activities', async (req, res) => {
   }
 });
 
-// 404 handler
+// -----------------------------------------------------------------------------
+// 404 Handler
+// -----------------------------------------------------------------------------
+
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Graceful shutdown
+// -----------------------------------------------------------------------------
+// Graceful Shutdown
+// -----------------------------------------------------------------------------
+
 async function shutdown(code = 0) {
   try {
     console.log('Closing MongoDB connection...');
@@ -253,10 +275,14 @@ async function shutdown(code = 0) {
     process.exit(code);
   }
 }
+
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
-// Start server after DB connects
+// -----------------------------------------------------------------------------
+// Start Server After DB Connects
+// -----------------------------------------------------------------------------
+
 (async () => {
   try {
     await connectDB();

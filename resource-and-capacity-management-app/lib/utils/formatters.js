@@ -1,16 +1,17 @@
 /**
  * Utility functions for formatting data
+ * Provides reusable helpers for dates, percentages, names, and text.
  */
 
 /**
- * Format date to readable string
- * @param {Date|string} date - Date to format
- * @param {string} locale - Locale string (default: 'en-US')
- * @returns {string} Formatted date string
+ * Format a date into a readable long-form string
+ * @param {Date|string} date - Date input (Date object or ISO string)
+ * @param {string} locale - Output locale (default: 'en-US')
+ * @returns {string} Formatted date string or empty string if invalid
  */
 function formatDate(date, locale = 'en-US') {
-  if (!date) return '';
-  const d = new Date(date);
+  if (!date) return ''; // Handle null/undefined
+  const d = new Date(date); // Normalize input into Date object
   return d.toLocaleDateString(locale, {
     year: 'numeric',
     month: 'long',
@@ -19,10 +20,10 @@ function formatDate(date, locale = 'en-US') {
 }
 
 /**
- * Format date and time to readable string
- * @param {Date|string} date - Date to format
- * @param {string} locale - Locale string (default: 'en-US')
- * @returns {string} Formatted date and time string
+ * Format a date with time included
+ * @param {Date|string} date - Date input
+ * @param {string} locale - Output locale (default: 'en-US')
+ * @returns {string} Formatted date/time string or empty string if invalid
  */
 function formatDateTime(date, locale = 'en-US') {
   if (!date) return '';
@@ -37,31 +38,31 @@ function formatDateTime(date, locale = 'en-US') {
 }
 
 /**
- * Format percentage
- * @param {number} value - Value to format as percentage
+ * Convert a decimal value to a percentage string
+ * @param {number} value - Decimal value (e.g., 0.25 → 25%)
  * @param {number} decimals - Number of decimal places (default: 2)
- * @returns {string} Formatted percentage string
+ * @returns {string} Percentage string
  */
 function formatPercentage(value, decimals = 2) {
-  if (value === null || value === undefined) return '0%';
+  if (value === null || value === undefined) return '0%'; // Safe fallback
   return `${(value * 100).toFixed(decimals)}%`;
 }
 
 /**
- * Format full name from parts
+ * Combine first and last name into a full name
  * @param {string} firstName - First name
  * @param {string} lastName - Last name
- * @returns {string} Full name
+ * @returns {string} Full name (skips empty values)
  */
 function formatFullName(firstName, lastName) {
   return [firstName, lastName].filter(Boolean).join(' ');
 }
 
 /**
- * Truncate text with ellipsis
- * @param {string} text - Text to truncate
- * @param {number} maxLength - Maximum length
- * @returns {string} Truncated text
+ * Truncate text and append ellipsis if too long
+ * @param {string} text - Input text
+ * @param {number} maxLength - Maximum allowed length
+ * @returns {string} Truncated text with "..." if needed
  */
 function truncate(text, maxLength = 100) {
   if (!text || text.length <= maxLength) return text;
@@ -69,15 +70,16 @@ function truncate(text, maxLength = 100) {
 }
 
 /**
- * Format capacity value
- * @param {number} capacity - Capacity value (0-1)
- * @returns {string} Formatted capacity string
+ * Format a capacity value (0–1) as a percentage
+ * @param {number} capacity - Decimal capacity value
+ * @returns {string} Formatted capacity or 'N/A' if invalid
  */
 function formatCapacity(capacity) {
   if (capacity === null || capacity === undefined) return 'N/A';
   return formatPercentage(capacity);
 }
 
+// Export all formatting helpers
 module.exports = {
   formatDate,
   formatDateTime,

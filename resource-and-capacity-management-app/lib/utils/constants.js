@@ -1,8 +1,9 @@
 /**
  * Application constants
+ * Centralized enums and configuration values used across the system.
  */
 
-// User roles
+// User roles used for permission and access control
 const USER_ROLES = {
   TEAM_MEMBER: 'team_member',
   RESOURCE_MANAGER: 'resource_manager',
@@ -10,7 +11,7 @@ const USER_ROLES = {
   ADMIN: 'admin'
 };
 
-// Activity categories (matches ActivityCategory enum in models)
+// Activity categories (aligned with ActivityCategory enum in models)
 const ACTIVITY_CATEGORIES = {
   VACATION: 0,
   BASELINE: 1,
@@ -18,7 +19,7 @@ const ACTIVITY_CATEGORIES = {
   DISCRETIONARY_PROJECT: 3
 };
 
-// Availability status (matches AvailabilityStatus enum in models)
+// Availability status options (aligned with AvailabilityStatus enum in models)
 const AVAILABILITY_STATUS = {
   FULL_TIME: 'full-time',
   PART_TIME: 'part-time',
@@ -26,7 +27,7 @@ const AVAILABILITY_STATUS = {
   TERMINATED: 'terminated'
 };
 
-// Lookup types (matches LookupType enum in models)
+// Lookup types used for dynamic dropdowns and reference data
 const LOOKUP_TYPES = {
   ROLE: 'role',
   DEPARTMENT: 'department',
@@ -40,21 +41,21 @@ const LOOKUP_TYPES = {
   REQUESTING_DEPARTMENT: 'requesting_department'
 };
 
-// Date formats
+// Standardized date formats used across UI and reports
 const DATE_FORMATS = {
   SHORT: 'MM/DD/YYYY',
   LONG: 'MMMM DD, YYYY',
   ISO: 'YYYY-MM-DD'
 };
 
-// Pagination defaults
+// Default pagination settings for list endpoints
 const PAGINATION = {
   DEFAULT_PAGE: 1,
   DEFAULT_LIMIT: 20,
   MAX_LIMIT: 100
 };
 
-// API response codes
+// Common HTTP status codes for API responses
 const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,
@@ -65,6 +66,7 @@ const HTTP_STATUS = {
   INTERNAL_ERROR: 500
 };
 
+// Export all constants for use throughout the application
 module.exports = {
   USER_ROLES,
   ACTIVITY_CATEGORIES,

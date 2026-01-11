@@ -1,34 +1,37 @@
 /**
  * Validation schemas and functions
+ * Provides reusable helpers for validating input data across the application.
  */
 
 /**
- * Validate email format
+ * Validate email format using a basic regex pattern
  * @param {string} email - Email to validate
  * @returns {boolean} True if valid
  */
 function validateEmail(email) {
-  if (!email) return false;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email) return false; // Reject empty/null values
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email structure
   return emailRegex.test(email);
 }
 
 /**
- * Validate required fields in an object
+ * Validate that required fields exist in an object
  * @param {Object} data - Data object to validate
- * @param {Array<string>} requiredFields - Array of required field names
+ * @param {Array<string>} requiredFields - List of required field names
  * @returns {Object} { valid: boolean, missing: Array<string> }
  */
 function validateRequiredFields(data, requiredFields) {
+  // Collect fields that are missing or falsy
   const missing = requiredFields.filter(field => !data[field]);
+
   return {
-    valid: missing.length === 0,
+    valid: missing.length === 0, // True if no missing fields
     missing
   };
 }
 
 /**
- * Validate employee ID format
+ * Validate employee ID format (must be a positive integer)
  * @param {number} employeeID - Employee ID to validate
  * @returns {boolean} True if valid
  */
@@ -37,10 +40,10 @@ function validateEmployeeID(employeeID) {
 }
 
 /**
- * Validate date range
+ * Validate that a date range is chronological
  * @param {Date|string} startDate - Start date
  * @param {Date|string} endDate - End date
- * @returns {boolean} True if valid range
+ * @returns {boolean} True if start <= end
  */
 function validateDateRange(startDate, endDate) {
   const start = new Date(startDate);
@@ -49,7 +52,7 @@ function validateDateRange(startDate, endDate) {
 }
 
 /**
- * Validate capacity value (0-1)
+ * Validate capacity value (must be between 0 and 1)
  * @param {number} capacity - Capacity value
  * @returns {boolean} True if valid
  */
@@ -58,7 +61,7 @@ function validateCapacity(capacity) {
 }
 
 /**
- * Validate month (1-12)
+ * Validate month value (1–12)
  * @param {number} month - Month value
  * @returns {boolean} True if valid
  */
@@ -67,7 +70,7 @@ function validateMonth(month) {
 }
 
 /**
- * Validate year
+ * Validate year value (2000–2100)
  * @param {number} year - Year value
  * @returns {boolean} True if valid
  */
@@ -76,15 +79,16 @@ function validateYear(year) {
 }
 
 /**
- * Sanitize string input
+ * Sanitize string input by trimming and removing unsafe characters
  * @param {string} input - String to sanitize
  * @returns {string} Sanitized string
  */
 function sanitizeString(input) {
-  if (!input) return '';
-  return input.trim().replace(/[<>]/g, '');
+  if (!input) return ''; // Handle null/undefined
+  return input.trim().replace(/[<>]/g, ''); // Remove angle brackets
 }
 
+// Export all validation helpers
 module.exports = {
   validateEmail,
   validateRequiredFields,
