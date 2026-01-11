@@ -40,13 +40,18 @@ npm install
      cp .env.example .env
      ```
    
-   - Edit the `.env` file with your MongoDB credentials:
-     ```env
-     MONGODB_URI=your-mongodb-connection-string
-     DB_NAME=ResourceManagementAPP_DB
-     PORT=3001
-     FRONTEND_URL=http://localhost:3000
-     ```
+# MongoDB Configuration
+MONGODB_URI=mongodb+srv://USERNAME:PASSWORDrmapp-canadacentral.ycvntgt.mongodb.net/ResourceManagementAPP_DB?retryWrites=true&w=majority
+
+# Database name
+DB_NAME=ResourceManagementAPP_DB
+
+# Server Configuration
+PORT=3001
+
+# Frontend URL for CORS configuration
+FRONTEND_URL=http://localhost:3000
+
    
    **MongoDB Connection String Examples:**
    - **Local MongoDB**: `mongodb://localhost:27017`
