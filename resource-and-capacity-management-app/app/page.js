@@ -43,16 +43,6 @@ export default function LoginPage() {
             // Redirect to dashboard
             router.push('/dashboard');
 
-            // --- Development-only dummy login (disabled) ---
-            // const devUser = { 
-            //   emp_id: 1,
-            //   name: 'devUser',
-            //   username: 'devUser',
-            //   role: 'admin'
-            // };
-            // localStorage.setItem('user', JSON.stringify(devUser));
-            // router.push('/dashboard');
-
         } catch (error) {
             console.error('Login error:', error);
             alert('Login failed. Please check your connection and try again.');
