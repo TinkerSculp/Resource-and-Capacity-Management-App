@@ -1,55 +1,77 @@
 /**
  * Resource class for resource management
  */
-import { Availability } from '../availability-capacity/Availability';
-import { Comments } from '../utility/Comments';
+import { Availability } from "../availability-capacity/Availability";
+import { AvailabilityStatus } from "../availability-capacity";
+import { Comments } from "../utility/Comments";
 
 export class Resource {
   constructor(data = {}) {
     this.resourceID = data.resourceID || 0;
-    this.name = data.name || '';
-    this.role = data.role || '';
-    this.department = data.department || '';
-    this.skills = data.skills || []; // List<String>
-    this.availability = data.availability || null; // Availability class instance
-    this.location = data.location || '';
+    this.name = data.name || "";
+    this.role = data.role || "";
+    this.department = data.department || "";
+    this.skills = Array.isArray(data.skills) ? data.skills : []; // List<String>
+    this.availability =
+      data.availability instanceof Availability ? data.availability : null; // Availability class instance
+    this.location = data.location || "";
     this.status = data.status !== undefined ? data.status : true;
-    this.Comments = data.Comments || []; // List<Comments class>
+    this.comments = Array.isArray(data.comments) ? data.comments : []; // List<Comments class>
   }
 
   /**
    * Create resource
    */
   create() {
-    // Implementation here
+    if (!this.name || !this.role) {
+      throw new Error("Name and Role are required to create a resource.");
+    }
+
+    this.status = true;
+    return this;
   }
 
   /**
    * Update resource
    */
-  update() {
-    // Implementation here
+  update(data = {}) {
+    Object.assign(this, data);
+    return this;
   }
 
   /**
    * Delete resource
    */
   delete() {
-    // Implementation here
+    this.resourceID = null;
+    this.status = false;
+    return true;
   }
 
   /**
    * Soft delete resource
    */
   softDelete() {
-    // Implementation here
+    this.status = false;
+
+    if (this.availability) {
+      this.availability.setAvailability(AvailabilityStatus.TERMINATED);
+    }
+
+    return this;
   }
 
   /**
    * Restore resource
    */
   restore() {
-    // Implementation here
+    this.status = true;
+
+    if (this.availability) {
+      this.availability.setAvailability(AvailabilityStatus.FULL_TIME);
+    }
+
+    return this;
   }
 
   /**
@@ -59,7 +81,15 @@ export class Resource {
    * @returns {Availability} Availability class instance
    */
   getAvailability(month, year) {
-    // Implementation here
+    if (!this.availability) {
+      return null;
+    }
+
+    if (this.availability.month === month && this.availability.year === year) {
+      return this.availability;
+    }
+
+    return null;
   }
 
   /**
@@ -67,7 +97,18 @@ export class Resource {
    * @returns {number} Utilization as a small real number
    */
   getUtilization() {
-    // Implementation here
+    if (!this.availability || !this.availability.isAvailable()) {
+      return 0;
+    }
+
+    switch (this.availability.availabilityStatus) {
+      case AvailabilityStatus.FULL_TIME:
+        return 1.0;
+      case AvailabilityStatus.PART_TIME:
+        return 0.5;
+      default:
+        return 0;
+    }
   }
 
   /**
@@ -75,6 +116,33 @@ export class Resource {
    * @returns {boolean} True if over-allocated
    */
   isOverAllocated() {
-    // Implementation here
+    return this.getUtilization() > 1.0;
+  }
+
+  /**
+   * Add skill to resource
+   * @param {string} skill - Skill to add
+   */
+  addSkill(skill) {
+    if (skill && !this.skills.includes(skill)) {
+      this.skills.push(skill);
+    }
+  }
+
+  /**
+   * Add comment to resource
+   * @param {string} content - Comment text
+   * @param {string} author - Comment author
+   */
+  addComment(content, author) {
+    this.comments.push(new Comments({ content, author }));
+  }
+
+  /**
+   * Check if resource is active
+   * @returns {boolean} True if active
+   */
+  isActive() {
+    return this.status && this.availability.isAvailable();
   }
 }
