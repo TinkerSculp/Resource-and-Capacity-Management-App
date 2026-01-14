@@ -145,13 +145,13 @@ export default function ViewProfilePage() {
 
           {/* Back Button + Title */}
           <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="text-2xl text-gray-600 hover:text-gray-800 transition"
-              style={styles.outfitFont}
-            >
-              &lt;
-            </button>
+           <button
+  onClick={() => router.push('/dashboard')}
+  className="text-2xl text-gray-600 hover:text-gray-800 transition"
+  style={styles.outfitFont}
+>
+  ❮
+</button>
 
             <h2 className="text-2xl font-bold text-[#017ACB]" style={styles.outfitFont}>
               Profile Card

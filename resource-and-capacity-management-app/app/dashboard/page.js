@@ -1,43 +1,101 @@
-'use client'; 
-// Marks this component as a client-side component in Next.js
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-// Shared style object for consistent font usage
+/* ---------------------------------------------------------
+   Shared Style Object
+   ---------------------------------------------------------
+   - Centralizes typography styling for consistency
+   - Used across headings, labels, and UI elements
+--------------------------------------------------------- */
 const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
 };
 
 export default function DashboardPage() {
-  // Stores the logged-in user object
+  /* -------------------------------------------------------
+     State: Logged‑in User
+     -------------------------------------------------------
+     - Loaded from localStorage on initial render
+     - If missing, user is redirected to login page
+  ------------------------------------------------------- */
   const [user, setUser] = useState(null);
 
-  // Next.js router for navigation
+  /* -------------------------------------------------------
+     State: Dashboard Filter + Summary Data
+     -------------------------------------------------------
+     filter  → "all" or "mine"
+     summary → counts returned from backend API
+  ------------------------------------------------------- */
+  const [filter, setFilter] = useState("all");
+  const [summary, setSummary] = useState({
+    active: 0,
+    planned: 0,
+    hold: 0,
+    backlog: 0
+  });
+
   const router = useRouter();
 
+  /* -------------------------------------------------------
+     Effect: Load User from LocalStorage
+     -------------------------------------------------------
+     - Runs once on mount
+     - Redirects to login if no user is stored
+     - Otherwise stores parsed user object in state
+  ------------------------------------------------------- */
   useEffect(() => {
-    // Retrieve stored user data from localStorage
     const userData = localStorage.getItem('user');
 
-    // If no user is found, redirect to login page
     if (!userData) {
       router.push('/login');
       return;
     }
 
-    // Parse and store the user object
     setUser(JSON.parse(userData));
   }, [router]);
 
-  // Clears user session and redirects to home page
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    router.push('/');
-  };
+  /* -------------------------------------------------------
+     Effect: Fetch Summary Data When Filter or User Changes
+     -------------------------------------------------------
+     - Calls /api/summary with:
+         filter=all
+         OR
+         filter=mine&username={username}
+     - Backend handles all DB logic and joins
+     - Updates summary card values
+  ------------------------------------------------------- */
+  useEffect(() => {
+    if (!user) return;
 
-  // Show loading spinner while user data is being loaded
+    const fetchSummary = async () => {
+      try {
+        // Base URL with filter
+        let url = `/api/summary?filter=${filter}`;
+
+        // Add username only when "mine" is selected
+        if (filter === "mine") {
+          url += `&username=${encodeURIComponent(user.username)}`;
+        }
+
+        const res = await fetch(url);
+        const data = await res.json();
+        setSummary(data);
+      } catch (err) {
+        console.error("Summary fetch error:", err);
+      }
+    };
+
+    fetchSummary();
+  }, [filter, user]);
+
+  /* -------------------------------------------------------
+     Loading State
+     -------------------------------------------------------
+     - Shows a spinner while user data is being restored
+  ------------------------------------------------------- */
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -46,9 +104,20 @@ export default function DashboardPage() {
     );
   }
 
+  /* -------------------------------------------------------
+     Main Render
+     -------------------------------------------------------
+     - Header with branding + user info
+     - Filter buttons (All / Mine)
+     - Summary cards populated from backend
+     - Navigation tiles for app sections
+  ------------------------------------------------------- */
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
+
+      {/* -----------------------------------------------------
+          Header Section
+         ----------------------------------------------------- */}
       <header className="bg-[#017ACB] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -75,28 +144,28 @@ export default function DashboardPage() {
 
             {/* Username + Profile Button */}
             <div className="flex items-center gap-4">
-
-              {/* Display logged-in username */}
               <span className="text-white font-semibold" style={styles.outfitFont}>
                 {user?.username || ''}
               </span>
 
-            {/* Profile circle button → navigates to Profile/view-profile */}
-            <Link
-              href="/Profile/view-profile"
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden hover:opacity-90 transition cursor-pointer"
-              title="View Profile"
-          >
-            <span className="text-[#017ACB] font-bold text-lg">
-                {user?.username?.charAt(0)?.toUpperCase() || ''}
-            </span>
-          </Link>
+              <Link
+                href="/Profile/view-profile"
+                className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden hover:opacity-90 transition cursor-pointer"
+                title="View Profile"
+              >
+                <span className="text-[#017ACB] font-bold text-lg">
+                  {user?.username?.charAt(0)?.toUpperCase() || ''}
+                </span>
+              </Link>
             </div>
+
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
+      {/* -----------------------------------------------------
+          Main Content Section
+         ----------------------------------------------------- */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Welcome message */}
@@ -104,82 +173,98 @@ export default function DashboardPage() {
           Welcome back, {user?.username || ''}
         </h2>
 
-        {/* Filter buttons */}
-        <div>
-          <button className="p-1 w-15 border border-gray-300 text-center cursor-pointer text-gray-600" style={styles.outfitFont}>
+        {/* -----------------------------------------------------
+            Filter Buttons (All / Mine)
+           ----------------------------------------------------- */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setFilter("all")}
+            className={`p-1 w-16 border text-center cursor-pointer ${
+              filter === "all" ? "bg-[#017ACB] text-white" : "text-gray-600"
+            }`}
+            style={styles.outfitFont}
+          >
             All
           </button>
-          <button className="p-1 w-15 border border-gray-300 text-center cursor-pointer text-gray-600" style={styles.outfitFont}>
+
+          <button
+            onClick={() => setFilter("mine")}
+            className={`p-1 w-16 border text-center cursor-pointer ${
+              filter === "mine" ? "bg-[#017ACB] text-white" : "text-gray-600"
+            }`}
+            style={styles.outfitFont}
+          >
             Mine
           </button>
         </div>
 
-        {/* Summary cards */}
+        {/* -----------------------------------------------------
+            Summary Cards
+           -----------------------------------------------------
+           - Values come directly from backend summary API
+           - Automatically update when filter changes
+        ----------------------------------------------------- */}
         <div className="grid grid-cols-4 gap-6 mb-6">
 
-          {/* Active Initiatives */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
             <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Active Initiatives</p>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>✅ 2</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>✅ {summary.active}</h3>
           </div>
 
-          {/* Planned Initiatives */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
             <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Planned Initiatives</p>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>📝 0</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>📝 {summary.planned}</h3>
           </div>
 
-          {/* On Hold */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
             <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Initiatives on Hold</p>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>⏸️ 0</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>⏸️ {summary.hold}</h3>
           </div>
 
-          {/* Backlog */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition">
             <p className="text-gray-600 text-sm text-right" style={styles.outfitFont}>Initiatives in Back Log</p>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>📆 1</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>📆 {summary.backlog}</h3>
           </div>
+
         </div>
 
-        {/* Navigation tiles */}
+        {/* -----------------------------------------------------
+            Navigation Tiles
+           -----------------------------------------------------
+           - Links to other major sections of the application
+        ----------------------------------------------------- */}
         <div className="grid grid-cols-3 gap-6">
 
-          {/* Capacity Summary */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
-            <div className="text-4xl mb-2 text-gray-700">place icon</div>
+            <div className="text-4xl mb-2 text-gray-700">📊</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Capacity Summary</h3>
           </div>
 
-          {/* Resources */}
-          <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
-            <div className="text-4xl mb-2 text-gray-700">place icon</div>
+          <Link href="/resources" className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-blue-500 cursor-pointer transition">
+            <div className="text-4xl mb-2 text-gray-700">👥</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Resources</h3>
-          </div>
+          </Link>
 
-          {/* Initiatives */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
-            <div className="text-4xl mb-2 text-gray-700">place icon</div>
+            <div className="text-4xl mb-2 text-gray-700">🎯</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Initiatives</h3>
           </div>
 
-          {/* Assignments */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
-            <div className="text-4xl mb-2 text-gray-700">place icon</div>
+            <div className="text-4xl mb-2 text-gray-700">📋</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Assignments</h3>
           </div>
 
-          {/* Calendar */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
-            <div className="text-4xl mb-2 text-gray-700">place icon</div>
+            <div className="text-4xl mb-2 text-gray-700">📅</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Calendar</h3>
           </div>
 
-          {/* Report */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
-            <div className="text-4xl mb-2 text-gray-700">place icon</div>
+            <div className="text-4xl mb-2 text-gray-700">📈</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Report</h3>
           </div>
+
         </div>
       </main>
     </div>
