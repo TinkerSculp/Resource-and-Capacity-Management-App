@@ -28,7 +28,7 @@ export default function ViewProfilePage() {
     const userData = localStorage.getItem('user');
 
     if (!userData) {
-      router.push('/login');
+      router.push('/Profile/login'); // UPDATED ROUTE
       return;
     }
 
@@ -42,7 +42,7 @@ export default function ViewProfilePage() {
      * - Backend returns name, title, department, role, id
      * - Stores both user and profile in state
      */
-    fetch(`/api/profile?username=${parsedUser.username}`)
+    fetch(`/api/Resource-Manager/profile?username=${parsedUser.username}`) // UPDATED ROUTE
       .then(res => res.json())
       .then(data => {
         setUser(parsedUser);
@@ -62,7 +62,7 @@ export default function ViewProfilePage() {
    */
   const handleLogout = () => {
     localStorage.removeItem('user');
-    router.push('/');
+    router.push('/'); // unchanged
   };
 
   /**
@@ -145,13 +145,13 @@ export default function ViewProfilePage() {
 
           {/* Back Button + Title */}
           <div className="flex items-center gap-3 mb-6">
-           <button
-  onClick={() => router.push('/dashboard')}
-  className="text-2xl text-gray-600 hover:text-gray-800 transition"
-  style={styles.outfitFont}
->
-  ❮
-</button>
+            <button
+              onClick={() => router.push('/Resource-Manager/dashboard')} // UPDATED ROUTE
+              className="text-2xl text-gray-600 hover:text-gray-800 transition"
+              style={styles.outfitFont}
+            >
+              ❮
+            </button>
 
             <h2 className="text-2xl font-bold text-[#017ACB]" style={styles.outfitFont}>
               Profile Card

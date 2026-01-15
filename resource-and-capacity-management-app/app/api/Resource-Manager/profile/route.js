@@ -25,7 +25,7 @@ async function connectDB() {
 }
 
 // ---------------------------------------------------------
-// GET /api/profile
+// GET /api/Resource-Manager/profile
 // Fetches full profile details for a given username
 // ---------------------------------------------------------
 

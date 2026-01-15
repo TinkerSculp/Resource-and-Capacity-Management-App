@@ -26,7 +26,7 @@ async function connectDB() {
 }
 
 /* ---------------------------------------------------------
-   GET /api/summary
+   GET /api/Resource-Manager/summary
    ---------------------------------------------------------
    Purpose:
    - Returns initiative counts for dashboard summary cards

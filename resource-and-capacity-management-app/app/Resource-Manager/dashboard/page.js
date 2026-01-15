@@ -15,6 +15,7 @@ const styles = {
 };
 
 export default function DashboardPage() {
+
   /* -------------------------------------------------------
      State: Logged‑in User
      -------------------------------------------------------
@@ -50,7 +51,7 @@ export default function DashboardPage() {
     const userData = localStorage.getItem('user');
 
     if (!userData) {
-      router.push('/login');
+      router.push('/Profile/login'); // UPDATED ROUTE
       return;
     }
 
@@ -72,10 +73,8 @@ export default function DashboardPage() {
 
     const fetchSummary = async () => {
       try {
-        // Base URL with filter
-        let url = `/api/summary?filter=${filter}`;
+        let url = `/api/Resource-Manager/summary?filter=${filter}`; // UPDATED ROUTE
 
-        // Add username only when "mine" is selected
         if (filter === "mine") {
           url += `&username=${encodeURIComponent(user.username)}`;
         }
@@ -149,7 +148,7 @@ export default function DashboardPage() {
               </span>
 
               <Link
-                href="/Profile/view-profile"
+                href="/Resource-Manager/Profile/view-profile" // UPDATED ROUTE
                 className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden hover:opacity-90 transition cursor-pointer"
                 title="View Profile"
               >
@@ -234,32 +233,38 @@ export default function DashboardPage() {
            - Links to other major sections of the application
         ----------------------------------------------------- */}
         <div className="grid grid-cols-3 gap-6">
-
+          {/* Capacity Summary */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
             <div className="text-4xl mb-2 text-gray-700">📊</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Capacity Summary</h3>
           </div>
-
-          <Link href="/resources" className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-blue-500 cursor-pointer transition">
+          {/* Resources */}
+          <Link 
+            href="/Resource-Manager/create_edit_Resources" 
+            className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-blue-500 cursor-pointer transition"
+          >
             <div className="text-4xl mb-2 text-gray-700">👥</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Resources</h3>
           </Link>
-
-          <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
+          {/* Initiatives */}
+          <Link 
+            href="/Resource-Manager/create_edit_Initiatives" 
+            className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition"
+          >
             <div className="text-4xl mb-2 text-gray-700">🎯</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Initiatives</h3>
-          </div>
-
+          </Link>
+          {/* Assignments */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
             <div className="text-4xl mb-2 text-gray-700">📋</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Assignments</h3>
           </div>
-
+          {/* Calendar */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
             <div className="text-4xl mb-2 text-gray-700">📅</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Calendar</h3>
           </div>
-
+          {/* Report */}
           <div className="bg-white rounded-lg shadow-sm border text-center border-gray-200 p-6 hover:shadow-md hover:border-gray-500 cursor-pointer transition">
             <div className="text-4xl mb-2 text-gray-700">📈</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2" style={styles.outfitFont}>Report</h3>

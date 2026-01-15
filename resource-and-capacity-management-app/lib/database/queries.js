@@ -1,4 +1,4 @@
-const { getDB } = require('./mongodb');
+import { getDB } from './mongodb.js';
 // Import helper to access the active MongoDB database instance
 
 /**
@@ -13,7 +13,7 @@ const { getDB } = require('./mongodb');
  * @param {Object} options - Additional query options
  * @returns {Promise<Array>} Array of matching documents
  */
-async function findAll(collectionName, filter = {}, options = {}) {
+export async function findAll(collectionName, filter = {}, options = {}) {
   const db = getDB(); // Get active DB connection
   const collection = db.collection(collectionName); // Select collection
   return await collection.find(filter, options).toArray(); // Return all matching docs
@@ -25,7 +25,7 @@ async function findAll(collectionName, filter = {}, options = {}) {
  * @param {Object} filter - Query filter
  * @returns {Promise<Object|null>} First matching document or null
  */
-async function findOne(collectionName, filter) {
+export async function findOne(collectionName, filter) {
   const db = getDB();
   const collection = db.collection(collectionName);
   return await collection.findOne(filter); // Return single document
@@ -38,7 +38,7 @@ async function findOne(collectionName, filter) {
  * @param {Object} document - Document to insert
  * @returns {Promise<Object>} Insert result
  */
-async function insertOne(collectionName, document) {
+export async function insertOne(collectionName, document) {
   const db = getDB();
   const collection = db.collection(collectionName);
   return await collection.insertOne({
@@ -56,7 +56,7 @@ async function insertOne(collectionName, document) {
  * @param {Object} update - Update operations (must include $set if modifying fields)
  * @returns {Promise<Object>} Update result
  */
-async function updateOne(collectionName, filter, update) {
+export async function updateOne(collectionName, filter, update) {
   const db = getDB();
   const collection = db.collection(collectionName);
 
@@ -73,7 +73,7 @@ async function updateOne(collectionName, filter, update) {
  * @param {Object} filter - Query filter
  * @returns {Promise<Object>} Delete result
  */
-async function deleteOne(collectionName, filter) {
+export async function deleteOne(collectionName, filter) {
   const db = getDB();
   const collection = db.collection(collectionName);
   return await collection.deleteOne(filter);
@@ -85,18 +85,8 @@ async function deleteOne(collectionName, filter) {
  * @param {Object} filter - Query filter (default: empty object)
  * @returns {Promise<number>} Number of matching documents
  */
-async function count(collectionName, filter = {}) {
+export async function count(collectionName, filter = {}) {
   const db = getDB();
   const collection = db.collection(collectionName);
   return await collection.countDocuments(filter);
 }
-
-// Export all query helpers
-module.exports = {
-  findAll,
-  findOne,
-  insertOne,
-  updateOne,
-  deleteOne,
-  count
-};

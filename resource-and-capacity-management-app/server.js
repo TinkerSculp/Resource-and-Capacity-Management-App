@@ -1,5 +1,4 @@
 require('dotenv').config();
-// Load environment variables from .env
 
 const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
@@ -12,14 +11,13 @@ const port = process.env.PORT || 3001;
 // Middleware
 // -----------------------------------------------------------------------------
 
-// CORS configuration (allows frontend to access API)
 const corsOptions = {
   origin: process.env.FRONTEND_URL || '*',
   credentials: true
 };
 
-app.use(cors(corsOptions));   // Enable CORS
-app.use(express.json());      // Parse JSON request bodies
+app.use(cors(corsOptions));
+app.use(express.json());
 
 // -----------------------------------------------------------------------------
 // MongoDB Configuration
@@ -28,7 +26,6 @@ app.use(express.json());      // Parse JSON request bodies
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 const dbName = process.env.DB_NAME || 'ResourceManagementAPP_DB';
 
-// Create MongoDB client with stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -37,30 +34,25 @@ const client = new MongoClient(uri, {
   }
 });
 
-let db; // Will hold the connected database instance
+let db;
 
-// Middleware to ensure DB is ready before handling requests
 function requireDB(req, res, next) {
   if (!db) return res.status(503).json({ error: 'Database not connected yet' });
-  req.db = db; // Attach DB instance to request
+  req.db = db;
   next();
 }
 
-// Connect to MongoDB and verify connection
 async function connectDB() {
   try {
     await client.connect();
     db = client.db(dbName);
-
     console.log('Connected to MongoDB successfully');
     console.log('Using database:', dbName);
-
-    // Ping to confirm connection
     await db.command({ ping: 1 });
     console.log('MongoDB connection verified');
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    process.exit(1); // Exit if DB connection fails
+    process.exit(1);
   }
 }
 
@@ -68,7 +60,7 @@ async function connectDB() {
 // Health Check Endpoint
 // -----------------------------------------------------------------------------
 
-app.get('/api/health', (req, res) => {
+app.get('/api/Resource-Manager/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -76,14 +68,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Apply DB requirement middleware to all routes below
 app.use(requireDB);
 
 // -----------------------------------------------------------------------------
-// Debug Route: Return sample data from "account" collection
+// Debug Route: Sample Data
 // -----------------------------------------------------------------------------
 
-app.get('/api/data', async (req, res) => {
+app.get('/api/Resource-Manager/data', async (req, res) => {
   try {
     const collection = req.db.collection('account');
     const results = await collection.find({}).limit(50).toArray();
@@ -98,30 +89,20 @@ app.get('/api/data', async (req, res) => {
 // Authentication: LOGIN
 // -----------------------------------------------------------------------------
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/Resource-Manager/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-
-    // Validate required fields
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
     const collection = db.collection('account');
-
-    // Find user by nested username field
     const user = await collection.findOne({ 'account.username': username });
 
-    if (!user) {
+    if (!user || user.account.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Password check (plaintext for now — replace with bcrypt in production)
-    if (user.account.password !== password) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Build safe user object (exclude password)
     const safeUser = {
       emp_id: user.emp_id,
       username: user.account.username,
@@ -129,10 +110,7 @@ app.post('/api/auth/login', async (req, res) => {
       account_id: user.account.account_id
     };
 
-    res.json({
-      message: 'Login successful',
-      user: safeUser
-    });
+    res.json({ message: 'Login successful', user: safeUser });
 
   } catch (error) {
     console.error('Error during login:', error);
@@ -144,37 +122,31 @@ app.post('/api/auth/login', async (req, res) => {
 // Authentication: REGISTER
 // -----------------------------------------------------------------------------
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/Resource-Manager/auth/register', async (req, res) => {
   try {
     const { emp_id, username, password, acc_type_id } = req.body;
-
-    // Validate required fields
     if (!emp_id || !username || !password) {
       return res.status(400).json({ error: 'emp_id, username, and password are required' });
     }
 
     const collection = db.collection('account');
-
-    // Check if username already exists
     const existingUser = await collection.findOne({ 'account.username': username });
     if (existingUser) {
       return res.status(409).json({ error: 'Username already exists' });
     }
 
-    // Build new account document
     const newAccount = {
       emp_id,
       account: {
         username,
-        password, // TODO: hash in production
+        password,
         acc_type_id: acc_type_id || 2,
-        account_id: String(emp_id).padStart(7, '0') // e.g., "0001503"
+        account_id: String(emp_id).padStart(7, '0')
       }
     };
 
     const result = await collection.insertOne(newAccount);
 
-    // Safe user object
     const safeUser = {
       emp_id: newAccount.emp_id,
       username: newAccount.account.username,
@@ -194,10 +166,36 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
+// Authentication: FORGOT PASSWORD
+// -----------------------------------------------------------------------------
+
+app.post('/api/Resource-Manager/auth/forgot-password', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    const collection = db.collection('account');
+    const user = await collection.findOne({ 'account.username': username });
+
+    if (!user) {
+      return res.json({ success: false });
+    }
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Error during password reset:', error);
+    res.status(500).json({ error: 'Password reset failed' });
+  }
+});
+
+// -----------------------------------------------------------------------------
 // Resources Endpoints
 // -----------------------------------------------------------------------------
 
-app.get('/api/resources', async (req, res) => {
+app.get('/api/Resource-Manager/resources', async (req, res) => {
   try {
     const resources = await req.db.collection('resources').find({}).toArray();
     res.json(resources);
@@ -207,7 +205,7 @@ app.get('/api/resources', async (req, res) => {
   }
 });
 
-app.post('/api/resources', async (req, res) => {
+app.post('/api/Resource-Manager/resources', async (req, res) => {
   try {
     const body = req.body || {};
     const result = await req.db.collection('resources').insertOne({
@@ -227,7 +225,7 @@ app.post('/api/resources', async (req, res) => {
 // Activities Endpoints
 // -----------------------------------------------------------------------------
 
-app.get('/api/activities', async (req, res) => {
+app.get('/api/Resource-Manager/activities', async (req, res) => {
   try {
     const activities = await req.db.collection('activities').find({}).toArray();
     res.json(activities);
@@ -237,7 +235,7 @@ app.get('/api/activities', async (req, res) => {
   }
 });
 
-app.post('/api/activities', async (req, res) => {
+app.post('/api/Resource-Manager/activities', async (req, res) => {
   try {
     const body = req.body || {};
     const result = await req.db.collection('activities').insertOne({

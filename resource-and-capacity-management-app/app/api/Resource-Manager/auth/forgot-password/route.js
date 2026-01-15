@@ -27,7 +27,7 @@ async function connectDB() {
 }
 
 // ---------------------------------------------------------
-// POST /api/auth/forgot-password
+// POST /api/Resource-Manager/auth/forgot-password
 // Validates username for password reset requests
 // ---------------------------------------------------------
 export async function POST(req) {
