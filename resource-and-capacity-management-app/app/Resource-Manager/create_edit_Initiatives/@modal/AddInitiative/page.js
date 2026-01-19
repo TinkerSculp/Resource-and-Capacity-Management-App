@@ -254,46 +254,57 @@ export default function AddInitiativeModal() {
      - Shows errors
      - Exits modal route on success
   --------------------------------------------------------- */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    const payload = {
-      ...form,
-      requesting_dept: dept,  // Auto-filled from VP
-    };
-
-    try {
-      const res = await fetch('/api/Resource-Manager/Initiatives/Add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        setError(result.error || "Something went wrong.");
-        setLoading(false);
-        return;
-      }
-
-      /* ---------------------------------------------------------
-         EXIT MODAL ROUTE
-         - router.replace() removes @modal segment
-          - router.back() returns to previous page
-      --------------------------------------------------------- */
-      router.replace('/Resource-Manager/create_edit_Initiatives');
-      router.back();
-    } 
-    catch (err) {
-      console.error('Error submitting form:', err);
-      setError("Network error. Try again.");
-    } finally {
-      setLoading(false);
-    }
+  // Build payload for backend creation
+  const payload = {
+    ...form,
+    requesting_dept: dept, // Auto-filled from VP selection
   };
+
+  try {
+    const res = await fetch('/api/Resource-Manager/Initiatives/Add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await res.json();
+
+    // Handle validation or server errors
+    if (!res.ok) {
+      setError(result.error || "Something went wrong.");
+      setLoading(false);
+      return;
+    }
+
+    /* ---------------------------------------------------------
+       CLOSE MODAL + REFRESH INITIATIVES PAGE
+       - router.back() removes the @modal segment (closes modal)
+       - After a short delay, router.replace() navigates to the
+         parent page with a refresh param to trigger re-fetch
+    --------------------------------------------------------- */
+
+    // Step 1: Close the modal route
+    router.back();
+
+    // Step 2: Refresh parent page after modal unmounts
+    setTimeout(() => {
+      router.replace(
+        `/Resource-Manager/create_edit_Initiatives?refresh=${Date.now()}`
+      );
+    }, 100);
+
+  } catch (err) {
+    console.error('Error submitting form:', err);
+    setError("Network error. Try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   /* ---------------------------------------------------------
      MODAL UI

@@ -272,34 +272,45 @@ export default function EditInitiativeModal() {
      - Exits modal route on success
   --------------------------------------------------------- */
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    const payload = { id, ...form, requesting_dept: dept };
+  // Build payload for backend update
+  const payload = { id, ...form, requesting_dept: dept };
 
-    const res = await fetch('/api/Resource-Manager/Initiatives/Edit', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+  const res = await fetch('/api/Resource-Manager/Initiatives/Edit', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 
-    const result = await res.json();
+  const result = await res.json();
 
-    if (!res.ok) {
-      setError(result.error);
-      setLoading(false);
-      return;
-    }
+  // Handle validation or server errors
+  if (!res.ok) {
+    setError(result.error);
+    setLoading(false);
+    return;
+  }
 
-    /* ---------------------------------------------------------
-       EXIT MODAL ROUTE
-       - router.replace() removes @modal segment
-       - router.back() returns to previous page
-    --------------------------------------------------------- */
-    router.replace('/Resource-Manager/create_edit_Initiatives');
-    router.back();
-  };
+  /* ---------------------------------------------------------
+     CLOSE MODAL + REFRESH INITIATIVES PAGE
+     - router.back() removes the @modal segment (closes modal)
+     - After a short delay, router.replace() navigates to the
+       parent page with a refresh param to trigger re-fetch
+  --------------------------------------------------------- */
+
+  // Step 1: Close the modal route
+  router.back();
+
+  // Step 2: Refresh parent page after modal unmounts
+  setTimeout(() => {
+    router.replace(
+      `/Resource-Manager/create_edit_Initiatives?refresh=${Date.now()}`
+    );
+  }, 100);
+};
 
   /* ---------------------------------------------------------
      MODAL UI
@@ -453,12 +464,12 @@ export default function EditInitiativeModal() {
             {/* SAVE */}
             <button
               type="submit"
+              onClick={(e) => handleSubmit(e)}
               disabled={loading}
               className="px-4 py-2 bg-[#017ACB] text-white rounded"
             >
               {loading ? "Saving..." : "Save Changes"}
             </button>
-
           </div>
         </form>
       </div>
