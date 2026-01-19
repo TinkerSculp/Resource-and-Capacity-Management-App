@@ -40,6 +40,7 @@ async function connectDB() {
        1. requestor_vp → employee.emp_name
        2. employee.dept_no → department.dept_no
    - Returns a fully enriched dataset to the frontend
+   - ALSO resolves "My Initiatives" when username is provided
 
    Pipeline Steps:
    1. Lookup VP employee record
@@ -59,14 +60,23 @@ async function connectDB() {
    - description
    - resource_notes
 --------------------------------------------------------- */
-export async function GET() {
+export async function GET(request) {
   try {
     const db = await connectDB();
 
-    const assignments = await db.collection("assignment").aggregate([
-      /* -----------------------------------------------------
-         1. LOOKUP: Match requestor_vp → employee.emp_name
-         ----------------------------------------------------- */
+    /* ---------------------------------------------------------
+       OPTIONAL: USERNAME FOR "MY INITIATIVES"
+       ---------------------------------------------------------
+       - If provided, backend will also return initiatives
+         where the logged-in user is the leader.
+    --------------------------------------------------------- */
+    const { searchParams } = new URL(request.url);
+    const username = searchParams.get("username");
+
+    /* ---------------------------------------------------------
+       FETCH ALL ASSIGNMENTS (WITH LOOKUPS)
+       --------------------------------------------------------- */
+    const allAssignments = await db.collection("assignment").aggregate([
       {
         $lookup: {
           from: "employee",
@@ -77,9 +87,6 @@ export async function GET() {
       },
       { $unwind: { path: "$vp_employee", preserveNullAndEmptyArrays: true } },
 
-      /* -----------------------------------------------------
-         2. LOOKUP: Match employee.dept_no → department.dept_no
-         ----------------------------------------------------- */
       {
         $lookup: {
           from: "department",
@@ -90,12 +97,6 @@ export async function GET() {
       },
       { $unwind: { path: "$vp_department", preserveNullAndEmptyArrays: true } },
 
-      /* -----------------------------------------------------
-         3. FINAL OUTPUT SHAPE
-         -----------------------------------------------------
-         - requesting_dept is resolved from department.dept_name
-         - All other fields come directly from assignment
-      ----------------------------------------------------- */
       {
         $project: {
           _id: 1,
@@ -115,11 +116,44 @@ export async function GET() {
     ]).toArray();
 
     /* ---------------------------------------------------------
+       RESOLVE "MY INITIATIVES" (IF USERNAME PROVIDED)
+       ---------------------------------------------------------
+       ERD Chain:
+       1. account.username → emp_id
+       2. employee.emp_id → emp_name
+       3. assignment.leader === emp_name
+    --------------------------------------------------------- */
+    let myInitiatives = [];
+
+    if (username) {
+      const account = await db.collection("account").findOne({
+        "account.username": username
+      });
+
+      if (account) {
+        const employee = await db.collection("employee").findOne({
+          emp_id: account.emp_id
+        });
+
+        if (employee) {
+          myInitiatives = allAssignments.filter(
+            (i) => i.leader === employee.emp_name && i.status !== "Completed"
+          );
+        }
+      }
+    }
+
+    /* ---------------------------------------------------------
        SUCCESS RESPONSE
        ---------------------------------------------------------
-       - Returns enriched assignment list to frontend
+       - Returns both:
+         1. allAssignments → full dataset
+         2. myInitiatives → filtered by logged-in user
     --------------------------------------------------------- */
-    return NextResponse.json(assignments);
+    return NextResponse.json({
+      allAssignments,
+      myInitiatives
+    });
 
   } catch (err) {
     /* ---------------------------------------------------------
