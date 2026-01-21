@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require('mongodb');
+import { MongoClient, ServerApiVersion } from 'mongodb';
 // Import MongoDB client and server API versioning
 
 let client; // Cached MongoClient instance
@@ -15,7 +15,7 @@ const dbName = process.env.DB_NAME || 'ResourceManagementAPP_DB';
  * Ensures a single shared connection across the entire app.
  * @returns {Promise<Db>} Database instance
  */
-async function connectDB() {
+export async function connectDB() {
   // If already connected, return existing DB instance
   if (db) {
     return db;
@@ -55,7 +55,7 @@ async function connectDB() {
  * Ensures connectDB() was called before accessing DB.
  * @returns {Db} Database instance
  */
-function getDB() {
+export function getDB() {
   if (!db) {
     throw new Error('Database not initialized. Call connectDB() first.');
   }
@@ -66,7 +66,7 @@ function getDB() {
  * Close database connection
  * Safely shuts down the MongoClient and clears cached instances.
  */
-async function closeDB() {
+export async function closeDB() {
   if (client) {
     await client.close();
     client = null;
@@ -74,10 +74,3 @@ async function closeDB() {
     console.log('MongoDB connection closed');
   }
 }
-
-// Export database helpers
-module.exports = {
-  connectDB,
-  getDB,
-  closeDB
-};

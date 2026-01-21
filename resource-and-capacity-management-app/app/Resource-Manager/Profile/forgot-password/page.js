@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
 
         try {
             // POST request to backend API route
-            const response = await fetch('/api/auth/forgot-password', {
+            const response = await fetch('/api/Resource-Manager/auth/forgot-password', {   // UPDATED ROUTE
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username })

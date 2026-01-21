@@ -4,6 +4,8 @@
  * using the Fetch API with consistent error handling.
  */
 
+const API_BASE = '/api/Resource-Manager';
+
 /**
  * Make a GET request
  * @param {string} url - API endpoint URL
@@ -12,7 +14,7 @@
  */
 async function get(url, options = {}) {
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE}${url}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -43,7 +45,7 @@ async function get(url, options = {}) {
  */
 async function post(url, data, options = {}) {
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE}${url}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -73,7 +75,7 @@ async function post(url, data, options = {}) {
  */
 async function put(url, data, options = {}) {
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE}${url}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +104,7 @@ async function put(url, data, options = {}) {
  */
 async function del(url, options = {}) {
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE}${url}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -122,10 +124,10 @@ async function del(url, options = {}) {
   }
 }
 
-// Export all HTTP helpers
-module.exports = {
+// Export all HTTP helpers (ES module syntax)
+export {
   get,
   post,
   put,
-  delete: del
+  del as delete
 };

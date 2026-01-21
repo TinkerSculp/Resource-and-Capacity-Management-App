@@ -8,7 +8,7 @@
  * @param {string} email - Email to validate
  * @returns {boolean} True if valid
  */
-function validateEmail(email) {
+export function validateEmail(email) {
   if (!email) return false; // Reject empty/null values
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email structure
   return emailRegex.test(email);
@@ -20,7 +20,7 @@ function validateEmail(email) {
  * @param {Array<string>} requiredFields - List of required field names
  * @returns {Object} { valid: boolean, missing: Array<string> }
  */
-function validateRequiredFields(data, requiredFields) {
+export function validateRequiredFields(data, requiredFields) {
   // Collect fields that are missing or falsy
   const missing = requiredFields.filter(field => !data[field]);
 
@@ -35,7 +35,7 @@ function validateRequiredFields(data, requiredFields) {
  * @param {number} employeeID - Employee ID to validate
  * @returns {boolean} True if valid
  */
-function validateEmployeeID(employeeID) {
+export function validateEmployeeID(employeeID) {
   return Number.isInteger(employeeID) && employeeID > 0;
 }
 
@@ -45,7 +45,7 @@ function validateEmployeeID(employeeID) {
  * @param {Date|string} endDate - End date
  * @returns {boolean} True if start <= end
  */
-function validateDateRange(startDate, endDate) {
+export function validateDateRange(startDate, endDate) {
   const start = new Date(startDate);
   const end = new Date(endDate);
   return start <= end;
@@ -56,7 +56,7 @@ function validateDateRange(startDate, endDate) {
  * @param {number} capacity - Capacity value
  * @returns {boolean} True if valid
  */
-function validateCapacity(capacity) {
+export function validateCapacity(capacity) {
   return typeof capacity === 'number' && capacity >= 0 && capacity <= 1;
 }
 
@@ -65,7 +65,7 @@ function validateCapacity(capacity) {
  * @param {number} month - Month value
  * @returns {boolean} True if valid
  */
-function validateMonth(month) {
+export function validateMonth(month) {
   return Number.isInteger(month) && month >= 1 && month <= 12;
 }
 
@@ -74,7 +74,7 @@ function validateMonth(month) {
  * @param {number} year - Year value
  * @returns {boolean} True if valid
  */
-function validateYear(year) {
+export function validateYear(year) {
   return Number.isInteger(year) && year >= 2000 && year <= 2100;
 }
 
@@ -83,19 +83,7 @@ function validateYear(year) {
  * @param {string} input - String to sanitize
  * @returns {string} Sanitized string
  */
-function sanitizeString(input) {
+export function sanitizeString(input) {
   if (!input) return ''; // Handle null/undefined
   return input.trim().replace(/[<>]/g, ''); // Remove angle brackets
 }
-
-// Export all validation helpers
-module.exports = {
-  validateEmail,
-  validateRequiredFields,
-  validateEmployeeID,
-  validateDateRange,
-  validateCapacity,
-  validateMonth,
-  validateYear,
-  sanitizeString
-};
