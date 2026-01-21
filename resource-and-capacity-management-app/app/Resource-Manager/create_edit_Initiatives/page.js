@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
@@ -9,172 +9,214 @@ const styles = {
 
 export default function InitiativesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const refresh = searchParams.get("refresh"); // Used to force refresh after modal close
 
-  /* ---------------------------------------------------------
-     STATE MANAGEMENT
-     ---------------------------------------------------------
-     - user: stores logged‑in user info from localStorage
-     - activeTab: controls filtering (all / mine / completed)
-     - initiatives: raw dataset (mock for now, DB later)
-     - filteredInitiatives: table-ready filtered list
-  --------------------------------------------------------- */
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('all');
-  const [initiatives, setInitiatives] = useState([]);
-  const [filteredInitiatives, setFilteredInitiatives] = useState([]);
+  // ---------------------------------------------------------
+  // STATE MANAGEMENT
+  // ---------------------------------------------------------
 
-  /* ---------------------------------------------------------
-     USER SESSION LOADING
-     ---------------------------------------------------------
-     Purpose:
-     - Ensures only authenticated users can access this page
-     - Redirects to login if no user session is found
-  --------------------------------------------------------- */
+  const [user, setUser] = useState(null); // Logged-in user info
+  const [activeTab, setActiveTab] = useState('all'); // all | mine | completed
+
+  const [initiatives, setInitiatives] = useState([]); // All initiatives
+  const [mine, setMine] = useState([]); // Initiatives assigned to logged-in user
+  const [filteredInitiatives, setFilteredInitiatives] = useState([]); // Final filtered list
+
+  // Multi-select filter states
+  const [selectedCategories, setSelectedCategories] = useState([]); // Category filter
+  const [selectedStatuses, setSelectedStatuses] = useState([]); // Status filter
+  const [selectedVPs, setSelectedVPs] = useState([]); // Requestor VP filter
+  const [selectedDepts, setSelectedDepts] = useState([]); // Department filter
+  const [selectedLeads, setSelectedLeads] = useState([]); // Lead filter
+
+  // Sorting state
+  const [projectSort, setProjectSort] = useState(''); // asc | desc | none
+  const [showProjectSortMenu, setShowProjectSortMenu] = useState(false); // Sort dropdown visibility
+
+  // Dropdown visibility toggles
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showVPMenu, setShowVPMenu] = useState(false);
+  const [showDeptMenu, setShowDeptMenu] = useState(false);
+  const [showLeadMenu, setShowLeadMenu] = useState(false); 
+
+  // Dropdown positioning (absolute menu placement)
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  // Dropdown option lists (unique values extracted from DB)
+  const [availableCategories, setAvailableCategories] = useState([]);
+  const [availableStatuses, setAvailableStatuses] = useState([]);
+  const [availableVPs, setAvailableVPs] = useState([]);
+  const [availableDepts, setAvailableDepts] = useState([]);
+  const [availableLeads, setAvailableLeads] = useState([]); 
+
+  // ---------------------------------------------------------
+  // LOAD USER SESSION
+  // Redirect to login if no user found in localStorage
+  // ---------------------------------------------------------
   useEffect(() => {
     const userData = localStorage.getItem('user');
-
     if (!userData) {
       router.push('/Resource-Manager/Profile/login');
       return;
     }
-
     setUser(JSON.parse(userData));
   }, [router]);
 
-  /* ---------------------------------------------------------
-     MOCK DATA (TEMPORARY UNTIL DB INTEGRATION)
-     ---------------------------------------------------------
-     Purpose:
-     - Provides placeholder initiative data for UI development
-     - Will be replaced with MongoDB fetch once backend is ready
-  --------------------------------------------------------- */
-  useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        project: 'CDA Replacement',
-        category: 'Strategic',
-        lead: 'Charlotte Nguyen',
-        status: 'Backlog',
-        requestor: 'Sophia Grant',
-        requestor_vp: 'Lauren Mitchell',
-        requesting_dept: 'IT',
-        completion_date: '',
-        target_period: 'Q1 2026',
-        description: 'Replace legacy CDA system with vendor-supported streaming architecture.',
-        resource_consideration: 'Requires 2 backend engineers and 1 data architect.'
-      },
-      {
-        id: 2,
-        project: 'Marketplace Expansion',
-        category: 'Strategic',
-        lead: 'Charlotte Nguyen',
-        status: 'Completed',
-        requestor: 'Jane Kraft',
-        requestor_vp: 'Victoria Hayes',
-        requesting_dept: 'Data & Analytics Office',
-        completion_date: 'Dec-2025',
-        target_period: 'Jan–Dec 2025',
-        description: 'Expand Marketplace content and automate onboarding workflows.',
-        resource_consideration: 'Completed using existing D&A team capacity.'
-      },
-      {
-        id: 3,
-        project: 'Valuation Line - Claims',
-        category: 'Strategic',
-        lead: 'Charlotte Nguyen',
-        status: 'Completed',
-        requestor: 'Greg Walters',
-        requestor_vp: 'Jonathan Reid',
-        requesting_dept: 'Finance',
-        completion_date: 'Jun-2025',
-        target_period: 'Apr–Jun 2025',
-        description: 'Implement matrix logic for valuation line reporting in claims.',
-        resource_consideration: 'Requires actuarial SME and 1 reporting analyst.'
-      },
-      {
-        id: 4,
-        project: 'Data Governance Portal',
-        category: 'Baseline',
-        lead: 'Jackson Lee',
-        status: 'In Process',
-        requestor: 'Amira Patel',
-        requestor_vp: 'David Chen',
-        requesting_dept: 'Compliance',
-        completion_date: '',
-        target_period: 'Feb–Aug 2026',
-        description: 'Build centralized portal for data governance policies and approvals.',
-        resource_consideration: 'Needs 1 frontend dev, 1 backend dev, and 1 UX designer.'
-      },
-      {
-        id: 5,
-        project: 'Claims Audit Automation',
-        category: 'Discretionary',
-        lead: 'Jackson Lee',
-        status: 'On Hold',
-        requestor: 'Liam Brooks',
-        requestor_vp: 'Natalie Singh',
-        requesting_dept: 'Audit',
-        completion_date: '',
-        target_period: 'TBD',
-        description: 'Automate sampling and audit trail generation for claims review.',
-        resource_consideration: 'Pending approval for 2 automation engineers.'
-      }
-    ];
-
-    setInitiatives(mockData);
-  }, []);
-
-  /* ---------------------------------------------------------
-     FILTERING LOGIC
-     ---------------------------------------------------------
-     Purpose:
-     - Applies tab-based filtering to initiatives
-     - "all"       → all non-completed initiatives
-     - "mine"      → initiatives where user is the lead
-     - "completed" → completed initiatives only
-
-     Notes:
-     - This logic will remain identical when DB data replaces mock data
-  --------------------------------------------------------- */
+  // ---------------------------------------------------------
+  // FETCH INITIATIVES
+  // Loads all initiatives + user's initiatives
+  // Maps DB fields → frontend fields
+  // Extracts unique filter values
+  // ---------------------------------------------------------
   useEffect(() => {
     if (!user) return;
 
-    let filtered = [...initiatives];
+    const fetchInitiatives = async () => {
+      try {
+        const res = await fetch(
+          `/api/Resource-Manager/Initiatives?username=${user.username}&ts=${Date.now()}`,
+          {
+            cache: "no-store",
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+            },
+          }
+        );
 
-    if (activeTab === 'mine') {
-      filtered = filtered.filter(
-        (i) => i.lead === user.username && i.status !== 'Completed'
-      );
-    } else if (activeTab === 'completed') {
-      filtered = filtered.filter((i) => i.status === 'Completed');
-    } else if (activeTab === 'all') {
-      filtered = filtered.filter((i) => i.status !== 'Completed');
+        const { allAssignments, myInitiatives } = await res.json();
+
+        // Normalize DB fields into consistent frontend structure
+        const mapFields = (data) =>
+          data.map((item) => ({
+            id: item._id,
+            project: item.project_name,
+            category: item.category,
+            lead: item.leader, // Lead field
+            status: item.status,
+            requestor: item.requestor,
+            requestor_vp: item.requestor_vp,
+            requesting_dept: item.requesting_dept,
+            completion_date: item.completion_date,
+            target_period: item.target_period,
+            description: item.description,
+            resource_consideration: item.resource_notes,
+          }));
+
+        const mappedAll = mapFields(allAssignments);
+        const mappedMine = mapFields(myInitiatives);
+
+        setInitiatives(mappedAll);
+        setMine(mappedMine);
+        setFilteredInitiatives(mappedAll); // Default view = all initiatives
+
+        // Build unique dropdown lists
+        setAvailableCategories([...new Set(mappedAll.map(i => i.category).filter(Boolean))]);
+        setAvailableStatuses([...new Set(mappedAll.map(i => i.status).filter(Boolean))]);
+        setAvailableVPs([...new Set(mappedAll.map(i => i.requestor_vp).filter(Boolean))]);
+        setAvailableDepts([...new Set(mappedAll.map(i => i.requesting_dept).filter(Boolean))]);
+        setAvailableLeads([...new Set(mappedAll.map(i => i.lead).filter(Boolean))]); 
+
+      } catch (err) {
+        console.error("Initiatives fetch error:", err);
+      }
+    };
+
+    fetchInitiatives();
+  }, [user, refresh]);
+
+  // ---------------------------------------------------------
+  // FILTERING + SORTING LOGIC
+  // Applies:
+  // - Tab filters (all, mine, completed)
+  // - Multi-select filters
+  // - Sorting (A→Z, Z→A)
+  // ---------------------------------------------------------
+  useEffect(() => {
+    if (!user) return;
+
+    // Base dataset depending on active tab
+    let base = activeTab === 'mine'
+      ? mine
+      : activeTab === 'completed'
+      ? initiatives.filter(i => i.status === 'Completed')
+      : initiatives.filter(i => i.status !== 'Completed');
+
+    // Apply multi-select filters
+    let filtered = base.filter((i) =>
+      (selectedCategories.length ? selectedCategories.includes(i.category) : true) &&
+      (selectedStatuses.length ? selectedStatuses.includes(i.status) : true) &&
+      (selectedVPs.length ? selectedVPs.includes(i.requestor_vp) : true) &&
+      (selectedDepts.length ? selectedDepts.includes(i.requesting_dept) : true) &&
+      (selectedLeads.length ? selectedLeads.includes(i.lead) : true)
+    );
+
+    // Apply sorting
+    if (projectSort === 'asc') {
+      filtered = [...filtered].sort((a, b) => a.project.localeCompare(b.project));
+    } else if (projectSort === 'desc') {
+      filtered = [...filtered].sort((a, b) => b.project.localeCompare(a.project));
     }
 
     setFilteredInitiatives(filtered);
-  }, [activeTab, initiatives, user]);
+  }, [
+    activeTab,
+    initiatives,
+    mine,
+    user,
+    selectedCategories,
+    selectedStatuses,
+    selectedVPs,
+    selectedDepts,
+    selectedLeads, 
+    projectSort
+  ]);
 
-  /* ---------------------------------------------------------
-     NAVIGATION HANDLERS
-     ---------------------------------------------------------
-     - handleAddInitiative: navigates to creation form
-     - handleEditInitiative: navigates to edit form with ID
-  --------------------------------------------------------- */
+  // ---------------------------------------------------------
+  // TOGGLE HELPERS
+  // Adds/removes values from multi-select filters
+  // ---------------------------------------------------------
+  const toggleSelection = (value, setFn, current) => {
+    setFn(current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value]
+    );
+  };
+
+  // ---------------------------------------------------------
+  // CLOSE ALL DROPDOWNS ON OUTSIDE CLICK
+  // ---------------------------------------------------------
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowCategoryMenu(false);
+      setShowStatusMenu(false);
+      setShowVPMenu(false);
+      setShowDeptMenu(false);
+      setShowLeadMenu(false); 
+      setShowProjectSortMenu(false);
+    };
+
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // ---------------------------------------------------------
+  // NAVIGATION HELPERS
+  // ---------------------------------------------------------
   const handleAddInitiative = () => {
-    router.push('/Resource-Manager/create_edit_Initiatives');
+    router.push('/Resource-Manager/create_edit_Initiatives/AddInitiative');
   };
 
   const handleEditInitiative = (id) => {
     router.push(`/Resource-Manager/create_edit_Initiatives/EditButton?id=${id}`);
   };
 
-  /* ---------------------------------------------------------
-     LOADING STATE
-     ---------------------------------------------------------
-     Purpose:
-     - Displays a loading spinner while user session loads
-  --------------------------------------------------------- */
+  // ---------------------------------------------------------
+  // LOADING STATE (before user loads)
+  // ---------------------------------------------------------
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -183,189 +225,660 @@ export default function InitiativesPage() {
     );
   }
 
-  /* ---------------------------------------------------------
-     MAIN PAGE RENDER
-     ---------------------------------------------------------
-     Purpose:
-     - Renders header, filters, and initiatives table
-     - Table is fully dynamic based on filteredInitiatives
-  --------------------------------------------------------- */
-  return (
-    <div className="min-h-screen bg-gray-50">
+// HEADER + FILTER BUTTONS
+return (
+  <div className="min-h-screen bg-gray-50">
 
-      {/* -----------------------------------------------------
-         HEADER BAR
-         -----------------------------------------------------
-         - Displays logo, title, and user profile access
-      ----------------------------------------------------- */}
-      <header className="bg-[#017ACB] shadow-sm relative">
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 relative">
+    {/* ---------------------------------------------------------
+       TOP NAVIGATION BAR (Logo, Title, User Profile)
+    --------------------------------------------------------- */}
+    <header className="bg-[#017ACB] shadow-sm relative">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16 relative">
 
-            {/* Logo + Home Navigation */}
-            <div
-              className="flex items-center cursor-pointer"
-              onClick={() => router.push('/Resource-Manager/dashboard')}
-            >
-              <img src="/CapstoneDynamicsLogo.png" alt="Logo" className="h-12 w-auto" />
-              <div className="flex flex-col ml-3">
-                <h1 className="text-2xl font-bold text-white" style={styles.outfitFont}>
-                  Capstone Dynamics
-                </h1>
-              </div>
-            </div>
-
-            {/* Centered Title */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
-              <h1 className="text-xl font-bold text-white" style={styles.outfitFont}>
-                Resource &amp; Capacity Management Planner
+          {/* Logo + App Name (clickable → dashboard) */}
+          <div
+            className="flex items-center cursor-pointer"
+            onClick={() => router.push('/Resource-Manager/dashboard')}
+          >
+            <img src="/CapstoneDynamicsLogo.png" alt="Logo" className="h-12 w-auto" />
+            <div className="flex flex-col ml-3">
+              <h1 className="text-2xl font-bold text-white" style={styles.outfitFont}>
+                Capstone Dynamics
               </h1>
             </div>
-
-            {/* User Profile Access */}
-            <div className="flex items-center gap-4">
-              <span className="text-white font-semibold" style={styles.outfitFont}>
-                {user?.username || ''}
-              </span>
-
-              <div
-                onClick={() => router.push('/Resource-Manager/Profile/view-profile')}
-                className="w-10 h-10 rounded-full bg-white flex items-center justify-center cursor-pointer hover:opacity-90 transition"
-              >
-                <span className="text-[#017ACB] font-bold text-lg">
-                  {user?.username?.charAt(0)?.toUpperCase() || ''}
-                </span>
-              </div>
-            </div>
-
           </div>
+
+          {/* Centered Page Title */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
+            <h1 className="text-xl font-bold text-white" style={styles.outfitFont}>
+              Resource &amp; Capacity Management Planner
+            </h1>
+          </div>
+
+          {/* User Profile (username + avatar circle) */}
+          <div className="flex items-center gap-4">
+            <span className="text-white font-semibold" style={styles.outfitFont}>
+              {user?.username || ''}
+            </span>
+
+            <div
+              onClick={() => router.push('/Resource-Manager/Profile/view-profile')}
+              className="w-10 h-10 rounded-full bg-white flex items-center justify-center cursor-pointer hover:opacity-90 transition"
+            >
+              <span className="text-[#017ACB] font-bold text-lg">
+                {user?.username?.charAt(0)?.toUpperCase() || ''}
+              </span>
+            </div>
+          </div>
+
         </div>
-      </header>
+      </div>
+    </header>
 
-      {/* -----------------------------------------------------
-         MAIN CONTENT AREA
-         ----------------------------------------------------- */}
-      <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    {/* ---------------------------------------------------------
+       MAIN CONTENT AREA
+    --------------------------------------------------------- */}
+    <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-        {/* -----------------------------------------------------
-           PAGE TITLE + FILTER BUTTONS
-           -----------------------------------------------------
-           - Controls which initiatives appear in the table
-        ----------------------------------------------------- */}
-        <div className="flex justify-between items-center mb-4">
+      {/* Page Title + Dashboard Button */}
+      <div className="flex justify-between items-center mb-4">
+
+        <div className="flex items-center gap-4 mb-4">
           <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
             Initiatives
           </h2>
 
-          <div className="flex gap-4">
-
-            {/* All Initiatives */}
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-4 py-2 rounded text-sm ${
-                activeTab === 'all' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
-              }`}
-              style={styles.outfitFont}
-            >
-              All Initiatives
-            </button>
-
-            {/* My Initiatives */}
-            <button
-              onClick={() => setActiveTab('mine')}
-              className={`px-4 py-2 rounded text-sm ${
-                activeTab === 'mine' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
-              }`}
-              style={styles.outfitFont}
-            >
-              My Initiatives
-            </button>
-
-            {/* Completed Initiatives */}
-            <button
-              onClick={() => setActiveTab('completed')}
-              className={`px-4 py-2 rounded text-sm ${
-                activeTab === 'completed' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
-              }`}
-              style={styles.outfitFont}
-            >
-              Completed
-            </button>
-
-            {/* Add New Initiative */}
-            <button
-              onClick={handleAddInitiative}
-              className="px-4 py-2 bg-[#017ACB] text-white rounded hover:bg-blue-700 transition text-sm"
-              style={styles.outfitFont}
-            >
-              + Add Initiative
-            </button>
-          </div>
+          {/* Back to Dashboard */}
+          <button
+            onClick={() => router.push('/Resource-Manager/dashboard')}
+            className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+            style={styles.outfitFont}
+          >
+            Back to Dashboard
+          </button>
         </div>
 
         {/* -----------------------------------------------------
-           INITIATIVES TABLE
-           -----------------------------------------------------
-           - Displays filtered initiatives
-           - Edit column is sticky for usability
+           TAB BUTTONS (All, Mine, Completed, Add Initiative)
         ----------------------------------------------------- */}
-        <div className="overflow-x-auto border rounded-lg shadow-sm bg-white">
+        <div className="flex gap-4">
+
+          {/* All Initiatives */}
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-4 py-2 rounded text-sm ${
+              activeTab === 'all' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
+            }`}
+            style={styles.outfitFont}
+          >
+            All Initiatives
+          </button>
+
+          {/* My Initiatives */}
+          <button
+            onClick={() => setActiveTab('mine')}
+            className={`px-4 py-2 rounded text-sm ${
+              activeTab === 'mine' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
+            }`}
+            style={styles.outfitFont}
+          >
+            My Initiatives
+          </button>
+
+          {/* Completed */}
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`px-4 py-2 rounded text-sm ${
+              activeTab === 'completed' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
+            }`}
+            style={styles.outfitFont}
+          >
+            Completed
+          </button>
+
+          {/* Add Initiative */}
+          <button
+            onClick={() => router.push('/Resource-Manager/create_edit_Initiatives/AddInitiative')}
+            className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+            style={styles.outfitFont}
+          >
+            + Add Initiative
+          </button>
+
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------------
+         INITIATIVES TABLE WRAPPER
+         - Scrollable container
+         - Sticky header
+         - Sticky left column for Edit button
+      --------------------------------------------------------- */}
+      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+        <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+
           <table className="min-w-max w-full border-collapse">
-            <thead className="bg-[#017ACB] text-white">
+
+            {/* -----------------------------------------------------
+               TABLE HEADER (sticky)
+            ----------------------------------------------------- */}
+            <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
               <tr>
-                <th className="sticky left-0 bg-[#017ACB] px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>
+
+                {/* EDIT COLUMN (sticky left) */}
+                <th
+                  className="sticky left-0 bg-[#017ACB] px-4 py-2 border text-sm font-semibold"
+                  style={styles.outfitFont}
+                >
                   Edit
                 </th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Project</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Category</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Lead</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Status</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Requestor</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Requestor VP</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Requesting Dept</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Completion Date</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Target Period</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Description</th>
-                <th className="px-4 py-2 border text-sm font-semibold" style={styles.outfitFont}>Resource Consideration</th>
-              </tr>
-            </thead>
 
-            <tbody>
-              {filteredInitiatives.map((item, index) => (
-                <tr
-                  key={item.id}
-                  className={`hover:bg-black/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                {/* -------------------------------------------------
+                   PROJECT SORT COLUMN
+                ------------------------------------------------- */}
+                <th
+                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                  style={styles.outfitFont}
                 >
-                  {/* Sticky Edit Button */}
-                  <td className="sticky left-0 px-4 py-2 border bg-inherit text-black">
-                    <button
-                      onClick={() => handleEditInitiative(item.id)}
-                      className="px-2 py-1 bg-[#017ACB] text-white text-xs rounded hover:bg-blue-700"
-                      style={styles.outfitFont}
-                    >
-                      Edit
-                    </button>
-                  </td>
+                  <div className="flex justify-between items-center">
+                    <span>Project</span>
 
-                  {/* Data Columns */}
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.project}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.category}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.lead}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.status}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.requestor}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.requestor_vp}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.requesting_dept}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.completion_date}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.target_period}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.description}</td>
-                  <td className="px-4 py-2 border text-sm text-black" style={styles.outfitFont}>{item.resource_consideration}</td>
+                    {/* Sort dropdown trigger */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = e.target.getBoundingClientRect();
+                        setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                        // Toggle sort menu
+                        setShowProjectSortMenu((prev) => !prev);
+
+                        // Close all other menus
+                        setShowCategoryMenu(false);
+                        setShowStatusMenu(false);
+                        setShowVPMenu(false);
+                        setShowDeptMenu(false);
+                        setShowLeadMenu(false);
+                      }}
+                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {/* Sort dropdown menu */}
+                  {showProjectSortMenu && (
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-40 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
+                          projectSort === '' ? 'bg-gray-100 font-semibold' : ''
+                        }`}
+                        onClick={() => setProjectSort('')}
+                      >
+                        None
+                      </div>
+
+                      <div
+                        className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
+                          projectSort === 'asc' ? 'bg-gray-100 font-semibold' : ''
+                        }`}
+                        onClick={() => setProjectSort('asc')}
+                      >
+                        A → Z
+                      </div>
+
+                      <div
+                        className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
+                          projectSort === 'desc' ? 'bg-gray-100 font-semibold' : ''
+                        }`}
+                        onClick={() => setProjectSort('desc')}
+                      >
+                        Z → A
+                      </div>
+                    </div>
+                  )}
+                </th>              
+
+                 {/* CATEGORY FILTER */}
+                <th
+                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Category</span>
+
+                    {/* Category filter dropdown trigger */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = e.target.getBoundingClientRect();
+
+                        // Position dropdown under button
+                        setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                        // Toggle category menu
+                        setShowCategoryMenu((prev) => !prev);
+
+                        // Close all other menus
+                        setShowStatusMenu(false);
+                        setShowVPMenu(false);
+                        setShowDeptMenu(false);
+                        setShowLeadMenu(false);
+                        setShowProjectSortMenu(false);
+                      }}
+                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {/* Category dropdown menu */}
+                  {showCategoryMenu && (
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* "All" option */}
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                          selectedCategories.length === 0 ? 'bg-gray-100 font-semibold' : ''
+                        }`}
+                        onClick={() => setSelectedCategories([])}
+                      >
+                        <input type="checkbox" checked={selectedCategories.length === 0} readOnly />
+                        All
+                      </div>
+
+                      {/* Individual category options */}
+                      {availableCategories.map((cat) => (
+                        <div
+                          key={cat}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                            selectedCategories.includes(cat) ? 'bg-gray-100 font-semibold' : ''
+                          }`}
+                          onClick={() =>
+                            toggleSelection(cat, setSelectedCategories, selectedCategories)
+                          }
+                        >
+                          <input type="checkbox" checked={selectedCategories.includes(cat)} readOnly />
+                          {cat}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </th>
+
+                {/* LEAD FILTER */}
+                <th
+                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Lead</span>
+
+                    {/* Lead filter dropdown trigger */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = e.target.getBoundingClientRect();
+
+                        // Position dropdown under button
+                        setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                        // Toggle lead menu
+                        setShowLeadMenu((prev) => !prev);
+
+                        // Close all other menus
+                        setShowCategoryMenu(false);
+                        setShowStatusMenu(false);
+                        setShowVPMenu(false);
+                        setShowDeptMenu(false);
+                        setShowProjectSortMenu(false);
+                      }}
+                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {/* Lead dropdown menu */}
+                  {showLeadMenu && (
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* "All" option */}
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                          selectedLeads.length === 0 ? 'bg-gray-100 font-semibold' : ''
+                        }`}
+                        onClick={() => setSelectedLeads([])}
+                      >
+                        <input type="checkbox" checked={selectedLeads.length === 0} readOnly />
+                        All
+                      </div>
+
+                      {/* Individual lead options */}
+                      {availableLeads.map((lead) => (
+                        <div
+                          key={lead}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                            selectedLeads.includes(lead) ? 'bg-gray-100 font-semibold' : ''
+                          }`}
+                          onClick={() =>
+                            toggleSelection(lead, setSelectedLeads, selectedLeads)
+                          }
+                        >
+                          <input type="checkbox" checked={selectedLeads.includes(lead)} readOnly />
+                          {lead}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </th>
+
+                {/* STATUS FILTER */}
+                <th
+                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Status</span>
+
+                    {/* Status filter dropdown trigger */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = e.target.getBoundingClientRect();
+
+                        // Position dropdown under button
+                        setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                        // Toggle status menu
+                        setShowStatusMenu((prev) => !prev);
+
+                        // Close all other menus
+                        setShowCategoryMenu(false);
+                        setShowVPMenu(false);
+                        setShowDeptMenu(false);
+                        setShowLeadMenu(false);
+                        setShowProjectSortMenu(false);
+                      }}
+                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {/* Status dropdown menu */}
+                  {showStatusMenu && (
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* "All" option */}
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                          selectedStatuses.length === 0 ? 'bg-gray-100 font-semibold' : ''
+                        }`}
+                        onClick={() => setSelectedStatuses([])}
+                      >
+                        <input type="checkbox" checked={selectedStatuses.length === 0} readOnly />
+                        All
+                      </div>
+
+                      {/* Individual status options */}
+                      {availableStatuses.map((status) => (
+                        <div
+                          key={status}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                            selectedStatuses.includes(status) ? 'bg-gray-100 font-semibold' : ''
+                          }`}
+                          onClick={() =>
+                            toggleSelection(status, setSelectedStatuses, selectedStatuses)
+                          }
+                        >
+                          <input type="checkbox" checked={selectedStatuses.includes(status)} readOnly />
+                          {status}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </th> 
+                
+                {/* REQUESTOR (no filter, just displays the column header) */}
+              <th
+                className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
+                style={styles.outfitFont}
+              >
+                Requestor
+              </th>
+
+              {/* REQUESTOR VP FILTER COLUMN */}
+              <th
+                className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                style={styles.outfitFont}
+              >
+                <div className="flex justify-between items-center">
+                  <span>Requestor VP</span>
+
+                  {/* Dropdown trigger for VP filter */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent table click events
+                      const rect = e.target.getBoundingClientRect();
+
+                      // Position dropdown under the clicked button
+                      setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                      // Toggle VP dropdown
+                      setShowVPMenu((prev) => !prev);
+
+                      // Close all other dropdowns
+                      setShowCategoryMenu(false);
+                      setShowStatusMenu(false);
+                      setShowDeptMenu(false);
+                      setShowLeadMenu(false);
+                      setShowProjectSortMenu(false);
+                    }}
+                    className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                {/* VP dropdown menu */}
+                {showVPMenu && (
+                  <div
+                    className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
+                    style={{ top: menuPosition.y, left: menuPosition.x }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* "All" option */}
+                    <div
+                      className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                        selectedVPs.length === 0 ? 'bg-gray-100 font-semibold' : ''
+                      }`}
+                      onClick={() => setSelectedVPs([])}
+                    >
+                      <input type="checkbox" checked={selectedVPs.length === 0} readOnly />
+                      All
+                    </div>
+
+                    {/* Individual VP options */}
+                    {availableVPs.map((vp) => (
+                      <div
+                        key={vp}
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                          selectedVPs.includes(vp) ? 'bg-gray-100 font-semibold' : ''
+                        }`}
+                        onClick={() => toggleSelection(vp, setSelectedVPs, selectedVPs)}
+                      >
+                        <input type="checkbox" checked={selectedVPs.includes(vp)} readOnly />
+                        {vp}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </th>
+
+              {/* REQUESTING DEPARTMENT FILTER COLUMN */}
+              <th
+                className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                style={styles.outfitFont}
+              >
+                <div className="flex justify-between items-center">
+                  <span>Requesting Dept</span>
+
+                  {/* Dropdown trigger for Department filter */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = e.target.getBoundingClientRect();
+
+                      // Position dropdown under the clicked button
+                      setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                      // Toggle department dropdown
+                      setShowDeptMenu((prev) => !prev);
+
+                      // Close all other dropdowns
+                      setShowCategoryMenu(false);
+                      setShowStatusMenu(false);
+                      setShowVPMenu(false);
+                      setShowLeadMenu(false);
+                      setShowProjectSortMenu(false);
+                    }}
+                    className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                {/* Department dropdown menu */}
+                {showDeptMenu && (
+                  <div
+                    className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
+                    style={{ top: menuPosition.y, left: menuPosition.x }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* "All" option */}
+                    <div
+                      className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                        selectedDepts.length === 0 ? 'bg-gray-100 font-semibold' : ''
+                      }`}
+                      onClick={() => setSelectedDepts([])}
+                    >
+                      <input type="checkbox" checked={selectedDepts.length === 0} readOnly />
+                      All
+                    </div>
+
+                    {/* Individual department options */}
+                    {availableDepts.map((dept) => (
+                      <div
+                        key={dept}
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                          selectedDepts.includes(dept) ? 'bg-gray-100 font-semibold' : ''
+                        }`}
+                        onClick={() => toggleSelection(dept, setSelectedDepts, selectedDepts)}
+                      >
+                        <input type="checkbox" checked={selectedDepts.includes(dept)} readOnly />
+                        {dept}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </th>
+                            {/* COMPLETION DATE COLUMN */}
+              <th
+                className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
+                style={styles.outfitFont}
+              >
+                Completion Date
+              </th>
+
+              {/* TARGET PERIOD COLUMN */}
+              <th
+                className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
+                style={styles.outfitFont}
+              >
+                Target Period
+              </th>
+
+              {/* DESCRIPTION COLUMN */}
+              <th
+                className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
+                style={styles.outfitFont}
+              >
+                Description
+              </th>
+
+              {/* RESOURCE NOTES COLUMN */}
+              <th
+                className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
+                style={styles.outfitFont}
+              >
+                Resource Consideration
+              </th>
+              </tr>
+              </thead>
+
+              {/* ---------------------------------------------------------
+                TABLE BODY — RENDERS EACH INITIATIVE ROW
+              --------------------------------------------------------- */}
+              <tbody>
+                {filteredInitiatives.map((item, index) => (
+                  <tr
+                    key={item.id}
+                    className={`hover:bg-black/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                  >
+                    {/* Sticky Edit Button (left column stays fixed while scrolling) */}
+                    <td className="sticky left-0 px-4 py-2 border bg-inherit text-black">
+                      <button
+                        onClick={() => handleEditInitiative(item.id)}
+                        className="px-2 py-1 bg-[#017ACB] text-white text-xs rounded hover:bg-blue-700"
+                        style={styles.outfitFont}
+                      >
+                        Edit
+                      </button>
+                    </td>
+
+                    {/* Initiative fields */}
+                    <td className="px-4 py-2 border text-sm text-black">{item.project}</td>
+                    <td className="px-4 py-2 border text-sm text-black">{item.category}</td>
+                    <td className="px-4 py-2 border text-sm text-black">{item.lead}</td>
+                    <td className="px-4 py-2 border text-sm text-black">{item.status}</td>
+                    <td className="px-4 py-2 border text-sm text-black">{item.requestor}</td>
+                    <td className="px-4 py-2 border text-sm text-black">{item.requestor_vp}</td>
+                    <td className="px-4 py-2 border text-sm text-black">{item.requesting_dept}</td>
+
+                    {/* Completion date formatted safely */}
+                    <td className="px-4 py-2 border text-sm text-black">
+                      {item.completion_date
+                        ? new Date(item.completion_date).toLocaleDateString()
+                        : ''}
+                    </td>
+
+                    <td className="px-4 py-2 border text-sm text-black">{item.target_period}</td>
+                    <td className="px-4 py-2 border text-sm text-black">{item.description}</td>
+                    <td className="px-4 py-2 border text-sm text-black">
+                      {item.resource_consideration}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
-      </main>
+      </div>
+     </main>
     </div>
   );
-}
+}           
