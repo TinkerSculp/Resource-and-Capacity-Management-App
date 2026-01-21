@@ -28,7 +28,7 @@ export default function InitiativesPage() {
   const [selectedStatuses, setSelectedStatuses] = useState([]); // Status filter
   const [selectedVPs, setSelectedVPs] = useState([]); // Requestor VP filter
   const [selectedDepts, setSelectedDepts] = useState([]); // Department filter
-  const [selectedLeads, setSelectedLeads] = useState([]); // ⭐ NEW Lead filter
+  const [selectedLeads, setSelectedLeads] = useState([]); // Lead filter
 
   // Sorting state
   const [projectSort, setProjectSort] = useState(''); // asc | desc | none
@@ -39,7 +39,7 @@ export default function InitiativesPage() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showVPMenu, setShowVPMenu] = useState(false);
   const [showDeptMenu, setShowDeptMenu] = useState(false);
-  const [showLeadMenu, setShowLeadMenu] = useState(false); // ⭐ NEW
+  const [showLeadMenu, setShowLeadMenu] = useState(false); 
 
   // Dropdown positioning (absolute menu placement)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -49,7 +49,7 @@ export default function InitiativesPage() {
   const [availableStatuses, setAvailableStatuses] = useState([]);
   const [availableVPs, setAvailableVPs] = useState([]);
   const [availableDepts, setAvailableDepts] = useState([]);
-  const [availableLeads, setAvailableLeads] = useState([]); // ⭐ NEW
+  const [availableLeads, setAvailableLeads] = useState([]); 
 
   // ---------------------------------------------------------
   // LOAD USER SESSION
@@ -95,7 +95,7 @@ export default function InitiativesPage() {
             id: item._id,
             project: item.project_name,
             category: item.category,
-            lead: item.leader, // ⭐ Lead field
+            lead: item.leader, // Lead field
             status: item.status,
             requestor: item.requestor,
             requestor_vp: item.requestor_vp,
@@ -118,7 +118,7 @@ export default function InitiativesPage() {
         setAvailableStatuses([...new Set(mappedAll.map(i => i.status).filter(Boolean))]);
         setAvailableVPs([...new Set(mappedAll.map(i => i.requestor_vp).filter(Boolean))]);
         setAvailableDepts([...new Set(mappedAll.map(i => i.requesting_dept).filter(Boolean))]);
-        setAvailableLeads([...new Set(mappedAll.map(i => i.lead).filter(Boolean))]); // ⭐ NEW
+        setAvailableLeads([...new Set(mappedAll.map(i => i.lead).filter(Boolean))]); 
 
       } catch (err) {
         console.error("Initiatives fetch error:", err);
@@ -151,7 +151,7 @@ export default function InitiativesPage() {
       (selectedStatuses.length ? selectedStatuses.includes(i.status) : true) &&
       (selectedVPs.length ? selectedVPs.includes(i.requestor_vp) : true) &&
       (selectedDepts.length ? selectedDepts.includes(i.requesting_dept) : true) &&
-      (selectedLeads.length ? selectedLeads.includes(i.lead) : true) // ⭐ NEW
+      (selectedLeads.length ? selectedLeads.includes(i.lead) : true)
     );
 
     // Apply sorting
@@ -171,7 +171,7 @@ export default function InitiativesPage() {
     selectedStatuses,
     selectedVPs,
     selectedDepts,
-    selectedLeads, // ⭐ NEW
+    selectedLeads, 
     projectSort
   ]);
 
@@ -195,7 +195,7 @@ export default function InitiativesPage() {
       setShowStatusMenu(false);
       setShowVPMenu(false);
       setShowDeptMenu(false);
-      setShowLeadMenu(false); // ⭐ NEW
+      setShowLeadMenu(false); 
       setShowProjectSortMenu(false);
     };
 
@@ -514,7 +514,7 @@ return (
                   )}
                 </th>
 
-                {/* ⭐ LEAD FILTER (NEW) */}
+                {/* LEAD FILTER */}
                 <th
                   className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
                   style={styles.outfitFont}
