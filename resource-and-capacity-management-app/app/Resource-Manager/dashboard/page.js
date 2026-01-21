@@ -114,53 +114,65 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* -----------------------------------------------------
-          Header Section
-         ----------------------------------------------------- */}
-      <header className="bg-[#017ACB] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+    {/* -----------------------------------------------------
+        Header Section
+    ----------------------------------------------------- */}
+<header className="bg-[#017ACB] shadow-sm w-full">
+  <div className="px-4 sm:px-6 lg:px-8 w-full">
 
-            {/* Logo + App Name */}
-            <div className="flex items-center">
-              <img src="/CapstoneDynamicsLogo.png" alt="Logo" className="h-12 w-auto" />
-              <div className="flex flex-col ml-3">
-                <h1 className="text-2xl font-bold text-white leading-tight" style={styles.outfitFont}>
-                  Capstone Dynamics
-                </h1>
-              </div>
-            </div>
+    {/* Balanced height for all screen sizes */}
+    <div className="relative flex items-center h-[clamp(4.5rem,5vw,5.5rem)] w-full">
 
-            {/* Centered Title */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center">
-              <h1 className="text-xl font-bold text-white leading-tight" style={styles.outfitFont}>
-                Resource & Capacity
-              </h1>
-              <h2 className="text-xl font-bold text-white leading-tight" style={styles.outfitFont}>
-                Management Planner
-              </h2>
-            </div>
+      {/* LEFT SECTION */}
+      <div className="flex items-center flex-none">
+        <img
+          src="/CapstoneDynamicsLogo.png"
+          alt="Logo"
+          className="w-auto h-[clamp(3.2rem,3.8vw,4.0rem)]"  
+        />
 
-            {/* Username + Profile Button */}
-            <div className="flex items-center gap-4">
-              <span className="text-white font-semibold" style={styles.outfitFont}>
-                {user?.username || ''}
-              </span>
+        <h1
+          className="font-bold text-white leading-tight ml-4 text-[clamp(1.6rem,1.7vw,2rem)]"
+          style={styles.outfitFont}
+        >
+          Capstone Dynamics
+        </h1>
+      </div>
 
-              <Link
-                href="/Resource-Manager/Profile/view-profile" // UPDATED ROUTE
-                className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden hover:opacity-90 transition cursor-pointer"
-                title="View Profile"
-              >
-                <span className="text-[#017ACB] font-bold text-lg">
-                  {user?.username?.charAt(0)?.toUpperCase() || ''}
-                </span>
-              </Link>
-            </div>
+    {/* CENTER SECTION */}
+<div className="absolute left-1/2 -translate-x-1/2 text-center">
+  <h1
+    className="font-bold text-white leading-tight text-[clamp(1.2rem,1.3vw,1.6rem)]"
+    style={styles.outfitFont}
+  >
+    Resource & Capacity Management Planner
+  </h1>
+</div>
 
-          </div>
-        </div>
-      </header>
+      {/* RIGHT SECTION */}
+      <div className="flex items-center gap-4 ml-auto flex-none">
+        <span
+          className="font-semibold text-white text-[clamp(1rem,1.15vw,1.25rem)]"
+          style={styles.outfitFont}
+        >
+          {user?.username || ''}
+        </span>
+
+        <Link
+          href="/Resource-Manager/Profile/view-profile"
+          className="rounded-full bg-white flex items-center justify-center overflow-hidden hover:opacity-90 transition cursor-pointer
+                     w-[clamp(2.6rem,3vw,3.2rem)] h-[clamp(2.6rem,3vw,3.2rem)]"
+          title="View Profile"
+        >
+          <span className="text-[#017ACB] font-bold text-[clamp(1.1rem,1.3vw,1.5rem)]">
+            {user?.username?.charAt(0)?.toUpperCase() || ''}
+          </span>
+        </Link>
+      </div>
+
+    </div>
+  </div>
+</header>
 
       {/* -----------------------------------------------------
           Main Content Section
