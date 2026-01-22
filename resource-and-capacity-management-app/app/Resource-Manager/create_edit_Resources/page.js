@@ -466,50 +466,64 @@ if (loading) {
 --------------------------------------------------------- */
 return (
   <div className="min-h-screen bg-gray-50">
-    <header className="bg-[#017ACB] shadow-sm">
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+     <header className="bg-[#017ACB] shadow-sm w-full relative">
+        <div className="px-4 sm:px-6 lg:px-8 w-full">
 
-          {/* Logo + App Name (Clickable → Dashboard) */}
-          <div className="flex items-center cursor-pointer" onClick={goToDashboard}>
-            <img src="/CapstoneDynamicsLogo.png" alt="Logo" className="h-12 w-auto" />
-            <div className="flex flex-col ml-3">
-              <h1 className="text-2xl font-bold text-white leading-tight" style={styles.outfitFont}>
+          {/* Balanced height for all screen sizes */}
+          <div className="relative flex items-center h-[clamp(4.5rem,5vw,5.5rem)] w-full">
+
+            {/* Logo + App Name (clickable → dashboard) */}
+            <div
+              className="flex items-center cursor-pointer flex-none"
+              onClick={() => router.push('/Resource-Manager/dashboard')}
+            >
+              <img
+                src="/CapstoneDynamicsLogo.png"
+                alt="Logo"
+                className="w-auto h-[clamp(3.2rem,3.8vw,4rem)]"
+              />
+
+              <h1
+                className="font-bold text-white leading-tight ml-4 text-[clamp(1.6rem,1.7vw,2rem)]"
+                style={styles.outfitFont}
+              >
                 Capstone Dynamics
               </h1>
             </div>
-          </div>
 
-          {/* Centered Title */}
-          <div className="flex flex-col items-center">
-            <h1 className="text-xl font-bold text-white leading-tight" style={styles.outfitFont}>
-              Resource & Capacity
-            </h1>
-            <h2 className="text-xl font-bold text-white leading-tight" style={styles.outfitFont}>
-              Management Planner
-            </h2>
-          </div>
-
-          {/* User Info + Profile Shortcut */}
-          <div className="flex items-center gap-4">
-            <span className="text-white font-semibold" style={styles.outfitFont}>
-              {user?.username || ''}
-            </span>
-
-            <div
-              onClick={() => router.push('/Profile/view-profile')}
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden hover:opacity-90 transition cursor-pointer"
-              title="View Profile"
-            >
-              <span className="text-[#017ACB] font-bold text-lg">
-                {user?.username?.charAt(0)?.toUpperCase() || ''}
-              </span>
+            {/* Centered Page Title */}
+            <div className="absolute left-1/2 -translate-x-1/2 text-center">
+              <h1
+                className="font-bold text-white leading-tight text-[clamp(1.2rem,1.3vw,1.6rem)]"
+                style={styles.outfitFont}
+              >
+                Resource & Capacity Management Planner
+              </h1>
             </div>
-          </div>
 
+            {/* User Profile (username + avatar circle) */}
+            <div className="flex items-center gap-4 ml-auto flex-none">
+              <span
+                className="font-semibold text-white text-[clamp(1rem,1.15vw,1.25rem)]"
+                style={styles.outfitFont}
+              >
+                {user?.username || ''}
+              </span>
+
+              <div
+                onClick={() => router.push('/Resource-Manager/Profile/view-profile')}
+                className="rounded-full bg-white flex items-center justify-center cursor-pointer hover:opacity-90 transition
+                           w-[clamp(2.4rem,2.8vw,3.0rem)] h-[clamp(2.4rem,2.8vw,3.0rem)]"
+              >
+                <span className="text-[#017ACB] font-bold text-[clamp(1.1rem,1.3vw,1.5rem)]">
+                  {user?.username?.charAt(0)?.toUpperCase() || ''}
+                </span>
+              </div>
+            </div>
+
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
  
     <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
