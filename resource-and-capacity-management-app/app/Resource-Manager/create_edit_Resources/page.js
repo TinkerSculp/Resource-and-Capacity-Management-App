@@ -91,7 +91,7 @@ export default function ResourcesPage() {
   });
 
   const router = useRouter();
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const apiUrl = 'http://localhost:3001';
 
   /* -------------------------------------------------------
      Effect: Load User from LocalStorage
@@ -147,16 +147,16 @@ export default function ResourcesPage() {
       setLoading(true);
 
       // Fetch employees
-      const empResponse = await fetch(`${apiUrl}/api/employees`);
+      const empResponse = await fetch(`${apiUrl}/api/Resource-Manager/employees`);
       const empData = await empResponse.json();
 
       // Fetch departments
-      const deptResponse = await fetch(`${apiUrl}/api/departments`);
+      const deptResponse = await fetch(`${apiUrl}/api/Resource-Manager/departments`);
       const deptData = await deptResponse.json();
       setDepartments(deptData);
 
       // Fetch managers
-      const mgrResponse = await fetch(`${apiUrl}/api/managers`);
+      const mgrResponse = await fetch(`${apiUrl}/api/Resource-Manager/managers`);
       const mgrData = await mgrResponse.json();
       setManagers(mgrData);
 
@@ -164,7 +164,7 @@ export default function ResourcesPage() {
       const employeesWithCap = await Promise.all(
         empData.map(async (emp) => {
           try {
-            const capResponse = await fetch(`${apiUrl}/api/employees/${emp.emp_id}/capacity`);
+            const capResponse = await fetch(`${apiUrl}/api/Resource-Manager/employees/${emp.emp_id}/capacity`);
             if (capResponse.ok) {
               const capData = await capResponse.json();
 
@@ -177,6 +177,7 @@ export default function ResourcesPage() {
                   comments: cap.comments
                 };
               });
+
               return { ...emp, capacity: capacityByMonth };
             }
           } catch (err) {
@@ -253,7 +254,7 @@ export default function ResourcesPage() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${apiUrl}/api/employees`, {
+      const response = await fetch(`${apiUrl}/api/Resource-Manager/employees`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -286,7 +287,7 @@ export default function ResourcesPage() {
     if (!selectedEmployee) return;
 
     try {
-      const response = await fetch(`${apiUrl}/api/employees/${selectedEmployee.emp_id}`, {
+      const response = await fetch(`${apiUrl}/api/Resource-Manager/employees/${selectedEmployee.emp_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -317,7 +318,7 @@ export default function ResourcesPage() {
   ------------------------------------------------------- */
   const handleStatusChange = async (empId, newStatus) => {
     try {
-      const response = await fetch(`${apiUrl}/api/employees/${empId}/status`, {
+      const response = await fetch(`${apiUrl}/api/Resource-Manager/employees/${empId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
