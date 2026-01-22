@@ -1,22 +1,25 @@
 import { NextResponse } from "next/server";
 import { MongoClient } from "mongodb";
 
-// ---------------------------------------------------------
-// MONGODB CONNECTION SETUP
-// ---------------------------------------------------------
+/* ---------------------------------------------------------
+   MONGODB CONNECTION SETUP
+   - Loads connection string from environment
+   - Reuses a single MongoClient instance
+   - Prevents duplicate connections during hot reloads
+--------------------------------------------------------- */
 
 // Connection string loaded from environment variables
 const uri = process.env.MONGODB_URI;
 
-// Create a reusable MongoDB client instance
+// Shared MongoDB client instance
 const client = new MongoClient(uri);
 
-/**
- * Establishes a connection to MongoDB.
- * - Reuses the existing client during hot reloads
- * - Prevents multiple parallel connections
- * - Returns the active database instance
- */
+/* ---------------------------------------------------------
+   CONNECT TO DATABASE
+   - Opens a connection only if not already active
+   - Ensures stable DB access across API calls
+   - Returns active database instance (explicit DB name)
+--------------------------------------------------------- */
 async function connectDB() {
   if (!client.topology || !client.topology.isConnected()) {
     await client.connect();
@@ -24,18 +27,22 @@ async function connectDB() {
   return client.db("ResourceManagementAPP_DB");
 }
 
-// ---------------------------------------------------------
-// POST /api/Resource-Manager/Initiatives/Add
-// Creates a new initiative record in the database
-// ---------------------------------------------------------
+/* ---------------------------------------------------------
+   POST /api/Resource-Manager/Initiatives/Add
+   - Creates a new initiative record
+   - Validates required fields
+   - Validates user roles (Lead, Requestor, VP)
+   - Auto‑assigns department based on VP
+   - Inserts final initiative document into DB
+--------------------------------------------------------- */
 export async function POST(request) {
   try {
     const db = await connectDB();
 
-    // Extract JSON body from request
+    // Parse incoming JSON payload
     const body = await request.json();
 
-    // Destructure expected fields
+    // Extract expected fields
     const {
       project,
       category,
@@ -50,14 +57,12 @@ export async function POST(request) {
       resource_consideration,
     } = body;
 
-    // ---------------------------------------------------------
-    // REQUIRED FIELD VALIDATION
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       REQUIRED FIELD VALIDATION
+       - Ensures mandatory fields are not empty
+       - completion_date validated separately for Completed status
+    --------------------------------------------------------- */
 
-    /**
-     * Required fields for all initiatives.
-     * - completion_date is validated separately when status = Completed
-     */
     const requiredFields = {
       project,
       category,
@@ -69,7 +74,7 @@ export async function POST(request) {
       description,
     };
 
-    // Loop through required fields and validate non-empty values
+    // Validate each required field
     for (const [key, value] of Object.entries(requiredFields)) {
       if (!value || value.trim() === "") {
         return NextResponse.json(
@@ -79,7 +84,7 @@ export async function POST(request) {
       }
     }
 
-    // Additional rule: Completed initiatives MUST include a completion date
+    // Completed initiatives must include a completion date
     if (
       status === "Completed" &&
       (!completion_date || completion_date.trim() === "")
@@ -93,42 +98,36 @@ export async function POST(request) {
       );
     }
 
-    // ---------------------------------------------------------
-    // USER VALIDATION HELPERS
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       USER VALIDATION HELPERS
+       - Validates Lead, Requestor, and VP
+       - Matches allowed account types
+       - Joins employee info via emp_id
+       - Matches employee name exactly
+    --------------------------------------------------------- */
 
-    /**
-     * Validates a user by:
-     * - Matching ANY of the allowed account types (accTypes array)
-     * - Joining employee info via emp_id
-     * - Matching employee name exactly
-     *
-     * Returns:
-     * - employee_info object if valid
-     * - null if no match found
-     */
     const validateUser = async (name, accTypes) => {
       const result = await db
         .collection("account")
         .aggregate([
-          { $match: { "account.acc_type_id": { $in: accTypes } } }, // Accept multiple account types
+          { $match: { "account.acc_type_id": { $in: accTypes } } },
           {
             $lookup: {
-              from: "employee", // Join employee collection
+              from: "employee",
               localField: "emp_id",
               foreignField: "emp_id",
               as: "employee_info",
             },
           },
-          { $unwind: "$employee_info" }, // Flatten joined array
-          { $match: { "employee_info.emp_name": name } }, // Match by employee name
+          { $unwind: "$employee_info" },
+          { $match: { "employee_info.emp_name": name } },
         ])
         .toArray();
 
       return result.length > 0 ? result[0].employee_info : null;
     };
 
-    // Validate Lead (must be account type 1 only)
+    // Validate Lead (must be Resource Manager)
     const leadValid = await validateUser(lead, [1]);
     if (!leadValid) {
       return NextResponse.json(
@@ -137,7 +136,7 @@ export async function POST(request) {
       );
     }
 
-    // Validate Requestor (allowed: acc_type_id 1 or 2)
+    // Validate Requestor (allowed: 1 or 2)
     const requestorValid = await validateUser(requestor, [1, 2]);
     if (!requestorValid) {
       return NextResponse.json(
@@ -146,7 +145,7 @@ export async function POST(request) {
       );
     }
 
-    // Validate Requestor VP (allowed: acc_type_id 1 or 2)
+    // Validate Requestor VP (allowed: 1 or 2)
     const vpValid = await validateUser(requestor_vp, [1, 2]);
     if (!vpValid) {
       return NextResponse.json(
@@ -155,25 +154,24 @@ export async function POST(request) {
       );
     }
 
-    // ---------------------------------------------------------
-    // AUTO-ASSIGN DEPARTMENT BASED ON VP
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       AUTO‑ASSIGN DEPARTMENT BASED ON VP
+       - Uses VP’s department when available
+       - Falls back to manually provided department
+       - Defaults to empty string
+    --------------------------------------------------------- */
 
-    /**
-     * Department is determined by:
-     * - VP's department (preferred)
-     * - OR manually provided requesting_dept
-     * - OR empty string fallback
-     */
     const deptRecord = await db
       .collection("department")
       .findOne({ dept_no: vpValid.dept_no });
 
     const autoDept = deptRecord?.dept_name || requesting_dept || "";
 
-    // ---------------------------------------------------------
-    // BUILD INITIATIVE DOCUMENT
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       BUILD INITIATIVE DOCUMENT
+       - Prepares final structure for DB insertion
+       - Includes timestamp for auditing
+    --------------------------------------------------------- */
 
     const newInitiative = {
       project_name: project,
@@ -187,12 +185,13 @@ export async function POST(request) {
       completion_date: completion_date || null,
       description,
       resource_notes: resource_consideration || "",
-      created_at: new Date(), // Timestamp for auditing
+      created_at: new Date(),
     };
 
-    // ---------------------------------------------------------
-    // INSERT INTO DATABASE
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       INSERT INTO DATABASE
+       - Saves initiative into assignment collection
+    --------------------------------------------------------- */
 
     const result = await db.collection("assignment").insertOne(newInitiative);
 
@@ -200,7 +199,13 @@ export async function POST(request) {
       { success: true, insertedId: result.insertedId },
       { status: 200 }
     );
+
   } catch (err) {
+    /* ---------------------------------------------------------
+       ERROR HANDLING
+       - Logs unexpected server errors
+       - Returns generic failure response
+    --------------------------------------------------------- */
     console.error("Add Initiative API error:", err);
 
     return NextResponse.json(

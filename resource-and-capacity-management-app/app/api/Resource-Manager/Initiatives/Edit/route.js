@@ -1,22 +1,25 @@
 import { NextResponse } from "next/server";
 import { MongoClient, ObjectId } from "mongodb";
 
-// ---------------------------------------------------------
-// MONGODB CONNECTION SETUP
-// ---------------------------------------------------------
+/* ---------------------------------------------------------
+   MONGODB CONNECTION SETUP
+   - Loads connection string from environment
+   - Reuses a single MongoClient instance
+   - Prevents duplicate connections during hot reloads
+--------------------------------------------------------- */
 
 // Connection string loaded from environment variables
 const uri = process.env.MONGODB_URI;
 
-// Create a reusable MongoDB client instance
+// Shared MongoDB client instance
 const client = new MongoClient(uri);
 
-/**
- * Establishes a connection to MongoDB.
- * - Reuses the existing client during hot reloads
- * - Prevents multiple parallel connections
- * - Returns the active database instance
- */
+/* ---------------------------------------------------------
+   CONNECT TO DATABASE
+   - Opens a connection only if not already active
+   - Ensures stable DB access across API calls
+   - Returns active database instance (explicit DB name)
+--------------------------------------------------------- */
 async function connectDB() {
   if (!client.topology || !client.topology.isConnected()) {
     await client.connect();
@@ -24,18 +27,22 @@ async function connectDB() {
   return client.db("ResourceManagementAPP_DB");
 }
 
-// ---------------------------------------------------------
-// PUT /api/Resource-Manager/Initiatives/Edit
-// Updates an existing initiative record
-// ---------------------------------------------------------
+/* ---------------------------------------------------------
+   PUT /api/Resource-Manager/Initiatives/Edit
+   - Updates an existing initiative record
+   - Validates required fields
+   - Validates requestor + VP existence
+   - Auto‑assigns department based on VP
+   - Saves updated record to database
+--------------------------------------------------------- */
 export async function PUT(request) {
   try {
     const db = await connectDB();
 
-    // Extract JSON body from request
+    // Parse incoming JSON payload
     const body = await request.json();
 
-    // Destructure expected fields
+    // Extract expected fields
     const {
       id,
       project,
@@ -51,19 +58,17 @@ export async function PUT(request) {
       resource_consideration,
     } = body;
 
-    // ---------------------------------------------------------
-    // BASIC VALIDATION
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       BASIC VALIDATION
+       - Initiative ID must be provided
+       - Required fields must contain non‑empty values
+       - completion_date required when status = Completed
+    --------------------------------------------------------- */
 
-    // Initiative ID must be provided
     if (!id) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    /**
-     * Required fields for all initiatives.
-     * - completion_date validated separately when status = Completed
-     */
     const requiredFields = {
       project,
       category,
@@ -75,7 +80,6 @@ export async function PUT(request) {
       description,
     };
 
-    // Validate non-empty required fields
     for (const [key, value] of Object.entries(requiredFields)) {
       if (!value || value.trim() === "") {
         return NextResponse.json(
@@ -85,7 +89,6 @@ export async function PUT(request) {
       }
     }
 
-    // Additional rule: Completed initiatives MUST include a completion date
     if (
       status === "Completed" &&
       (!completion_date || completion_date.trim() === "")
@@ -99,15 +102,13 @@ export async function PUT(request) {
       );
     }
 
-    // ---------------------------------------------------------
-    // REQUESTOR VALIDATION
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       REQUESTOR VALIDATION
+       - Ensures Requestor exists in employee collection
+       - Ensures Requestor VP exists in employee collection
+       - Matches by exact employee name
+    --------------------------------------------------------- */
 
-    /**
-     * Validate Requestor:
-     * - Must exist in the employee collection
-     * - Name must match exactly
-     */
     const requestorEmployee = await db
       .collection("employee")
       .findOne({ emp_name: requestor });
@@ -119,10 +120,6 @@ export async function PUT(request) {
       );
     }
 
-    /**
-     * Validate Requestor VP:
-     * - Must also exist in employee collection
-     */
     const vpEmployee = await db
       .collection("employee")
       .findOne({ emp_name: requestor_vp });
@@ -134,24 +131,23 @@ export async function PUT(request) {
       );
     }
 
-    // ---------------------------------------------------------
-    // AUTO-POPULATE DEPARTMENT BASED ON VP
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       AUTO‑POPULATE DEPARTMENT BASED ON VP
+       - Uses VP’s department when available
+       - Falls back to empty string
+    --------------------------------------------------------- */
 
-    /**
-     * Department is determined by:
-     * - VP's department (preferred)
-     * - OR empty string fallback
-     */
     const deptRecord = await db
       .collection("department")
       .findOne({ dept_no: vpEmployee.dept_no });
 
     const autoDept = deptRecord?.dept_name || "";
 
-    // ---------------------------------------------------------
-    // BUILD UPDATE DOCUMENT
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       BUILD UPDATE DOCUMENT
+       - Prepares final structure for DB update
+       - Includes timestamp for auditing
+    --------------------------------------------------------- */
 
     const updated = {
       project_name: project,
@@ -165,12 +161,14 @@ export async function PUT(request) {
       completion_date: completion_date || null,
       description,
       resource_notes: resource_consideration || "",
-      updated_at: new Date(), // Timestamp for auditing
+      updated_at: new Date(),
     };
 
-    // ---------------------------------------------------------
-    // UPDATE INITIATIVE IN DATABASE
-    // ---------------------------------------------------------
+    /* ---------------------------------------------------------
+       UPDATE INITIATIVE IN DATABASE
+       - Uses _id to locate record
+       - Applies $set to update fields
+    --------------------------------------------------------- */
 
     await db
       .collection("assignment")
@@ -179,6 +177,11 @@ export async function PUT(request) {
     return NextResponse.json({ success: true });
 
   } catch (err) {
+    /* ---------------------------------------------------------
+       ERROR HANDLING
+       - Logs unexpected server errors
+       - Returns generic failure response
+    --------------------------------------------------------- */
     console.error("Edit Initiative API error:", err);
 
     return NextResponse.json(

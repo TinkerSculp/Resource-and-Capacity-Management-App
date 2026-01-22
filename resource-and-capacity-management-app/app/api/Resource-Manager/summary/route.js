@@ -2,44 +2,44 @@ import { NextResponse } from 'next/server';
 import { MongoClient } from 'mongodb';
 
 /* ---------------------------------------------------------
-   MongoDB Connection Setup (Native Driver)
-   ---------------------------------------------------------
-   - Uses a single shared MongoClient instance
-   - Prevents multiple connections during hot reloads
-   - Ensures efficient, reusable database access
+   MONGODB CONNECTION SETUP
+   - Loads connection string from environment
+   - Reuses a single MongoClient instance
+   - Prevents duplicate connections during hot reloads
 --------------------------------------------------------- */
 
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 
-/**
- * Ensures a single, reusable MongoDB connection.
- * - Avoids creating new connections on every request
- * - Returns the active database instance
- */
+/* ---------------------------------------------------------
+   CONNECT TO DATABASE
+   - Opens a connection only if not already active
+   - Ensures stable DB access across API calls
+   - Returns active database instance
+--------------------------------------------------------- */
 async function connectDB() {
   if (!client.topology || !client.topology.isConnected()) {
     await client.connect();
-    console.log("✅ Connected to MongoDB (Summary API)");
+    console.log("Connected to MongoDB (Summary API)");
   }
-  return client.db();
+  return client.db(); // Uses default DB from connection string
 }
 
 /* ---------------------------------------------------------
    GET /api/Resource-Manager/summary
    ---------------------------------------------------------
-   Purpose:
+   PURPOSE:
    - Returns initiative counts for dashboard summary cards
-   - Supports two modes:
-       1. filter=all   → counts all initiatives
-       2. filter=mine  → counts initiatives led by the logged‑in user
 
-   How "Mine" Works:
-   - Uses username → account lookup
-   - Retrieves emp_id from account
-   - Uses emp_id → employee lookup
-   - Extracts employee.emp_name
-   - Filters assignments where leader === emp_name
+   SUPPORTED MODES:
+   - filter=all   → counts all initiatives
+   - filter=mine  → counts initiatives led by the logged‑in user
+
+   HOW "MINE" MODE WORKS:
+   - username → account lookup
+   - account.emp_id → employee lookup
+   - employee.emp_name → used as leader filter
+   - Only initiatives where leader === emp_name are counted
 --------------------------------------------------------- */
 
 export async function GET(req) {
@@ -51,23 +51,21 @@ export async function GET(req) {
     const filter = searchParams.get("filter");
     const username = searchParams.get("username");
 
-    // Base MongoDB query object (modified only for "mine")
+    // Base query (modified only when filter=mine)
     let baseQuery = {};
 
-    /* -----------------------------------------------------
+    /* ---------------------------------------------------------
        MINE FILTER LOGIC
-       -----------------------------------------------------
        - Converts username → emp_id → emp_name
-       - Uses emp_name as the "leader" filter
-       - Ensures only initiatives owned by the user are counted
-    ----------------------------------------------------- */
+       - Applies leader filter for user-owned initiatives
+       - Returns empty summary if user cannot be resolved
+    --------------------------------------------------------- */
     if (filter === "mine" && username) {
       // 1. Look up account by username
       const accountDoc = await db.collection("account").findOne({
         "account.username": username.trim()
       });
 
-      // If no account found, return empty summary
       if (!accountDoc) {
         return NextResponse.json({
           backlog: 0,
@@ -82,7 +80,6 @@ export async function GET(req) {
         emp_id: accountDoc.emp_id
       });
 
-      // If no employee found, return empty summary
       if (!employee) {
         return NextResponse.json({
           backlog: 0,
@@ -92,17 +89,15 @@ export async function GET(req) {
         });
       }
 
-      // 3. Apply leader filter using employee full name
+      // 3. Apply leader filter
       baseQuery.leader = employee.emp_name;
     }
 
-    /* -----------------------------------------------------
+    /* ---------------------------------------------------------
        INITIATIVE COUNTS
-       -----------------------------------------------------
-       - Queries the assignment collection
        - Applies baseQuery (empty for "all", filtered for "mine")
        - Counts initiatives by status category
-    ----------------------------------------------------- */
+    --------------------------------------------------------- */
 
     const backlog = await db.collection("assignment").countDocuments({
       ...baseQuery,
@@ -124,12 +119,10 @@ export async function GET(req) {
       status: "On Hold"
     });
 
-    /* -----------------------------------------------------
-       Response Payload
-       -----------------------------------------------------
-       - Returns structured summary counts
-       - Used by dashboard summary cards
-    ----------------------------------------------------- */
+    /* ---------------------------------------------------------
+       RESPONSE PAYLOAD
+       - Structured summary counts for dashboard cards
+    --------------------------------------------------------- */
     return NextResponse.json({
       backlog,
       active,
@@ -138,8 +131,12 @@ export async function GET(req) {
     });
 
   } catch (err) {
-    // Catch unexpected server errors
-    console.error("🔥 Summary API error:", err);
+    /* ---------------------------------------------------------
+       ERROR HANDLING
+       - Catches unexpected server errors
+       - Returns generic error response
+    --------------------------------------------------------- */
+    console.error("Summary API error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

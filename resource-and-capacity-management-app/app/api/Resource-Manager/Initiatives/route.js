@@ -1,6 +1,5 @@
 /* ---------------------------------------------------------
    IMPORTS & DATABASE CLIENT SETUP
-   ---------------------------------------------------------
    - NextResponse: used to return API responses in Next.js
    - MongoClient: used to connect to MongoDB Atlas
    - uri: connection string stored in environment variables
@@ -14,13 +13,9 @@ const client = new MongoClient(uri);
 
 /* ---------------------------------------------------------
    DATABASE CONNECTION HANDLER
-   ---------------------------------------------------------
-   Purpose:
    - Ensures a single MongoDB connection is reused
    - Prevents multiple connections during hot reload
    - Returns the active database instance
-
-   Notes:
    - Database name: ResourceManagementAPP_DB
 --------------------------------------------------------- */
 async function connectDB() {
@@ -33,8 +28,6 @@ async function connectDB() {
 
 /* ---------------------------------------------------------
    GET: FETCH ASSIGNMENTS WITH RELATIONAL LOOKUPS
-   ---------------------------------------------------------
-   Purpose:
    - Retrieves all assignment records
    - Performs two relational lookups:
        1. requestor_vp → employee.emp_name
@@ -54,7 +47,7 @@ async function connectDB() {
    - status
    - requestor
    - requestor_vp
-   - requesting_dept (resolved via joins)
+   - requesting_dept
    - target_period
    - completion_date
    - description
@@ -66,7 +59,6 @@ export async function GET(request) {
 
     /* ---------------------------------------------------------
        OPTIONAL: USERNAME FOR "MY INITIATIVES"
-       ---------------------------------------------------------
        - If provided, backend will also return initiatives
          where the logged-in user is the leader.
     --------------------------------------------------------- */
@@ -75,7 +67,9 @@ export async function GET(request) {
 
     /* ---------------------------------------------------------
        FETCH ALL ASSIGNMENTS (WITH LOOKUPS)
-       --------------------------------------------------------- */
+       - Joins VP → employee → department
+       - Produces enriched assignment objects
+    --------------------------------------------------------- */
     const allAssignments = await db.collection("assignment").aggregate([
       {
         $lookup: {
@@ -117,7 +111,6 @@ export async function GET(request) {
 
     /* ---------------------------------------------------------
        RESOLVE "MY INITIATIVES" (IF USERNAME PROVIDED)
-       ---------------------------------------------------------
        ERD Chain:
        1. account.username → emp_id
        2. employee.emp_id → emp_name
@@ -145,7 +138,6 @@ export async function GET(request) {
 
     /* ---------------------------------------------------------
        SUCCESS RESPONSE
-       ---------------------------------------------------------
        - Returns both:
          1. allAssignments → full dataset
          2. myInitiatives → filtered by logged-in user
@@ -158,7 +150,6 @@ export async function GET(request) {
   } catch (err) {
     /* ---------------------------------------------------------
        ERROR HANDLING
-       ---------------------------------------------------------
        - Logs server-side error
        - Returns 500 response to frontend
     --------------------------------------------------------- */

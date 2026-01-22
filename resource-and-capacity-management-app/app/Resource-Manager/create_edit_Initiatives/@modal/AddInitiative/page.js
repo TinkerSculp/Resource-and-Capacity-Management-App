@@ -4,22 +4,23 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 
 /* ---------------------------------------------------------
-   SEARCHABLE DROPDOWN (Requestor + VP)
-   - Supports search input
-   - Click-outside-to-close behavior
-   - Alphabetical + prefix prioritization sorting
-   - Used for Requestor and Requestor VP fields
+   SEARCHABLE DROPDOWN COMPONENT
+   - Used for Requestor + Requestor VP fields
+   - Supports text search with prioritized prefix matching
+   - Includes click‑outside‑to‑close behavior
+   - Returns selected employee name to parent form
 --------------------------------------------------------- */
 function SearchableDropdown({ label, value, onChange, list }) {
-  const [open, setOpen] = useState(false);      // Controls dropdown visibility
-  const [search, setSearch] = useState("");     // Search input state
-  const ref = useRef(null);                     // For click-outside detection
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef(null);
 
   const searchParams = useSearchParams();
-  const id = searchParams.get("id");            // Used for edit mode (not used here but kept for consistency)
+  const id = searchParams.get("id");
 
   /* ---------------------------------------------------------
-     Close dropdown when clicking outside component
+     CLICK‑OUTSIDE HANDLER
+     - Closes dropdown when clicking outside component
   --------------------------------------------------------- */
   useEffect(() => {
     function handleClickOutside(e) {
@@ -32,7 +33,7 @@ function SearchableDropdown({ label, value, onChange, list }) {
   }, []);
 
   /* ---------------------------------------------------------
-     Filter + prioritize results:
+     FILTERED + PRIORITIZED RESULTS
      - Matches search text anywhere
      - Prioritizes names starting with search text
   --------------------------------------------------------- */
@@ -48,14 +49,13 @@ function SearchableDropdown({ label, value, onChange, list }) {
     <div className="flex flex-col relative" ref={ref}>
       <label className="text-xs text-black mb-1">{label}</label>
 
-      {/* Dropdown trigger */}
+      {/* Trigger */}
       <div
         className="bg-white text-black border p-2 rounded cursor-pointer flex justify-between items-center"
         onClick={() => setOpen(!open)}
       >
         <span>{value || `Select ${label}`}</span>
 
-        {/* Arrow icon */}
         <svg
           className={`w-4 h-4 ml-2 transition-transform ${open ? "rotate-180" : "rotate-0"}`}
           fill="none"
@@ -67,7 +67,7 @@ function SearchableDropdown({ label, value, onChange, list }) {
         </svg>
       </div>
 
-      {/* Dropdown menu */}
+      {/* Menu */}
       {open && (
         <div className="absolute top-full left-0 w-full bg-white border rounded shadow-lg z-50 mt-1">
 
@@ -80,16 +80,16 @@ function SearchableDropdown({ label, value, onChange, list }) {
             className="p-2 border-b w-full text-black"
           />
 
-          {/* Scrollable list */}
+          {/* List */}
           <div className="max-h-40 overflow-y-auto">
             {filtered.map((emp) => (
               <div
                 key={emp.emp_name}
                 className="p-2 cursor-pointer text-black hover:bg-blue-100"
                 onClick={() => {
-                  onChange(emp.emp_name);  // Update parent form
-                  setOpen(false);          // Close dropdown
-                  setSearch("");           // Reset search
+                  onChange(emp.emp_name);
+                  setOpen(false);
+                  setSearch("");
                 }}
               >
                 {emp.emp_name}
@@ -103,17 +103,17 @@ function SearchableDropdown({ label, value, onChange, list }) {
 }
 
 /* ---------------------------------------------------------
-   NON-SEARCH DROPDOWN (Category, Lead, Status)
-   - Same styling as searchable dropdown
-   - No search bar
-   - Used for simple static lists
+   STYLED DROPDOWN COMPONENT
+   - Used for Category, Lead, Status fields
+   - Same UI as searchable dropdown but without search input
+   - Includes click‑outside‑to‑close behavior
 --------------------------------------------------------- */
 function StyledDropdown({ label, value, onChange, options }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   /* ---------------------------------------------------------
-     Click-outside-to-close behavior
+     CLICK‑OUTSIDE HANDLER
   --------------------------------------------------------- */
   useEffect(() => {
     function handleClickOutside(e) {
@@ -129,14 +129,13 @@ function StyledDropdown({ label, value, onChange, options }) {
     <div className="flex flex-col relative" ref={ref}>
       <label className="text-xs text-black mb-1">{label}</label>
 
-      {/* Dropdown trigger */}
+      {/* Trigger */}
       <div
         className="bg-white text-black border p-2 rounded cursor-pointer flex justify-between items-center"
         onClick={() => setOpen(!open)}
       >
         <span>{value || `Select ${label}`}</span>
 
-        {/* Arrow icon */}
         <svg
           className={`w-4 h-4 ml-2 transition-transform ${open ? "rotate-180" : "rotate-0"}`}
           fill="none"
@@ -148,7 +147,7 @@ function StyledDropdown({ label, value, onChange, options }) {
         </svg>
       </div>
 
-      {/* Dropdown menu */}
+      {/* Menu */}
       {open && (
         <div className="absolute top-full left-0 w-full bg-white border rounded shadow-lg z-50 mt-1">
           <div className="max-h-40 overflow-y-auto">
@@ -157,8 +156,8 @@ function StyledDropdown({ label, value, onChange, options }) {
                 key={opt}
                 className="p-2 cursor-pointer text-black hover:bg-blue-100"
                 onClick={() => {
-                  onChange(opt);   // Update parent form
-                  setOpen(false);  // Close dropdown
+                  onChange(opt);
+                  setOpen(false);
                 }}
               >
                 {opt}
@@ -172,25 +171,24 @@ function StyledDropdown({ label, value, onChange, options }) {
 }
 
 /* ---------------------------------------------------------
-   MAIN ADD INITIATIVE MODAL
-   - Handles form state
-   - Loads dropdown data
-   - Auto-fills department based on VP
-   - Submits to Add API
-   - Exits modal route on success
+   ADD INITIATIVE MODAL
+   - Loads dropdown values (employees + requestors)
+   - Auto‑fills department based on VP selection
+   - Submits POST request to create new initiative
+   - Closes modal + refreshes parent page on success
 --------------------------------------------------------- */
 export default function AddInitiativeModal() {
   const router = useRouter();
 
-  const [loading, setLoading] = useState(false);     // Save button loading state
-  const [employees, setEmployees] = useState([]);    // Lead dropdown
-  const [requestors, setRequestors] = useState([]);  // Requestor + VP dropdowns
-  const [error, setError] = useState("");            // Error message display
-  const [dept, setDept] = useState("");              // Auto-filled department
+  const [loading, setLoading] = useState(false);
+  const [employees, setEmployees] = useState([]);
+  const [requestors, setRequestors] = useState([]);
+  const [error, setError] = useState("");
+  const [dept, setDept] = useState("");
 
   /* ---------------------------------------------------------
      FORM STATE
-     - Mirrors backend Add API payload
+     - Mirrors backend Add API payload structure
   --------------------------------------------------------- */
   const [form, setForm] = useState({
     project: "",
@@ -206,8 +204,8 @@ export default function AddInitiativeModal() {
   });
 
   /* ---------------------------------------------------------
-     Load dropdown values (employees + requestors)
-     - Runs once on mount
+     LOAD DROPDOWN VALUES
+     - Fetches employees + requestors on mount
   --------------------------------------------------------- */
   useEffect(() => {
     async function loadDropdowns() {
@@ -224,8 +222,8 @@ export default function AddInitiativeModal() {
   }, []);
 
   /* ---------------------------------------------------------
-     Auto-load department when VP changes
-     - Calls GetDept API
+     AUTO‑LOAD DEPARTMENT BASED ON VP
+     - Calls GetDept API when VP changes
   --------------------------------------------------------- */
   async function fetchDept(vpName) {
     if (!vpName.trim()) {
@@ -242,75 +240,63 @@ export default function AddInitiativeModal() {
   }
 
   /* ---------------------------------------------------------
-     Update a single form field
+     UPDATE SINGLE FORM FIELD
   --------------------------------------------------------- */
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
-
-  /* ---------------------------------------------------------
-     SUBMIT HANDLER
-     - Sends POST request
-     - Shows errors
-     - Exits modal route on success
-  --------------------------------------------------------- */
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError("");
-
-  // Build payload for backend creation
-  const payload = {
-    ...form,
-    requesting_dept: dept, // Auto-filled from VP selection
-  };
-
-  try {
-    const res = await fetch('/api/Resource-Manager/Initiatives/Add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await res.json();
-
-    // Handle validation or server errors
-    if (!res.ok) {
-      setError(result.error || "Something went wrong.");
-      setLoading(false);
-      return;
-    }
-
     /* ---------------------------------------------------------
-       CLOSE MODAL + REFRESH INITIATIVES PAGE
-       - router.back() removes the @modal segment (closes modal)
-       - After a short delay, router.replace() navigates to the
-         parent page with a refresh param to trigger re-fetch
-    --------------------------------------------------------- */
+     SUBMIT HANDLER
+     - Sends POST request to Add API
+     - Displays validation/server errors
+     - Closes modal + refreshes parent page on success
+  --------------------------------------------------------- */
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    // Step 1: Close the modal route
-    router.back();
+    const payload = {
+      ...form,
+      requesting_dept: dept,
+    };
 
-    // Step 2: Refresh parent page after modal unmounts
-    setTimeout(() => {
-      router.replace(
-        `/Resource-Manager/create_edit_Initiatives?refresh=${Date.now()}`
-      );
-    }, 100);
+    try {
+      const res = await fetch('/api/Resource-Manager/Initiatives/Add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-  } catch (err) {
-    console.error('Error submitting form:', err);
-    setError("Network error. Try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(result.error || "Something went wrong.");
+        setLoading(false);
+        return;
+      }
+
+      router.back();
+
+      setTimeout(() => {
+        router.replace(
+          `/Resource-Manager/create_edit_Initiatives?refresh=${Date.now()}`
+        );
+      }, 100);
+
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      setError("Network error. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* ---------------------------------------------------------
      MODAL UI
-     - Full-screen overlay
-     - Centered modal card
-     - Form fields + dropdowns
+     - Fullscreen overlay with centered modal card
+     - Contains all form fields + dropdowns
+     - Save + Cancel actions
   --------------------------------------------------------- */
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
@@ -320,14 +306,12 @@ const handleSubmit = async (e) => {
           Add Initiative
         </h2>
 
-        {/* Error message */}
         {error && (
           <div className="mb-4 p-3 bg-red-100 text-red-700 rounded border border-red-300">
             {error}
           </div>
         )}
 
-        {/* FORM */}
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-4">
 
@@ -391,12 +375,12 @@ const handleSubmit = async (e) => {
               value={form.requestor_vp}
               onChange={(val) => {
                 updateField("requestor_vp", val);
-                fetchDept(val);  // Auto-fill department
+                fetchDept(val);
               }}
               list={requestors}
             />
 
-            {/* DEPARTMENT (auto-filled) */}
+            {/* DEPARTMENT */}
             <div className="flex flex-col">
               <label className="text-xs text-black mb-1">Requesting Dept</label>
               <input
@@ -450,10 +434,9 @@ const handleSubmit = async (e) => {
             />
           </div>
 
-          {/* BUTTONS */}
+          {/* ACTION BUTTONS */}
           <div className="flex justify-end gap-4 mt-6">
 
-            {/* CANCEL */}
             <button
               type="button"
               onClick={() => router.back()}
@@ -462,7 +445,6 @@ const handleSubmit = async (e) => {
               Cancel
             </button>
 
-            {/* SAVE */}
             <button
               type="submit"
               disabled={loading}

@@ -10,18 +10,27 @@ const styles = {
 export default function InitiativesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const refresh = searchParams.get("refresh"); // Used to force refresh after modal close
+  const refresh = searchParams.get("refresh"); // Forces data reload after closing Add/Edit modals
 
-  // ---------------------------------------------------------
-  // STATE MANAGEMENT
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     STATE MANAGEMENT
+     ---------------------------------------------------------
+     PURPOSE:
+     - Stores user session data
+     - Tracks active tab selection
+     - Holds full initiative dataset, user-specific dataset,
+       and the final filtered dataset
+     - Manages all multi-select filter states
+     - Controls sorting and dropdown visibility
+     - Stores absolute positioning for dropdown menus
+  --------------------------------------------------------- */
 
-  const [user, setUser] = useState(null); // Logged-in user info
+  const [user, setUser] = useState(null); // Logged-in user object
   const [activeTab, setActiveTab] = useState('all'); // all | mine | completed
 
-  const [initiatives, setInitiatives] = useState([]); // All initiatives
+  const [initiatives, setInitiatives] = useState([]); // All initiatives from DB
   const [mine, setMine] = useState([]); // Initiatives assigned to logged-in user
-  const [filteredInitiatives, setFilteredInitiatives] = useState([]); // Final filtered list
+  const [filteredInitiatives, setFilteredInitiatives] = useState([]); // Final filtered dataset
 
   // Multi-select filter states
   const [selectedCategories, setSelectedCategories] = useState([]); // Category filter
@@ -39,22 +48,25 @@ export default function InitiativesPage() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showVPMenu, setShowVPMenu] = useState(false);
   const [showDeptMenu, setShowDeptMenu] = useState(false);
-  const [showLeadMenu, setShowLeadMenu] = useState(false); 
+  const [showLeadMenu, setShowLeadMenu] = useState(false);
 
-  // Dropdown positioning (absolute menu placement)
+  // Dropdown absolute positioning
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
-  // Dropdown option lists (unique values extracted from DB)
+  // Unique dropdown option lists (extracted from DB)
   const [availableCategories, setAvailableCategories] = useState([]);
   const [availableStatuses, setAvailableStatuses] = useState([]);
   const [availableVPs, setAvailableVPs] = useState([]);
   const [availableDepts, setAvailableDepts] = useState([]);
-  const [availableLeads, setAvailableLeads] = useState([]); 
+  const [availableLeads, setAvailableLeads] = useState([]);
 
-  // ---------------------------------------------------------
-  // LOAD USER SESSION
-  // Redirect to login if no user found in localStorage
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     LOAD USER SESSION
+     ---------------------------------------------------------
+     PURPOSE:
+     - Retrieves user from localStorage
+     - Redirects to login page if no session exists
+  --------------------------------------------------------- */
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (!userData) {
@@ -64,12 +76,15 @@ export default function InitiativesPage() {
     setUser(JSON.parse(userData));
   }, [router]);
 
-  // ---------------------------------------------------------
-  // FETCH INITIATIVES
-  // Loads all initiatives + user's initiatives
-  // Maps DB fields → frontend fields
-  // Extracts unique filter values
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     FETCH INITIATIVES
+     ---------------------------------------------------------
+     PURPOSE:
+     - Loads all initiatives and user-specific initiatives
+     - Normalizes DB fields into consistent frontend structure
+     - Builds unique dropdown option lists
+     - Ensures fresh data using timestamp + no-cache headers
+  --------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
@@ -89,13 +104,13 @@ export default function InitiativesPage() {
 
         const { allAssignments, myInitiatives } = await res.json();
 
-        // Normalize DB fields into consistent frontend structure
+        // Normalize DB fields → frontend structure
         const mapFields = (data) =>
           data.map((item) => ({
             id: item._id,
             project: item.project_name,
             category: item.category,
-            lead: item.leader, // Lead field
+            lead: item.leader,
             status: item.status,
             requestor: item.requestor,
             requestor_vp: item.requestor_vp,
@@ -118,7 +133,7 @@ export default function InitiativesPage() {
         setAvailableStatuses([...new Set(mappedAll.map(i => i.status).filter(Boolean))]);
         setAvailableVPs([...new Set(mappedAll.map(i => i.requestor_vp).filter(Boolean))]);
         setAvailableDepts([...new Set(mappedAll.map(i => i.requesting_dept).filter(Boolean))]);
-        setAvailableLeads([...new Set(mappedAll.map(i => i.lead).filter(Boolean))]); 
+        setAvailableLeads([...new Set(mappedAll.map(i => i.lead).filter(Boolean))]);
 
       } catch (err) {
         console.error("Initiatives fetch error:", err);
@@ -128,13 +143,15 @@ export default function InitiativesPage() {
     fetchInitiatives();
   }, [user, refresh]);
 
-  // ---------------------------------------------------------
-  // FILTERING + SORTING LOGIC
-  // Applies:
-  // - Tab filters (all, mine, completed)
-  // - Multi-select filters
-  // - Sorting (A→Z, Z→A)
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     FILTERING + SORTING LOGIC
+     ---------------------------------------------------------
+     PURPOSE:
+     - Applies tab filters (all, mine, completed)
+     - Applies all multi-select filters
+     - Applies alphabetical sorting on project name
+     - Produces final filteredInitiatives dataset
+  --------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
@@ -171,14 +188,17 @@ export default function InitiativesPage() {
     selectedStatuses,
     selectedVPs,
     selectedDepts,
-    selectedLeads, 
+    selectedLeads,
     projectSort
   ]);
 
-  // ---------------------------------------------------------
-  // TOGGLE HELPERS
-  // Adds/removes values from multi-select filters
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     TOGGLE HELPERS
+     ---------------------------------------------------------
+     PURPOSE:
+     - Adds or removes a value from any multi‑select filter array
+     - Used by all dropdown filter components
+  --------------------------------------------------------- */
   const toggleSelection = (value, setFn, current) => {
     setFn(current.includes(value)
       ? current.filter(v => v !== value)
@@ -186,16 +206,20 @@ export default function InitiativesPage() {
     );
   };
 
-  // ---------------------------------------------------------
-  // CLOSE ALL DROPDOWNS ON OUTSIDE CLICK
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     CLOSE ALL DROPDOWNS ON OUTSIDE CLICK
+     ---------------------------------------------------------
+     PURPOSE:
+     - Ensures only one dropdown is open at a time
+     - Closes all menus when clicking anywhere outside
+  --------------------------------------------------------- */
   useEffect(() => {
     const handleClickOutside = () => {
       setShowCategoryMenu(false);
       setShowStatusMenu(false);
       setShowVPMenu(false);
       setShowDeptMenu(false);
-      setShowLeadMenu(false); 
+      setShowLeadMenu(false);
       setShowProjectSortMenu(false);
     };
 
@@ -203,9 +227,13 @@ export default function InitiativesPage() {
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // ---------------------------------------------------------
-  // NAVIGATION HELPERS
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     NAVIGATION HELPERS
+     ---------------------------------------------------------
+     PURPOSE:
+     - Opens Add Initiative modal route
+     - Opens Edit Initiative modal route
+  --------------------------------------------------------- */
   const handleAddInitiative = () => {
     router.push('/Resource-Manager/create_edit_Initiatives/AddInitiative');
   };
@@ -214,9 +242,12 @@ export default function InitiativesPage() {
     router.push(`/Resource-Manager/create_edit_Initiatives/EditButton?id=${id}`);
   };
 
-  // ---------------------------------------------------------
-  // LOADING STATE (before user loads)
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     LOADING STATE
+     ---------------------------------------------------------
+     PURPOSE:
+     - Displays a loading spinner while user session is loading
+  --------------------------------------------------------- */
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -225,259 +256,309 @@ export default function InitiativesPage() {
     );
   }
 
-// HEADER + FILTER BUTTONS
-return (
-  <div className="min-h-screen bg-gray-50">
+  // ---------------------------------------------------------
+  // HEADER + FILTER BUTTONS
+  // ---------------------------------------------------------
+  return (
+    <div className="min-h-screen bg-gray-50">
 
-    {/* ---------------------------------------------------------
-       TOP NAVIGATION BAR (Logo, Title, User Profile)
-    --------------------------------------------------------- */}
-    <header className="bg-[#017ACB] shadow-sm relative">
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 relative">
+      {/* ---------------------------------------------------------
+         TOP NAVIGATION BAR
+         ---------------------------------------------------------
+         PURPOSE:
+         - Displays logo, app name, centered title, and user profile
+         - Provides navigation back to dashboard
+      --------------------------------------------------------- */}
+      <header className="bg-[#017ACB] shadow-sm w-full relative">
+        <div className="px-4 sm:px-6 lg:px-8 w-full">
 
-          {/* Logo + App Name (clickable → dashboard) */}
-          <div
-            className="flex items-center cursor-pointer"
-            onClick={() => router.push('/Resource-Manager/dashboard')}
-          >
-            <img src="/CapstoneDynamicsLogo.png" alt="Logo" className="h-12 w-auto" />
-            <div className="flex flex-col ml-3">
-              <h1 className="text-2xl font-bold text-white" style={styles.outfitFont}>
+          {/* Balanced height for all screen sizes */}
+          <div className="relative flex items-center h-[clamp(4.5rem,5vw,5.5rem)] w-full">
+
+            {/* Logo + App Name (clickable → dashboard) */}
+            <div
+              className="flex items-center cursor-pointer flex-none"
+              onClick={() => router.push('/Resource-Manager/dashboard')}
+            >
+              <img
+                src="/CapstoneDynamicsLogo.png"
+                alt="Logo"
+                className="w-auto h-[clamp(3.2rem,3.8vw,4rem)]"
+              />
+
+              <h1
+                className="font-bold text-white leading-tight ml-4 text-[clamp(1.6rem,1.7vw,2rem)]"
+                style={styles.outfitFont}
+              >
                 Capstone Dynamics
               </h1>
             </div>
-          </div>
 
-          {/* Centered Page Title */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
-            <h1 className="text-xl font-bold text-white" style={styles.outfitFont}>
-              Resource &amp; Capacity Management Planner
-            </h1>
-          </div>
-
-          {/* User Profile (username + avatar circle) */}
-          <div className="flex items-center gap-4">
-            <span className="text-white font-semibold" style={styles.outfitFont}>
-              {user?.username || ''}
-            </span>
-
-            <div
-              onClick={() => router.push('/Resource-Manager/Profile/view-profile')}
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center cursor-pointer hover:opacity-90 transition"
-            >
-              <span className="text-[#017ACB] font-bold text-lg">
-                {user?.username?.charAt(0)?.toUpperCase() || ''}
-              </span>
+            {/* Centered Page Title */}
+            <div className="absolute left-1/2 -translate-x-1/2 text-center">
+              <h1
+                className="font-bold text-white leading-tight text-[clamp(1.2rem,1.3vw,1.6rem)]"
+                style={styles.outfitFont}
+              >
+                Resource & Capacity Management Planner
+              </h1>
             </div>
+
+            {/* User Profile (username + avatar circle) */}
+            <div className="flex items-center gap-4 ml-auto flex-none">
+              <span
+                className="font-semibold text-white text-[clamp(1rem,1.15vw,1.25rem)]"
+                style={styles.outfitFont}
+              >
+                {user?.username || ''}
+              </span>
+
+              <div
+                onClick={() => router.push('/Resource-Manager/Profile/view-profile')}
+                className="rounded-full bg-white flex items-center justify-center cursor-pointer hover:opacity-90 transition
+                           w-[clamp(2.4rem,2.8vw,3.0rem)] h-[clamp(2.4rem,2.8vw,3.0rem)]"
+              >
+                <span className="text-[#017ACB] font-bold text-[clamp(1.1rem,1.3vw,1.5rem)]">
+                  {user?.username?.charAt(0)?.toUpperCase() || ''}
+                </span>
+              </div>
+            </div>
+
           </div>
-
         </div>
-      </div>
-    </header>
-
-    {/* ---------------------------------------------------------
-       MAIN CONTENT AREA
-    --------------------------------------------------------- */}
-    <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-
-      {/* Page Title + Dashboard Button */}
-      <div className="flex justify-between items-center mb-4">
-
-        <div className="flex items-center gap-4 mb-4">
-          <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
-            Initiatives
-          </h2>
-
-          {/* Back to Dashboard */}
-          <button
-            onClick={() => router.push('/Resource-Manager/dashboard')}
-            className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
-            style={styles.outfitFont}
-          >
-            Back to Dashboard
-          </button>
-        </div>
-
-        {/* -----------------------------------------------------
-           TAB BUTTONS (All, Mine, Completed, Add Initiative)
-        ----------------------------------------------------- */}
-        <div className="flex gap-4">
-
-          {/* All Initiatives */}
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded text-sm ${
-              activeTab === 'all' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
-            }`}
-            style={styles.outfitFont}
-          >
-            All Initiatives
-          </button>
-
-          {/* My Initiatives */}
-          <button
-            onClick={() => setActiveTab('mine')}
-            className={`px-4 py-2 rounded text-sm ${
-              activeTab === 'mine' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
-            }`}
-            style={styles.outfitFont}
-          >
-            My Initiatives
-          </button>
-
-          {/* Completed */}
-          <button
-            onClick={() => setActiveTab('completed')}
-            className={`px-4 py-2 rounded text-sm ${
-              activeTab === 'completed' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
-            }`}
-            style={styles.outfitFont}
-          >
-            Completed
-          </button>
-
-          {/* Add Initiative */}
-          <button
-            onClick={() => router.push('/Resource-Manager/create_edit_Initiatives/AddInitiative')}
-            className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
-            style={styles.outfitFont}
-          >
-            + Add Initiative
-          </button>
-
-        </div>
-      </div>
+      </header>
 
       {/* ---------------------------------------------------------
-         INITIATIVES TABLE WRAPPER
-         - Scrollable container
-         - Sticky header
-         - Sticky left column for Edit button
+         MAIN CONTENT AREA
+         ---------------------------------------------------------
+         PURPOSE:
+         - Contains page title, navigation buttons, tab controls,
+           and the full initiatives table
       --------------------------------------------------------- */}
-      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
-        <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+      <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-          <table className="min-w-max w-full border-collapse">
+        {/* Page Title + Dashboard Button */}
+        <div className="flex justify-between items-center mb-4">
 
-            {/* -----------------------------------------------------
-               TABLE HEADER (sticky)
-            ----------------------------------------------------- */}
-            <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
-              <tr>
+          <div className="flex items-center gap-4 mb-4">
+            <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
+              Initiatives
+            </h2>
 
-                {/* EDIT COLUMN (sticky left) */}
-                <th
-                  className="sticky left-0 bg-[#017ACB] px-4 py-2 border text-sm font-semibold"
-                  style={styles.outfitFont}
-                >
-                  Edit
-                </th>
+            {/* Back to Dashboard */}
+            <button
+              onClick={() => router.push('/Resource-Manager/dashboard')}
+              className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+              style={styles.outfitFont}
+            >
+              Back to Dashboard
+            </button>
+          </div>
 
-                {/* -------------------------------------------------
-                   PROJECT SORT COLUMN
-                ------------------------------------------------- */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  <div className="flex justify-between items-center">
-                    <span>Project</span>
+          {/* -----------------------------------------------------
+             TAB BUTTONS
+             -----------------------------------------------------
+             PURPOSE:
+             - Switches between All, Mine, and Completed views
+             - Provides quick access to Add Initiative modal
+          ----------------------------------------------------- */}
+          <div className="flex gap-4">
 
-                    {/* Sort dropdown trigger */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.target.getBoundingClientRect();
-                        setMenuPosition({ x: rect.left, y: rect.bottom });
+            {/* All Initiatives */}
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-4 py-2 rounded text-sm ${
+                activeTab === 'all' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
+              }`}
+              style={styles.outfitFont}
+            >
+              All Initiatives
+            </button>
 
-                        // Toggle sort menu
-                        setShowProjectSortMenu((prev) => !prev);
+            {/* My Initiatives */}
+            <button
+              onClick={() => setActiveTab('mine')}
+              className={`px-4 py-2 rounded text-sm ${
+                activeTab === 'mine' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
+              }`}
+              style={styles.outfitFont}
+            >
+              My Initiatives
+            </button>
 
-                        // Close all other menus
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                      }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
-                    >
-                      ▼
-                    </button>
-                  </div>
+            {/* Completed */}
+            <button
+              onClick={() => setActiveTab('completed')}
+              className={`px-4 py-2 rounded text-sm ${
+                activeTab === 'completed' ? 'bg-[#017ACB] text-white' : 'bg-white text-gray-700 border'
+              }`}
+              style={styles.outfitFont}
+            >
+              Completed
+            </button>
 
-                  {/* Sort dropdown menu */}
-                  {showProjectSortMenu && (
-                    <div
-                      className="fixed bg-white text-black shadow-lg rounded w-40 z-50"
-                      style={{ top: menuPosition.y, left: menuPosition.x }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div
-                        className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
-                          projectSort === '' ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setProjectSort('')}
+            {/* Add Initiative */}
+            <button
+              onClick={() => router.push('/Resource-Manager/create_edit_Initiatives/AddInitiative')}
+              className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+              style={styles.outfitFont}
+            >
+              + Add Initiative
+            </button>
+
+          </div>
+        </div>
+
+        {/* ---------------------------------------------------------
+           INITIATIVES TABLE WRAPPER
+           ---------------------------------------------------------
+           PURPOSE:
+           - Provides scrollable container for large datasets
+           - Sticky header for visibility during scroll
+           - Sticky left column for Edit button
+        --------------------------------------------------------- */}
+        <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+          <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+
+            <table className="min-w-max w-full border-collapse">
+
+              {/* -----------------------------------------------------
+                 TABLE HEADER (sticky)
+                 -----------------------------------------------------
+                 PURPOSE:
+                 - Displays column labels
+                 - Contains sorting and filtering controls
+              ----------------------------------------------------- */}
+              <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
+                <tr>
+
+                  {/* EDIT COLUMN (sticky left) */}
+                  <th
+                    className="sticky left-0 bg-[#017ACB] px-4 py-2 border text-sm font-semibold"
+                    style={styles.outfitFont}
+                  >
+                    Edit
+                  </th>
+
+                  {/* -------------------------------------------------
+                     PROJECT SORT COLUMN
+                     -------------------------------------------------
+                     PURPOSE:
+                     - Displays project name
+                     - Provides A→Z / Z→A sorting menu
+                  ------------------------------------------------- */}
+                  <th
+                    className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                    style={styles.outfitFont}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span>Project</span>
+
+                      {/* Sort dropdown trigger */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.target.getBoundingClientRect();
+                          setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                          // Toggle sort menu
+                          setShowProjectSortMenu((prev) => !prev);
+
+                          // Close all other menus
+                          setShowCategoryMenu(false);
+                          setShowStatusMenu(false);
+                          setShowVPMenu(false);
+                          setShowDeptMenu(false);
+                          setShowLeadMenu(false);
+                        }}
+                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
                       >
-                        None
-                      </div>
-
-                      <div
-                        className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
-                          projectSort === 'asc' ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setProjectSort('asc')}
-                      >
-                        A → Z
-                      </div>
-
-                      <div
-                        className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
-                          projectSort === 'desc' ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setProjectSort('desc')}
-                      >
-                        Z → A
-                      </div>
+                        ▼
+                      </button>
                     </div>
-                  )}
-                </th>              
 
-                 {/* CATEGORY FILTER */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  <div className="flex justify-between items-center">
-                    <span>Category</span>
+                    {/* Sort dropdown menu */}
+                    {showProjectSortMenu && (
+                      <div
+                        className="fixed bg-white text-black shadow-lg rounded w-40 z-50"
+                        style={{ top: menuPosition.y, left: menuPosition.x }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div
+                          className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
+                            projectSort === '' ? 'bg-gray-100 font-semibold' : ''
+                          }`}
+                          onClick={() => setProjectSort('')}
+                        >
+                          None
+                        </div>
 
-                    {/* Category filter dropdown trigger */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.target.getBoundingClientRect();
+                        <div
+                          className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
+                            projectSort === 'asc' ? 'bg-gray-100 font-semibold' : ''
+                          }`}
+                          onClick={() => setProjectSort('asc')}
+                        >
+                          A → Z
+                        </div>
 
-                        // Position dropdown under button
-                        setMenuPosition({ x: rect.left, y: rect.bottom });
+                        <div
+                          className={`px-3 py-2 cursor-pointer hover:bg-gray-200 ${
+                            projectSort === 'desc' ? 'bg-gray-100 font-semibold' : ''
+                          }`}
+                          onClick={() => setProjectSort('desc')}
+                        >
+                          Z → A
+                        </div>
+                      </div>
+                    )}
+                  </th>
 
-                        // Toggle category menu
-                        setShowCategoryMenu((prev) => !prev);
+                  {/* -------------------------------------------------
+                     CATEGORY FILTER COLUMN
+                     -------------------------------------------------
+                     PURPOSE:
+                     - Multi-select dropdown for filtering by category
+                  ------------------------------------------------- */}
+                  <th
+                    className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                    style={styles.outfitFont}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span>Category</span>
 
-                        // Close all other menus
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                      }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
-                    >
-                      ▼
-                    </button>
-                  </div>
+                      {/* Category filter dropdown trigger */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.target.getBoundingClientRect();
 
-                  {/* Category dropdown menu */}
+                          // Position dropdown under button
+                          setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                          // Toggle category menu
+                          setShowCategoryMenu((prev) => !prev);
+
+                          // Close all other menus
+                          setShowStatusMenu(false);
+                          setShowVPMenu(false);
+                          setShowDeptMenu(false);
+                          setShowLeadMenu(false);
+                          setShowProjectSortMenu(false);
+                        }}
+                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                      >
+                        ▼
+                      </button>
+                    </div>
+
+                  {/* -------------------------------------------------
+                     CATEGORY DROPDOWN MENU
+                     -------------------------------------------------
+                     PURPOSE:
+                     - Displays multi‑select options for Category filter
+                     - Includes “All” option and individual categories
+                  ------------------------------------------------- */}
                   {showCategoryMenu && (
                     <div
                       className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
@@ -514,7 +595,12 @@ return (
                   )}
                 </th>
 
-                {/* LEAD FILTER */}
+                {/* -------------------------------------------------
+                   LEAD FILTER COLUMN
+                   -------------------------------------------------
+                   PURPOSE:
+                   - Multi‑select dropdown for filtering by Lead
+                ------------------------------------------------- */}
                 <th
                   className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
                   style={styles.outfitFont}
@@ -584,7 +670,12 @@ return (
                   )}
                 </th>
 
-                {/* STATUS FILTER */}
+                {/* -------------------------------------------------
+                   STATUS FILTER COLUMN
+                   -------------------------------------------------
+                   PURPOSE:
+                   - Multi‑select dropdown for filtering by Status
+                ------------------------------------------------- */}
                 <th
                   className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
                   style={styles.outfitFont}
@@ -635,135 +726,168 @@ return (
                         All
                       </div>
 
-                      {/* Individual status options */}
-                      {availableStatuses.map((status) => (
-                        <div
-                          key={status}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
-                            selectedStatuses.includes(status) ? 'bg-gray-100 font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(status, setSelectedStatuses, selectedStatuses)
-                          }
-                        >
-                          <input type="checkbox" checked={selectedStatuses.includes(status)} readOnly />
-                          {status}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </th> 
-                
-                {/* REQUESTOR (no filter, just displays the column header) */}
-              <th
-                className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                style={styles.outfitFont}
-              >
-                Requestor
-              </th>
-
-              {/* REQUESTOR VP FILTER COLUMN */}
-              <th
-                className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                style={styles.outfitFont}
-              >
-                <div className="flex justify-between items-center">
-                  <span>Requestor VP</span>
-
-                  {/* Dropdown trigger for VP filter */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent table click events
-                      const rect = e.target.getBoundingClientRect();
-
-                      // Position dropdown under the clicked button
-                      setMenuPosition({ x: rect.left, y: rect.bottom });
-
-                      // Toggle VP dropdown
-                      setShowVPMenu((prev) => !prev);
-
-                      // Close all other dropdowns
-                      setShowCategoryMenu(false);
-                      setShowStatusMenu(false);
-                      setShowDeptMenu(false);
-                      setShowLeadMenu(false);
-                      setShowProjectSortMenu(false);
-                    }}
-                    className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
-                  >
-                    ▼
-                  </button>
-                </div>
-
-                {/* VP dropdown menu */}
-                {showVPMenu && (
-                  <div
-                    className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
-                    style={{ top: menuPosition.y, left: menuPosition.x }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* "All" option */}
+                  {/* -------------------------------------------------
+                     INDIVIDUAL STATUS OPTIONS
+                     -------------------------------------------------
+                     PURPOSE:
+                     - Renders each available status as a selectable
+                       checkbox option within the Status filter menu
+                  ------------------------------------------------- */}
+                  {availableStatuses.map((status) => (
                     <div
+                      key={status}
                       className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
-                        selectedVPs.length === 0 ? 'bg-gray-100 font-semibold' : ''
+                        selectedStatuses.includes(status) ? 'bg-gray-100 font-semibold' : ''
                       }`}
-                      onClick={() => setSelectedVPs([])}
+                      onClick={() =>
+                        toggleSelection(status, setSelectedStatuses, selectedStatuses)
+                      }
                     >
-                      <input type="checkbox" checked={selectedVPs.length === 0} readOnly />
-                      All
+                      <input type="checkbox" checked={selectedStatuses.includes(status)} readOnly />
+                      {status}
                     </div>
-
-                    {/* Individual VP options */}
-                    {availableVPs.map((vp) => (
-                      <div
-                        key={vp}
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
-                          selectedVPs.includes(vp) ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => toggleSelection(vp, setSelectedVPs, selectedVPs)}
-                      >
-                        <input type="checkbox" checked={selectedVPs.includes(vp)} readOnly />
-                        {vp}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </th>
-
-              {/* REQUESTING DEPARTMENT FILTER COLUMN */}
-              <th
-                className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                style={styles.outfitFont}
-              >
-                <div className="flex justify-between items-center">
-                  <span>Requesting Dept</span>
-
-                  {/* Dropdown trigger for Department filter */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const rect = e.target.getBoundingClientRect();
-
-                      // Position dropdown under the clicked button
-                      setMenuPosition({ x: rect.left, y: rect.bottom });
-
-                      // Toggle department dropdown
-                      setShowDeptMenu((prev) => !prev);
-
-                      // Close all other dropdowns
-                      setShowCategoryMenu(false);
-                      setShowStatusMenu(false);
-                      setShowVPMenu(false);
-                      setShowLeadMenu(false);
-                      setShowProjectSortMenu(false);
-                    }}
-                    className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
-                  >
-                    ▼
-                  </button>
+                  ))}
                 </div>
+              )}
+            </th>
 
-                {/* Department dropdown menu */}
+            {/* -------------------------------------------------
+               REQUESTOR COLUMN
+               -------------------------------------------------
+               PURPOSE:
+               - Displays the Requestor name
+               - No filtering applied to this column
+            ------------------------------------------------- */}
+            <th
+              className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
+              style={styles.outfitFont}
+            >
+              Requestor
+            </th>
+
+            {/* -------------------------------------------------
+               REQUESTOR VP FILTER COLUMN
+               -------------------------------------------------
+               PURPOSE:
+               - Multi‑select dropdown for filtering by Requestor VP
+            ------------------------------------------------- */}
+            <th
+              className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+              style={styles.outfitFont}
+            >
+              <div className="flex justify-between items-center">
+                <span>Requestor VP</span>
+
+                {/* Dropdown trigger for VP filter */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent table click events
+                    const rect = e.target.getBoundingClientRect();
+
+                    // Position dropdown under the clicked button
+                    setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                    // Toggle VP dropdown
+                    setShowVPMenu((prev) => !prev);
+
+                    // Close all other dropdowns
+                    setShowCategoryMenu(false);
+                    setShowStatusMenu(false);
+                    setShowDeptMenu(false);
+                    setShowLeadMenu(false);
+                    setShowProjectSortMenu(false);
+                  }}
+                  className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                >
+                  ▼
+                </button>
+              </div>
+
+              {/* VP dropdown menu */}
+              {showVPMenu && (
+                <div
+                  className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
+                  style={{ top: menuPosition.y, left: menuPosition.x }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* "All" option */}
+                  <div
+                    className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                      selectedVPs.length === 0 ? 'bg-gray-100 font-semibold' : ''
+                    }`}
+                    onClick={() => setSelectedVPs([])}
+                  >
+                    <input type="checkbox" checked={selectedVPs.length === 0} readOnly />
+                    All
+                  </div>
+
+                  {/* -------------------------------------------------
+                     INDIVIDUAL VP OPTIONS
+                     -------------------------------------------------
+                     PURPOSE:
+                     - Renders each unique VP as a selectable option
+                  ------------------------------------------------- */}
+                  {availableVPs.map((vp) => (
+                    <div
+                      key={vp}
+                      className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                        selectedVPs.includes(vp) ? 'bg-gray-100 font-semibold' : ''
+                      }`}
+                      onClick={() => toggleSelection(vp, setSelectedVPs, selectedVPs)}
+                    >
+                      <input type="checkbox" checked={selectedVPs.includes(vp)} readOnly />
+                      {vp}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </th>
+
+            {/* -------------------------------------------------
+               REQUESTING DEPARTMENT FILTER COLUMN
+               -------------------------------------------------
+               PURPOSE:
+               - Multi‑select dropdown for filtering by department
+            ------------------------------------------------- */}
+            <th
+              className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+              style={styles.outfitFont}
+            >
+              <div className="flex justify-between items-center">
+                <span>Requesting Dept</span>
+
+                {/* Dropdown trigger for Department filter */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.target.getBoundingClientRect();
+
+                    // Position dropdown under the clicked button
+                    setMenuPosition({ x: rect.left, y: rect.bottom });
+
+                    // Toggle department dropdown
+                    setShowDeptMenu((prev) => !prev);
+
+                    // Close all other dropdowns
+                    setShowCategoryMenu(false);
+                    setShowStatusMenu(false);
+                    setShowVPMenu(false);
+                    setShowLeadMenu(false);
+                    setShowProjectSortMenu(false);
+                  }}
+                  className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                >
+                  ▼
+                </button>
+              </div>
+
+                {/* -------------------------------------------------
+                   DEPARTMENT DROPDOWN MENU
+                   -------------------------------------------------
+                   PURPOSE:
+                   - Displays multi‑select options for Requesting Dept
+                   - Includes “All” option and individual departments
+                ------------------------------------------------- */}
                 {showDeptMenu && (
                   <div
                     className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
@@ -797,7 +921,14 @@ return (
                   </div>
                 )}
               </th>
-                            {/* COMPLETION DATE COLUMN */}
+
+              {/* -------------------------------------------------
+                 COMPLETION DATE COLUMN
+                 -------------------------------------------------
+                 PURPOSE:
+                 - Displays the initiative’s completion date
+                 - Formatted safely using toLocaleDateString()
+              ------------------------------------------------- */}
               <th
                 className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
                 style={styles.outfitFont}
@@ -805,7 +936,12 @@ return (
                 Completion Date
               </th>
 
-              {/* TARGET PERIOD COLUMN */}
+              {/* -------------------------------------------------
+                 TARGET PERIOD COLUMN
+                 -------------------------------------------------
+                 PURPOSE:
+                 - Displays the initiative’s target period value
+              ------------------------------------------------- */}
               <th
                 className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
                 style={styles.outfitFont}
@@ -813,7 +949,12 @@ return (
                 Target Period
               </th>
 
-              {/* DESCRIPTION COLUMN */}
+              {/* -------------------------------------------------
+                 DESCRIPTION COLUMN
+                 -------------------------------------------------
+                 PURPOSE:
+                 - Displays the initiative’s description text
+              ------------------------------------------------- */}
               <th
                 className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
                 style={styles.outfitFont}
@@ -821,64 +962,75 @@ return (
                 Description
               </th>
 
-              {/* RESOURCE NOTES COLUMN */}
+              {/* -------------------------------------------------
+                 RESOURCE NOTES COLUMN
+                 -------------------------------------------------
+                 PURPOSE:
+                 - Displays resource considerations / notes
+              ------------------------------------------------- */}
               <th
                 className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
                 style={styles.outfitFont}
               >
                 Resource Consideration
               </th>
-              </tr>
-              </thead>
+            </tr>
+          </thead>
 
-              {/* ---------------------------------------------------------
-                TABLE BODY — RENDERS EACH INITIATIVE ROW
-              --------------------------------------------------------- */}
-              <tbody>
-                {filteredInitiatives.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className={`hover:bg-black/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+          {/* ---------------------------------------------------------
+             TABLE BODY — RENDERS EACH INITIATIVE ROW
+             ---------------------------------------------------------
+             PURPOSE:
+             - Iterates through filteredInitiatives
+             - Renders each initiative as a table row
+             - Alternates row background for readability
+             - Keeps Edit button column sticky on scroll
+          --------------------------------------------------------- */}
+          <tbody>
+            {filteredInitiatives.map((item, index) => (
+              <tr
+                key={item.id}
+                className={`hover:bg-black/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+              >
+                {/* Sticky Edit Button (left column stays fixed while scrolling) */}
+                <td className="sticky left-0 px-4 py-2 border bg-inherit text-black">
+                  <button
+                    onClick={() => handleEditInitiative(item.id)}
+                    className="px-2 py-1 bg-[#017ACB] text-white text-xs rounded hover:bg-blue-700"
+                    style={styles.outfitFont}
                   >
-                    {/* Sticky Edit Button (left column stays fixed while scrolling) */}
-                    <td className="sticky left-0 px-4 py-2 border bg-inherit text-black">
-                      <button
-                        onClick={() => handleEditInitiative(item.id)}
-                        className="px-2 py-1 bg-[#017ACB] text-white text-xs rounded hover:bg-blue-700"
-                        style={styles.outfitFont}
-                      >
-                        Edit
-                      </button>
-                    </td>
+                    Edit
+                  </button>
+                </td>
 
-                    {/* Initiative fields */}
-                    <td className="px-4 py-2 border text-sm text-black">{item.project}</td>
-                    <td className="px-4 py-2 border text-sm text-black">{item.category}</td>
-                    <td className="px-4 py-2 border text-sm text-black">{item.lead}</td>
-                    <td className="px-4 py-2 border text-sm text-black">{item.status}</td>
-                    <td className="px-4 py-2 border text-sm text-black">{item.requestor}</td>
-                    <td className="px-4 py-2 border text-sm text-black">{item.requestor_vp}</td>
-                    <td className="px-4 py-2 border text-sm text-black">{item.requesting_dept}</td>
+                {/* Initiative fields */}
+                <td className="px-4 py-2 border text-sm text-black">{item.project}</td>
+                <td className="px-4 py-2 border text-sm text-black">{item.category}</td>
+                <td className="px-4 py-2 border text-sm text-black">{item.lead}</td>
+                <td className="px-4 py-2 border text-sm text-black">{item.status}</td>
+                <td className="px-4 py-2 border text-sm text-black">{item.requestor}</td>
+                <td className="px-4 py-2 border text-sm text-black">{item.requestor_vp}</td>
+                <td className="px-4 py-2 border text-sm text-black">{item.requesting_dept}</td>
 
-                    {/* Completion date formatted safely */}
-                    <td className="px-4 py-2 border text-sm text-black">
-                      {item.completion_date
-                        ? new Date(item.completion_date).toLocaleDateString()
-                        : ''}
-                    </td>
+                {/* Completion date formatted safely */}
+                <td className="px-4 py-2 border text-sm text-black">
+                  {item.completion_date
+                    ? new Date(item.completion_date).toLocaleDateString()
+                    : ''}
+                </td>
 
-                    <td className="px-4 py-2 border text-sm text-black">{item.target_period}</td>
-                    <td className="px-4 py-2 border text-sm text-black">{item.description}</td>
-                    <td className="px-4 py-2 border text-sm text-black">
-                      {item.resource_consideration}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                <td className="px-4 py-2 border text-sm text-black">{item.target_period}</td>
+                <td className="px-4 py-2 border text-sm text-black">{item.description}</td>
+                <td className="px-4 py-2 border text-sm text-black">
+                  {item.resource_consideration}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-     </main>
     </div>
-  );
-}           
+  </main>
+</div>
+);
+}

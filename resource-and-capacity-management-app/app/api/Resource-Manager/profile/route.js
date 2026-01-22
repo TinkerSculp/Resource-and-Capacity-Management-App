@@ -1,40 +1,47 @@
 import { NextResponse } from 'next/server';
 import { MongoClient } from 'mongodb';
 
-// ---------------------------------------------------------
-// MongoDB Connection Setup (Native Driver)
-// ---------------------------------------------------------
+/* ---------------------------------------------------------
+   MONGODB CONNECTION SETUP
+   - Loads connection string from environment
+   - Reuses a single MongoClient instance
+   - Prevents duplicate connections during hot reloads
+--------------------------------------------------------- */
 
 // Connection string from environment variables
 const uri = process.env.MONGODB_URI;
 
-// Create a single MongoClient instance for reuse
+// Shared MongoDB client instance
 const client = new MongoClient(uri);
 
-/**
- * Ensures a single, reusable MongoDB connection.
- * - Prevents multiple connections during Next.js hot reloads
- * - Returns the active database instance
- */
+/* ---------------------------------------------------------
+   CONNECT TO DATABASE
+   - Opens a connection only if not already active
+   - Ensures stable DB access across API calls
+   - Returns active database instance
+--------------------------------------------------------- */
 async function connectDB() {
   if (!client.topology || !client.topology.isConnected()) {
     await client.connect();
-    console.log("✅ Connected to MongoDB (Native Driver)");
+    console.log("Connected to MongoDB (Native Driver)");
   }
-  return client.db();
+  return client.db(); // Uses default DB from connection string
 }
 
-// ---------------------------------------------------------
-// GET /api/Resource-Manager/profile
-// Fetches full profile details for a given username
-// ---------------------------------------------------------
-
+/* ---------------------------------------------------------
+   GET /api/Resource-Manager/profile
+   - Retrieves full profile information for a given username
+   - Combines account, employee, department, and role data
+--------------------------------------------------------- */
 export async function GET(req) {
   try {
-    // Extract username from query string
+    // Extract username from query parameters
     const username = req.nextUrl.searchParams.get('username');
 
-    // Validate required input
+    /* ---------------------------------------------------------
+       INPUT VALIDATION
+       - Username must be provided
+    --------------------------------------------------------- */
     if (!username) {
       return NextResponse.json({ error: "Missing username" }, { status: 400 });
     }
@@ -42,9 +49,11 @@ export async function GET(req) {
     // Connect to database
     const db = await connectDB();
 
-    // -----------------------------------------------------
-    // 1. Look up account using nested field: account.username
-    // -----------------------------------------------------
+    /* ---------------------------------------------------------
+       1. FETCH ACCOUNT RECORD
+       - Matches nested field: account.username
+       - Ensures exact match (no case-insensitive search)
+    --------------------------------------------------------- */
     const accountDoc = await db.collection('account').findOne({
       'account.username': username.trim()
     });
@@ -53,39 +62,43 @@ export async function GET(req) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 });
     }
 
-    // Extract foreign keys from account document
+    // Extract foreign keys for additional lookups
     const empId = accountDoc.emp_id;
     const accTypeId = accountDoc.account?.acc_type_id;
 
-    console.log("🔍 emp_id:", empId);
-    console.log("🔍 acc_type_id:", accTypeId);
+    console.log("emp_id:", empId);
+    console.log("acc_type_id:", accTypeId);
 
-    // -----------------------------------------------------
-    // 2. Fetch employee details using emp_id
-    // -----------------------------------------------------
+    /* ---------------------------------------------------------
+       2. FETCH EMPLOYEE DETAILS
+       - Uses emp_id from account record
+    --------------------------------------------------------- */
     const employee = await db.collection('employee').findOne({ emp_id: empId });
 
-    // -----------------------------------------------------
-    // 3. Fetch department details using dept_no from employee
-    // -----------------------------------------------------
+    /* ---------------------------------------------------------
+       3. FETCH DEPARTMENT DETAILS
+       - Uses dept_no from employee record
+    --------------------------------------------------------- */
     const department = employee
       ? await db.collection('department').findOne({ dept_no: employee.dept_no })
       : null;
 
-    // -----------------------------------------------------
-    // 4. Fetch account type (role) using acc_type_id
-    // -----------------------------------------------------
+    /* ---------------------------------------------------------
+       4. FETCH ACCOUNT TYPE (ROLE)
+       - Uses acc_type_id from account record
+    --------------------------------------------------------- */
     const accountType = await db.collection('account_type').findOne({
       acc_type_id: accTypeId
     });
 
     if (!accountType) {
-      console.log("⚠️ Account type not found for acc_type_id:", accTypeId);
+      console.log("Account type not found for acc_type_id:", accTypeId);
     }
 
-    // -----------------------------------------------------
-    // 5. Build final profile response object
-    // -----------------------------------------------------
+    /* ---------------------------------------------------------
+       5. BUILD FINAL PROFILE RESPONSE
+       - Combines all related data into a single object
+    --------------------------------------------------------- */
     const profile = {
       name: employee?.emp_name || "",
       title: employee?.emp_title || "",
@@ -98,8 +111,12 @@ export async function GET(req) {
     return NextResponse.json(profile);
 
   } catch (err) {
-    // Catch unexpected server errors
-    console.error("🔥 Profile API error:", err);
+    /* ---------------------------------------------------------
+       ERROR HANDLING
+       - Catches unexpected server errors
+       - Returns generic error response
+    --------------------------------------------------------- */
+    console.error("Profile API error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
