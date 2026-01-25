@@ -70,25 +70,25 @@ export default function ResourcesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  /* -------------------------------------------------------
-     Modal + Form State
-     -------------------------------------------------------
-     showCreateModal   → controls create modal visibility
-     showEditModal     → controls edit modal visibility
-     selectedEmployee  → employee being edited
-     formData          → create/edit form fields
-  ------------------------------------------------------- */
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  const [formData, setFormData] = useState({
-    emp_name: '',
-    emp_title: '',
-    dept_no: '',
-    manager_id: '',
-    other_info: ''
-  });
+
+  // Multi-select filter states
+  const [selectedTitles, setSelectedTitles] = useState([]);
+  const [selectedReportsTo, setSelectedReportsTo] = useState([]);
+  const [selectedCurrentStatuses, setSelectedCurrentStatuses] = useState([]);
+
+  // Dropdown visibility toggles
+  const [showTitleMenu, setShowTitleMenu] = useState(false);
+  const [showReportsToMenu, setShowReportsToMenu] = useState(false);
+  const [showCurrentStatusMenu, setShowCurrentStatusMenu] = useState(false);
+
+  // Dropdown absolute positioning
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  // Unique dropdown option lists (extracted from DB)
+  const [availableTitles, setAvailableTitles] = useState([]);
+  const [availableReportsTo, setAvailableReportsTo] = useState([]);
+  const [availableCurrentStatuses, setAvailableCurrentStatuses] = useState([]);
 
   const router = useRouter();
   const apiUrl = 'http://localhost:3001';
@@ -128,10 +128,13 @@ export default function ResourcesPage() {
          statusFilter changes
          searchTerm changes
          user changes
+         selectedTitles changes
+         selectedReportsTo changes
+         selectedCurrentStatuses changes
   ------------------------------------------------------- */
   useEffect(() => {
     applyFilters();
-  }, [employeesWithCapacity, activeFilter, statusFilter, searchTerm, user]);
+  }, [employeesWithCapacity, activeFilter, statusFilter, searchTerm, user, selectedTitles, selectedReportsTo, selectedCurrentStatuses]);
 
   /* -------------------------------------------------------
      Function: fetchAllData
@@ -192,6 +195,15 @@ export default function ResourcesPage() {
       setEmployeesWithCapacity(employeesWithCap);
       setEmployees(employeesWithCap);
       setError('');
+
+      // Build unique dropdown lists
+      setAvailableTitles([...new Set(employeesWithCap.map(e => e.emp_title).filter(Boolean))]);
+      setAvailableReportsTo([...new Set(employeesWithCap.map(e => {
+        const manager = employeesWithCap.find(m => m.emp_id === e.manager_id);
+        return manager ? manager.emp_name : null;
+      }).filter(Boolean))]);
+      setAvailableCurrentStatuses([...new Set(employeesWithCap.map(e => getCurrentStatus(e)).filter(Boolean))]);
+
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load data');
@@ -242,120 +254,61 @@ export default function ResourcesPage() {
       );
     }
 
+    // Filter: Multi-select Title filter (skip if all are selected)
+    if (selectedTitles.length > 0 && selectedTitles.length < availableTitles.length) {
+      filtered = filtered.filter(emp => selectedTitles.includes(emp.emp_title));
+    }
+
+    // Filter: Multi-select Reports To filter (skip if all are selected)
+    if (selectedReportsTo.length > 0 && selectedReportsTo.length < availableReportsTo.length) {
+      filtered = filtered.filter(emp => {
+        const managerName = getManagerName(emp.manager_id);
+        return selectedReportsTo.includes(managerName);
+      });
+    }
+
+    // Filter: Multi-select Current Status filter (skip if all are selected)
+    if (selectedCurrentStatuses.length > 0 && selectedCurrentStatuses.length < availableCurrentStatuses.length) {
+      filtered = filtered.filter(emp => {
+        const status = getCurrentStatus(emp);
+        return selectedCurrentStatuses.includes(status);
+      });
+    }
+
     setEmployees(filtered);
   };
 
+
+
   /* -------------------------------------------------------
-     Function: handleCreate
+     Toggle Helper
      -------------------------------------------------------
-     - Sends POST request to create new employee
-     - Resets form + reloads data
+     - Adds or removes a value from any multi-select filter array
+     - Used by all dropdown filter components
   ------------------------------------------------------- */
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${apiUrl}/api/Resource-Manager/employees`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to create employee');
-        return;
-      }
-
-      setShowCreateModal(false);
-      setFormData({ emp_name: '', emp_title: '', dept_no: '', manager_id: '', other_info: '' });
-      fetchAllData();
-    } catch (err) {
-      console.error('Error creating employee:', err);
-      setError('Failed to create employee');
-    }
+  const toggleSelection = (value, setFn, current) => {
+    setFn(current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value]
+    );
   };
 
   /* -------------------------------------------------------
-     Function: handleEdit
+     Close All Dropdowns on Outside Click
      -------------------------------------------------------
-     - Sends PUT request to update employee
-     - Resets modal + reloads data
+     - Ensures only one dropdown is open at a time
+     - Closes all menus when clicking anywhere outside
   ------------------------------------------------------- */
-  const handleEdit = async (e) => {
-    e.preventDefault();
-    if (!selectedEmployee) return;
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowTitleMenu(false);
+      setShowReportsToMenu(false);
+      setShowCurrentStatusMenu(false);
+    };
 
-    try {
-      const response = await fetch(`${apiUrl}/api/Resource-Manager/employees/${selectedEmployee.emp_id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to update employee');
-        return;
-      }
-
-      setShowEditModal(false);
-      setSelectedEmployee(null);
-      setFormData({ emp_name: '', emp_title: '', dept_no: '', manager_id: '', other_info: '' });
-      fetchAllData();
-    } catch (err) {
-      console.error('Error updating employee:', err);
-      setError('Failed to update employee');
-    }
-  };
-
-  /* -------------------------------------------------------
-     Function: handleStatusChange
-     -------------------------------------------------------
-     - Sends PATCH request to update employee status
-     - Reloads data after update
-  ------------------------------------------------------- */
-  const handleStatusChange = async (empId, newStatus) => {
-    try {
-      const response = await fetch(`${apiUrl}/api/Resource-Manager/employees/${empId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || 'Failed to update status');
-        return;
-      }
-
-      setShowEditModal(false);
-      setSelectedEmployee(null);
-      fetchAllData();
-    } catch (err) {
-      console.error('Error updating status:', err);
-      setError('Failed to update status');
-    }
-  };
-
-  /* -------------------------------------------------------
-     Function: openEditModal
-     -------------------------------------------------------
-     - Preloads selected employee data into form
-     - Opens edit modal
-  ------------------------------------------------------- */
-  const openEditModal = (employee) => {
-    setSelectedEmployee(employee);
-    setFormData({
-      emp_name: employee.emp_name,
-      emp_title: employee.emp_title,
-      dept_no: employee.dept_no,
-      manager_id: employee.manager_id || '',
-      other_info: employee.other_info || ''
-    });
-    setShowEditModal(true);
-  };
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
  
  /* ---------------------------------------------------------
    Helper: Get Department Name
@@ -620,13 +573,13 @@ return (
     </div>
 
     {/* Create Resource Button */}
-    <button
-      onClick={() => setShowCreateModal(true)}
+    <Link
+      href="/Resource-Manager/create_edit_Resources/CreateResource"
       className="px-4 py-2 bg-[#017ACB] text-white rounded hover:bg-blue-700 transition text-sm cursor-pointer"
       style={styles.outfitFont}
     >
       + Create Resource
-    </button>
+    </Link>
   </div>
 
   {/* -----------------------------------------------------
@@ -635,27 +588,190 @@ return (
       - Displays all employees with capacity by month
       - Sticky first column for Edit button
       - Dynamically renders month columns from MONTHS array
+      - Scrollable container with fixed height
   ----------------------------------------------------- */}
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
-    <table className="w-full text-sm">
+  <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+      <table className="w-full text-sm">
 
       {/* ---------------- Table Header ---------------- */}
-      <thead className="bg-gray-100">
+      <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
         <tr>
-          <th className="px-2 py-2 text-left font-semibold text-gray-700 border-b border-r sticky left-0 bg-gray-100 z-10" style={styles.outfitFont}>Edit</th>
-          <th className="px-2 py-2 text-left font-semibold text-gray-700 border-b border-r min-w-[150px]" style={styles.outfitFont}>Name</th>
-          <th className="px-2 py-2 text-left font-semibold text-gray-700 border-b border-r min-w-[180px]" style={styles.outfitFont}>Title</th>
-          <th className="px-2 py-2 text-left font-semibold text-gray-700 border-b border-r min-w-[100px]" style={styles.outfitFont}>Department</th>
-          <th className="px-2 py-2 text-left font-semibold text-gray-700 border-b border-r min-w-[130px]" style={styles.outfitFont}>Reports To</th>
-          <th className="px-2 py-2 text-left font-semibold text-gray-700 border-b border-r min-w-[130px]" style={styles.outfitFont}>Director Level</th>
-          <th className="px-2 py-2 text-left font-semibold text-gray-700 border-b border-r min-w-[150px]" style={styles.outfitFont}>Other Information</th>
-          <th className="px-2 py-2 text-left font-semibold text-gray-700 border-b border-r min-w-[80px]" style={styles.outfitFont}>Current Status</th>
+          <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white" style={styles.outfitFont}>Edit</th>
+          <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[150px]" style={styles.outfitFont}>Name</th>
+          
+          {/* Title Filter Column */}
+          <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[180px] relative" style={styles.outfitFont}>
+            <div className="flex justify-between items-center">
+              <span>Title</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.target.getBoundingClientRect();
+                  setMenuPosition({ x: rect.left, y: rect.bottom });
+                  setShowTitleMenu((prev) => !prev);
+                  setShowReportsToMenu(false);
+                  setShowCurrentStatusMenu(false);
+                }}
+                className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+              >
+                ▼
+              </button>
+            </div>
+
+            {/* Title Dropdown Menu */}
+            {showTitleMenu && (
+              <div
+                className="fixed bg-white text-black shadow-lg rounded w-48 z-50 max-h-64 overflow-y-auto"
+                style={{ top: menuPosition.y, left: menuPosition.x }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* "All" option */}
+                <div
+                  className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                    selectedTitles.length === 0 || selectedTitles.length === availableTitles.length ? 'bg-gray-100 font-semibold' : ''
+                  }`}
+                  onClick={() => setSelectedTitles([])}
+                >
+                  <input type="checkbox" checked={selectedTitles.length === 0 || selectedTitles.length === availableTitles.length} readOnly />
+                  All
+                </div>
+
+                {/* Individual title options */}
+                {availableTitles.map((title) => (
+                  <div
+                    key={title}
+                    className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                      selectedTitles.includes(title) ? 'bg-gray-100 font-semibold' : ''
+                    }`}
+                    onClick={() => toggleSelection(title, setSelectedTitles, selectedTitles)}
+                  >
+                    <input type="checkbox" checked={selectedTitles.includes(title)} readOnly />
+                    {title}
+                  </div>
+                ))}
+              </div>
+            )}
+          </th>
+
+          <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[100px]" style={styles.outfitFont}>Department</th>
+          
+          {/* Reports To Filter Column */}
+          <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[130px] relative" style={styles.outfitFont}>
+            <div className="flex justify-between items-center">
+              <span>Reports To</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.target.getBoundingClientRect();
+                  setMenuPosition({ x: rect.left, y: rect.bottom });
+                  setShowReportsToMenu((prev) => !prev);
+                  setShowTitleMenu(false);
+                  setShowCurrentStatusMenu(false);
+                }}
+                className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+              >
+                ▼
+              </button>
+            </div>
+
+            {/* Reports To Dropdown Menu */}
+            {showReportsToMenu && (
+              <div
+                className="fixed bg-white text-black shadow-lg rounded w-48 z-50 max-h-64 overflow-y-auto"
+                style={{ top: menuPosition.y, left: menuPosition.x }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* "All" option */}
+                <div
+                  className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                    selectedReportsTo.length === 0 || selectedReportsTo.length === availableReportsTo.length ? 'bg-gray-100 font-semibold' : ''
+                  }`}
+                  onClick={() => setSelectedReportsTo([])}
+                >
+                  <input type="checkbox" checked={selectedReportsTo.length === 0 || selectedReportsTo.length === availableReportsTo.length} readOnly />
+                  All
+                </div>
+
+                {/* Individual reports to options */}
+                {availableReportsTo.map((manager) => (
+                  <div
+                    key={manager}
+                    className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                      selectedReportsTo.includes(manager) ? 'bg-gray-100 font-semibold' : ''
+                    }`}
+                    onClick={() => toggleSelection(manager, setSelectedReportsTo, selectedReportsTo)}
+                  >
+                    <input type="checkbox" checked={selectedReportsTo.includes(manager)} readOnly />
+                    {manager}
+                  </div>
+                ))}
+              </div>
+            )}
+          </th>
+
+          <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[130px]" style={styles.outfitFont}>Director Level</th>
+          <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[150px]" style={styles.outfitFont}>Other Information</th>
+          
+          {/* Current Status Filter Column */}
+          <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[80px] relative" style={styles.outfitFont}>
+            <div className="flex justify-between items-center">
+              <span>Current Status</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.target.getBoundingClientRect();
+                  setMenuPosition({ x: rect.left, y: rect.bottom });
+                  setShowCurrentStatusMenu((prev) => !prev);
+                  setShowTitleMenu(false);
+                  setShowReportsToMenu(false);
+                }}
+                className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+              >
+                ▼
+              </button>
+            </div>
+
+            {/* Current Status Dropdown Menu */}
+            {showCurrentStatusMenu && (
+              <div
+                className="fixed bg-white text-black shadow-lg rounded w-48 z-50 max-h-64 overflow-y-auto"
+                style={{ top: menuPosition.y, left: menuPosition.x }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* "All" option */}
+                <div
+                  className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                    selectedCurrentStatuses.length === 0 || selectedCurrentStatuses.length === availableCurrentStatuses.length ? 'bg-gray-100 font-semibold' : ''
+                  }`}
+                  onClick={() => setSelectedCurrentStatuses([])}
+                >
+                  <input type="checkbox" checked={selectedCurrentStatuses.length === 0 || selectedCurrentStatuses.length === availableCurrentStatuses.length} readOnly />
+                  All
+                </div>
+
+                {/* Individual status options */}
+                {availableCurrentStatuses.map((status) => (
+                  <div
+                    key={status}
+                    className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                      selectedCurrentStatuses.includes(status) ? 'bg-gray-100 font-semibold' : ''
+                    }`}
+                    onClick={() => toggleSelection(status, setSelectedCurrentStatuses, selectedCurrentStatuses)}
+                  >
+                    <input type="checkbox" checked={selectedCurrentStatuses.includes(status)} readOnly />
+                    {status}
+                  </div>
+                ))}
+              </div>
+            )}
+          </th>
 
           {/* Dynamic Month Columns */}
           {MONTHS.map(month => (
             <th
               key={month.key}
-              className="px-2 py-2 text-center font-semibold text-gray-700 border-b border-r min-w-[60px]"
+              className="px-2 py-2 text-center font-semibold text-white border-b border-black border-r border-white min-w-[60px]"
               style={styles.outfitFont}
             >
               {month.label}
@@ -670,7 +786,7 @@ return (
           <tr>
             <td
               colSpan={8 + MONTHS.length}
-              className="px-4 py-8 text-center text-gray-500"
+              className="px-4 py-8 text-center text-black"
               style={styles.outfitFont}
             >
               No employees found
@@ -678,29 +794,29 @@ return (
           </tr>
         ) : (
           employees.map((employee) => (
-            <tr key={employee.emp_id} className="hover:bg-gray-50 border-b">
+            <tr key={employee.emp_id} className="hover:bg-gray-50 border-b border-black">
 
               {/* Edit Button (Sticky Column) */}
-              <td className="px-2 py-2 border-r sticky left-0 bg-white z-10">
-                <button
-                  onClick={() => openEditModal(employee)}
-                  className="px-2 py-1 bg-[#017ACB] text-white text-xs rounded hover:bg-blue-700 cursor-pointer"
+              <td className="px-2 py-2 border-r border-black">
+                <Link
+                  href={`/Resource-Manager/create_edit_Resources/EditResource?id=${employee.emp_id}`}
+                  className="px-2 py-1 bg-[#017ACB] text-white text-xs rounded hover:bg-blue-700 cursor-pointer inline-block"
                   style={styles.outfitFont}
                 >
                   Edit
-                </button>
+                </Link>
               </td>
 
               {/* Employee Details */}
-              <td className="px-2 py-2 text-gray-900 border-r" style={styles.outfitFont}>{employee.emp_name}</td>
-              <td className="px-2 py-2 text-gray-600 border-r" style={styles.outfitFont}>{employee.emp_title}</td>
-              <td className="px-2 py-2 text-gray-600 border-r" style={styles.outfitFont}>{getDepartmentName(employee.dept_no)}</td>
-              <td className="px-2 py-2 text-gray-600 border-r" style={styles.outfitFont}>{getManagerName(employee.manager_id)}</td>
-              <td className="px-2 py-2 text-gray-600 border-r" style={styles.outfitFont}>{getDirectorName()}</td>
-              <td className="px-2 py-2 text-gray-600 border-r" style={styles.outfitFont}>{employee.other_info || ''}</td>
+              <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{employee.emp_name}</td>
+              <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{employee.emp_title}</td>
+              <td className="px-2 py-2 text-gray-600 border-r border-black" style={styles.outfitFont}>{getDepartmentName(employee.dept_no)}</td>
+              <td className="px-2 py-2 text-gray-600 border-r border-black" style={styles.outfitFont}>{getManagerName(employee.manager_id)}</td>
+              <td className="px-2 py-2 text-gray-600 border-r border-black" style={styles.outfitFont}>{getDirectorName()}</td>
+              <td className="px-2 py-2 text-gray-600 border-r border-black" style={styles.outfitFont}>{employee.other_info || ''}</td>
 
               {/* Current Status Badge */}
-              <td className="px-2 py-2 border-r">
+              <td className="px-2 py-2 border-r border-black">
                 <span
                   className={`px-2 py-1 text-xs rounded ${
                     getCurrentStatus(employee) === 'Active'
@@ -717,7 +833,7 @@ return (
               {MONTHS.map(month => (
                 <td
                   key={month.key}
-                  className="px-2 py-2 text-center border-r text-gray-700"
+                  className="px-2 py-2 text-center border-r border-black text-black"
                   style={styles.outfitFont}
                 >
                   {getMonthValue(employee, month.key)}
@@ -728,6 +844,7 @@ return (
         )}
       </tbody>
     </table>
+    </div>
   </div>
 
   {/* -----------------------------------------------------
@@ -740,252 +857,6 @@ return (
   </div>
 
 </main>
-
-{/* ---------------------------------------------------------
-    CREATE RESOURCE MODAL
-    ---------------------------------------------------------
-    - Appears when showCreateModal === true
-    - Allows creation of a new employee record
-    - Includes validation for required fields
-    - Uses formData state to track input values
---------------------------------------------------------- */}
-{showCreateModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-
-      {/* Modal Title */}
-      <h2 className="text-xl font-bold text-gray-900 mb-4" style={styles.outfitFont}>
-        Create New Resource
-      </h2>
-
-      {/* Create Form */}
-      <form onSubmit={handleCreate} className="space-y-4">
-
-        {/* Name Field */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>
-            Name *
-          </label>
-          <input
-            type="text"
-            value={formData.emp_name}
-            onChange={(e) => setFormData({ ...formData, emp_name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-            style={styles.outfitFont}
-            required
-          />
-        </div>
-
-        {/* Title Field */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>
-            Title *
-          </label>
-          <input
-            type="text"
-            value={formData.emp_title}
-            onChange={(e) => setFormData({ ...formData, emp_title: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-            style={styles.outfitFont}
-            required
-          />
-        </div>
- -------------
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Department *</label>
-                <select
-                  value={formData.dept_no}
-                  onChange={(e) => setFormData({ ...formData, dept_no: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-                  style={styles.outfitFont}
-                  required
-                >
-                  <option value="">Select Department</option>
-                  {departments.map((dept) => (
-                    <option key={dept.dept_no} value={dept.dept_no}>
-                      {dept.dept_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Reports To</label>
-                <select
-                  value={formData.manager_id}
-                  onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-                  style={styles.outfitFont}
-                >
-                  <option value="">Select Manager</option>
-                  {managers.map((manager) => (
-                    <option key={manager.emp_id} value={manager.emp_id}>
-                      {manager.emp_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Other Information</label>
-                <input
-                  type="text"
-                  value={formData.other_info}
-                  onChange={(e) => setFormData({ ...formData, other_info: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-                  style={styles.outfitFont}
-                  placeholder="e.g., Contract End date = Oct 15, 2025"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setFormData({ emp_name: '', emp_title: '', dept_no: '', manager_id: '', other_info: '' });
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 text-sm cursor-pointer"
-                  style={styles.outfitFont}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-[#017ACB] text-white rounded hover:bg-blue-700 text-sm cursor-pointer"
-                  style={styles.outfitFont}
-                >
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
- 
-      {showEditModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-900 mb-4" style={styles.outfitFont}>Edit Resource</h2>
- 
-            <form onSubmit={handleEdit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Name *</label>
-                <input
-                  type="text"
-                  value={formData.emp_name}
-                  onChange={(e) => setFormData({ ...formData, emp_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-                  style={styles.outfitFont}
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Title *</label>
-                <input
-                  type="text"
-                  value={formData.emp_title}
-                  onChange={(e) => setFormData({ ...formData, emp_title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-                  style={styles.outfitFont}
-                  required
-                />
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Department *</label>
-                <select
-                  value={formData.dept_no}
-                  onChange={(e) => setFormData({ ...formData, dept_no: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-                  style={styles.outfitFont}
-                  required
-                >
-                  <option value="">Select Department</option>
-                  {departments.map((dept) => (
-                    <option key={dept.dept_no} value={dept.dept_no}>
-                      {dept.dept_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Reports To</label>
-                <select
-                  value={formData.manager_id}
-                  onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-                  style={styles.outfitFont}
-                >
-                  <option value="">Select Manager</option>
-                  {managers.map((manager) => (
-                    <option key={manager.emp_id} value={manager.emp_id}>
-                      {manager.emp_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Other Information</label>
-                <input
-                  type="text"
-                  value={formData.other_info}
-                  onChange={(e) => setFormData({ ...formData, other_info: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm"
-                  style={styles.outfitFont}
-                />
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" style={styles.outfitFont}>Status</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedEmployee.emp_id, 'Active')}
-                    className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm cursor-pointer"
-                    style={styles.outfitFont}
-                  >
-                    Set Active
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedEmployee.emp_id, 'Inactive')}
-                    className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm cursor-pointer"
-                    style={styles.outfitFont}
-                  >
-                    Set Inactive
-                  </button>
-                </div>
-              </div>
- 
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedEmployee(null);
-                    setFormData({ emp_name: '', emp_title: '', dept_no: '', manager_id: '', other_info: '' });
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 text-sm cursor-pointer"
-                  style={styles.outfitFont}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-[#017ACB] text-white rounded hover:bg-blue-700 text-sm cursor-pointer"
-                  style={styles.outfitFont}
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
