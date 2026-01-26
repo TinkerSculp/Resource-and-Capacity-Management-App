@@ -167,7 +167,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* SUMMARY CARDS (Planned removed → now 3 cards) */}
+        {/* SUMMARY CARDS */}
         <div className="grid grid-cols-3 gap-[clamp(1rem,2vw,2.5rem)] mb-[clamp(1.5rem,2vw,2.5rem)] w-full">
           {[
             { label: 'Active Initiatives', icon: '✅', value: summary.active },
