@@ -263,7 +263,7 @@ export default function DashboardPage() {
             { label: 'Resources', icon: '👥', href: '/Resource-Manager/create_edit_Resources' },
             { label: 'Initiatives', icon: '🎯', href: '/Resource-Manager/create_edit_Initiatives' },
             { label: 'Assignments', icon: '📋', href: null },
-            { label: 'Calendar', icon: '📅', href: null },
+            { label: 'Calendar', icon: '📅', href: '/Resource-Manager/calendar_view' },
             { label: 'Report', icon: '📈', href: null },
           ].map((tile, i) => {
 
