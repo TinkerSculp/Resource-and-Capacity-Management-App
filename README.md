@@ -22,6 +22,7 @@ A scalable, web-based solution that centralizes resource data, streamlines activ
 1. Install dependencies:
 ```bash
 npm install
+npm install chart.js react-chartjs-2
 ```
 
 2. Configure your database connection in `server.js`
