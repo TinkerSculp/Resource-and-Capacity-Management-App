@@ -43,6 +43,7 @@ export default function ResourcesPage() {
   const [departments, setDepartments] = useState([]);
   const [managers, setManagers] = useState([]);
   const [user, setUser] = useState(null);
+  
 
   /* -------------------------------------------------------
      UI State
@@ -73,6 +74,10 @@ export default function ResourcesPage() {
 
   // ✅ Portal ready state (prevents SSR crash)
   const [portalReady, setPortalReady] = useState(false);
+
+  const [nameSort, setNameSort] = useState('none');
+  const [showNameMenu, setShowNameMenu] = useState(false);
+
 
   const router = useRouter();
   const apiUrl = 'http://localhost:3001';
@@ -116,7 +121,8 @@ export default function ResourcesPage() {
     user,
     selectedTitles,
     selectedReportsTo,
-    selectedCurrentStatuses
+    selectedCurrentStatuses,
+    nameSort 
   ]);
 
   /* -------------------------------------------------------
@@ -256,6 +262,18 @@ export default function ResourcesPage() {
         const status = getCurrentStatus(emp);
         return selectedCurrentStatuses.includes(status);
       });
+    }
+
+    if (nameSort === 'az') {
+    filtered.sort((a, b) =>
+    a.emp_name.localeCompare(b.emp_name)
+      );
+    }
+
+    if (nameSort === 'za') {
+      filtered.sort((a, b) =>
+      b.emp_name.localeCompare(a.emp_name)
+     );
     }
 
     setEmployees(filtered);
@@ -419,19 +437,24 @@ export default function ResourcesPage() {
       </header>
 
       <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl text-gray-900" style={styles.outfitFont}>
-            Data Management - Resource Availability by Month
-          </h2>
+            <div className="flex items-center gap-4 mb-4">
+                <h2
+                  className="text-2xl text-gray-900"
+                  style={styles.outfitFont}
+                >
+                Data Management - Resource Availability by Month
+                 </h2>
 
-          <button
-            onClick={goToDashboard}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition cursor-pointer"
-            style={styles.outfitFont}
-          >
-            ← Back to Dashboard
-          </button>
-        </div>
+           <button
+                onClick={goToDashboard}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition cursor-pointer"
+                style={styles.outfitFont}
+              >
+                ← Back to Dashboard
+            </button>
+          
+          </div>
+
 
         {error && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -509,11 +532,73 @@ export default function ResourcesPage() {
                     Edit
                   </th>
                   <th
-                    className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[150px]"
-                    style={styles.outfitFont}
-                  >
-                    Name
-                  </th>
+  className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[150px] relative"
+  style={styles.outfitFont}
+>
+  <div className="flex justify-between items-center">
+    <span>Name</span>
+
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMenuPosition({ x: rect.left, y: rect.bottom });
+        setShowNameMenu((prev) => !prev);
+
+        // close others
+        setShowTitleMenu(false);
+        setShowReportsToMenu(false);
+        setShowCurrentStatusMenu(false);
+      }}
+      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+    >
+      ▼
+    </button>
+  </div>
+
+  {/* NAME SORT MENU */}
+  {showNameMenu &&
+    renderDropdownPortal(
+      <div className="bg-white text-black shadow-lg rounded w-40 border border-gray-200">
+        <div
+          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 ${
+            nameSort === 'none' ? 'bg-gray-100 font-semibold' : ''
+          }`}
+          onClick={() => {
+            setNameSort('none');
+            setShowNameMenu(false);
+          }}
+        >
+          None
+        </div>
+
+        <div
+          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 ${
+            nameSort === 'az' ? 'bg-gray-100 font-semibold' : ''
+          }`}
+          onClick={() => {
+            setNameSort('az');
+            setShowNameMenu(false);
+          }}
+        >
+          A → Z
+        </div>
+
+        <div
+          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 ${
+            nameSort === 'za' ? 'bg-gray-100 font-semibold' : ''
+          }`}
+          onClick={() => {
+            setNameSort('za');
+            setShowNameMenu(false);
+          }}
+        >
+          Z → A
+        </div>
+      </div>
+    )}
+               </th>
+
 
                   {/* Title Filter Column */}
                   <th
