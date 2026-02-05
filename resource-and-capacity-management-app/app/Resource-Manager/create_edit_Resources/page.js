@@ -59,6 +59,8 @@ export default function ResourcesPage() {
   const [selectedReportsTo, setSelectedReportsTo] = useState([]);
   const [selectedCurrentStatuses, setSelectedCurrentStatuses] = useState([]);
 
+  const [nameSort, setNameSort] = useState('none');
+
   // Dropdown visibility toggles
   const [showNameMenu, setShowNameMenu] = useState(false);
   const [showTitleMenu, setShowTitleMenu] = useState(false);
@@ -117,6 +119,7 @@ export default function ResourcesPage() {
     statusFilter,
     searchTerm,
     user,
+    nameSort,
     selectedNames,
     selectedTitles,
     selectedReportsTo,
@@ -257,6 +260,18 @@ export default function ResourcesPage() {
         const status = getCurrentStatus(emp);
         return selectedCurrentStatuses.includes(status);
       });
+    }
+
+    if (nameSort === 'az') {
+    filtered.sort((a, b) =>
+    a.emp_name.localeCompare(b.emp_name)
+      );
+    }
+
+    if (nameSort === 'za') {
+      filtered.sort((a, b) =>
+      b.emp_name.localeCompare(a.emp_name)
+     );
     }
 
     setEmployees(filtered);
@@ -550,6 +565,31 @@ export default function ResourcesPage() {
                             />
                             All
                           </div>
+
+                          
+        <div
+          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 ${
+            nameSort === 'az' ? 'bg-gray-100 font-semibold' : ''
+          }`}
+          onClick={() => {
+            setNameSort('az');
+            setShowNameMenu(false);
+          }}
+        >
+          A → Z
+        </div>
+
+        <div
+          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 ${
+            nameSort === 'za' ? 'bg-gray-100 font-semibold' : ''
+          }`}
+          onClick={() => {
+            setNameSort('za');
+            setShowNameMenu(false);
+          }}
+        >
+          Z → A
+        </div>
 
                           {availableNames.map((name) => (
                             <div
