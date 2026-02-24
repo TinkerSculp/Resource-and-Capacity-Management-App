@@ -44,85 +44,91 @@ export default function CapacitySummary() {
 
   const [employees, setEmployees] = useState([]);
 
-  /* ================= EXPORT CSV FUNCTION ================= */
+  // Enhanced CSV Export Function
+  const handleExportCSV = () => {
+    let csvContent = "";
+    let filename = "";
+    const timestamp = new Date().toISOString().split('T')[0];
 
-  function handleExportCSV() {
-    const activeMonths =
-      viewMode === "activity" || viewMode === "person"
-        ? reportMonths
-        : months;
-
-    if (!activeMonths.length) return;
-
-    let csv = "";
-
-    // Header
-    csv += `Row Labels,${activeMonths.join(",")}\n`;
-
-    // Activity View
     if (viewMode === "activity") {
-      rows.forEach((row) => {
-        const values = activeMonths.map((m) =>
-          fmt(row.months?.[m] || 0)
-        );
-        csv += `${row.activity},${values.join(",")}\n`;
+      filename = `Activity_Report_${startMonth}_${timestamp}.csv`;
+      csvContent = `Activity Allocation Report\n`;
+      csvContent += `Generated: ${new Date().toLocaleString()}\n`;
+      csvContent += `Start Month: ${startMonth}\n`;
+      if (activityCategory !== 'all') csvContent += `Category Filter: ${activityCategory}\n`;
+      if (leader !== 'all') csvContent += `Leader Filter: ${leader}\n`;
+      if (requestingDept !== 'all') csvContent += `Department Filter: ${requestingDept}\n`;
+      if (requestor !== 'all') csvContent += `Requestor Filter: ${requestor}\n`;
+      csvContent += `\n`;
+      csvContent += `Activity,${reportMonths.join(",")}\n`;
+      rows.forEach(row => {
+        const values = reportMonths.map(m => fmt(row.months?.[m] || 0));
+        csvContent += `"${row.activity}",${values.join(",")}\n`;
       });
-
-      const grandTotals = activeMonths.map((m) =>
-        fmt(rows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0))
-      );
-
-      csv += `Grand Total,${grandTotals.join(",")}\n`;
+      const totalsRow = reportMonths.map(m => {
+        const total = rows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+        return fmt(total);
+      });
+      csvContent += `\nGrand Total,${totalsRow.join(",")}\n`;
+    } else if (viewMode === "person") {
+      filename = `Person_Report_${startMonth}_${timestamp}.csv`;
+      csvContent = `Employee Allocation Report\n`;
+      csvContent += `Generated: ${new Date().toLocaleString()}\n`;
+      csvContent += `Start Month: ${startMonth}\n`;
+      csvContent += `Total Employees: ${employees.length}\n\n`;
+      csvContent += `Employee,${reportMonths.join(",")},Average\n`;
+      employees.forEach(emp => {
+        const values = reportMonths.map(m => fmt(emp.months?.[m] || 0));
+        const avg = reportMonths.reduce((sum, m) => sum + (emp.months?.[m] || 0), 0) / reportMonths.length;
+        csvContent += `"${emp.emp_name}",${values.join(",")},${fmt(avg)}\n`;
+      });
+      const totalsRow = reportMonths.map(m => {
+        const total = employees.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+        return fmt(total);
+      });
+      const grandAvg = totalsRow.reduce((sum, val) => sum + parseFloat(val), 0) / totalsRow.length;
+      csvContent += `\nGrand Total,${totalsRow.join(",")},${fmt(grandAvg)}\n`;
+      csvContent += `\n\nOver-Capacity Analysis\nEmployee,Months Over Capacity\n`;
+      employees.forEach(emp => {
+        const overMonths = reportMonths.filter(m => (emp.months?.[m] || 0) > 1);
+        if (overMonths.length > 0) {
+          csvContent += `"${emp.emp_name}","${overMonths.join(', ')}"\n`;
+        }
+      });
+    } else {
+      filename = `Category_Report_${startMonth}_${timestamp}.csv`;
+      csvContent = `Capacity Summary by Category\n`;
+      csvContent += `Generated: ${new Date().toLocaleString()}\n`;
+      csvContent += `Start Month: ${startMonth}\n\n`;
+      csvContent += `Category,${months.join(",")}\n`;
+      categories.forEach(cat => {
+        csvContent += `"${cat.label}",${cat.values.map(v => fmt(v)).join(",")}\n`;
+      });
+      csvContent += `\n`;
+      csvContent += `Total Allocated,${totals.map(v => fmt(v)).join(",")}\n`;
+      csvContent += `Total People Capacity,${peopleCapacity.map(v => fmt(v)).join(",")}\n`;
+      csvContent += `Remaining Capacity,${remainingCapacity.map(v => fmt(v)).join(",")}\n`;
+      csvContent += `\nUtilization Analysis\nMonth,Utilization %\n`;
+      months.forEach((month, idx) => {
+        const utilization = peopleCapacity[idx] > 0 
+          ? ((totals[idx] / peopleCapacity[idx]) * 100).toFixed(1)
+          : "0.0";
+        csvContent += `${month},${utilization}%\n`;
+      });
     }
 
-    // Person View
-    else if (viewMode === "person") {
-      employees.forEach((emp) => {
-        const values = activeMonths.map((m) =>
-          fmt(emp.months?.[m] || 0)
-        );
-        csv += `${emp.emp_name},${values.join(",")}\n`;
-      });
-
-      const grandTotals = activeMonths.map((m) =>
-        fmt(employees.reduce((sum, e) => sum + (e.months?.[m] || 0), 0))
-      );
-
-      csv += `Grand Total,${grandTotals.join(",")}\n`;
-    }
-
-    // Category View (Default)
-    else {
-      categories.forEach((cat) => {
-        csv += `${cat.label},${cat.values.map(fmt).join(",")}\n`;
-      });
-
-      csv += `Total Allocated,${totals.map(fmt).join(",")}\n`;
-      csv += `Total People Capacity,${peopleCapacity.map(fmt).join(",")}\n`;
-      csv += `Remaining Capacity,${remainingCapacity.map(fmt).join(",")}\n`;
-    }
-
-    const blob = new Blob([csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
-
-    link.href = url;
-    link.setAttribute(
-      "download",
-      `capacity_report_${viewMode}_${startMonth}.csv`
-    );
-
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }
+    URL.revokeObjectURL(url);
+  };
 
-  /* ---------------------------------------------------------
-     LOAD USER
-  --------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored = localStorage.getItem("user");
@@ -133,9 +139,6 @@ export default function CapacitySummary() {
     }
   }, []);
 
-  /* ---------------------------------------------------------
-     LOAD MONTH OPTIONS
-  --------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
@@ -161,9 +164,6 @@ export default function CapacitySummary() {
     loadMonths();
   }, [user]);
 
-  /* ---------------------------------------------------------
-     LOAD SUMMARY DATA
-  --------------------------------------------------------- */
   useEffect(() => {
     if (!user || !startMonth) return;
 
@@ -227,7 +227,6 @@ export default function CapacitySummary() {
       }
     }
 
-    // Get filters
     async function loadFilters() {
       const res = await api.get("/reports/filters");
       const data = res?.data || {};
@@ -249,18 +248,13 @@ export default function CapacitySummary() {
     );
   }
 
-  /* ---------------------------------------------------------
-     CONDITIONAL TABLE RENDERING
-  --------------------------------------------------------- */
   function renderTableBody() {
-    // ACTIVITY ALLOCATION VIEW
     if (viewMode === "activity") {
       return (
         <tbody>
           {rows.map((row, idx) => (
             <tr key={row.activity} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
               <td className="px-6 py-3 font-medium border border-black">{row.activity}</td>
-
               {reportMonths.map((m) => (
                 <td key={m} className="px-6 py-3 text-center text-gray-700 border border-black">
                   {fmt(row.months?.[m])}
@@ -283,18 +277,15 @@ export default function CapacitySummary() {
       );
     }
 
-    // PERSON VIEW
     if (viewMode === "person") {
       return (
         <tbody>
           {employees.map((emp, idx) => (
             <tr key={emp.emp_name} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
               <td className="px-6 py-3 font-medium border border-black">{emp.emp_name}</td>
-
               {reportMonths.map((m) => {
                 const value = emp.months?.[m] || 0;
                 const isOverCapacity = value > 1;
-
                 return (
                   <td
                     key={m}
@@ -323,13 +314,11 @@ export default function CapacitySummary() {
       );
     }
 
-    // DEFAULT MONTH VIEW
     return (
       <tbody className="divide-y">
         {categories.map((cat, idx) => (
           <tr key={cat.label} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
             <td className="px-6 py-3 border border-black font-medium">{cat.label}</td>
-
             {cat.values.map((val, i) => (
               <td key={i} className="px-6 py-3 text-center border border-black">
                 {fmt(val)}
@@ -337,7 +326,6 @@ export default function CapacitySummary() {
             ))}
           </tr>
         ))}
-
         <tr className="bg-gray-200 font-semibold">
           <td className="px-6 py-3 border border-black">Total Allocated</td>
           {totals.map((val, idx) => (
@@ -346,7 +334,6 @@ export default function CapacitySummary() {
             </td>
           ))}
         </tr>
-
         <tr className="bg-white">
           <td className="px-6 py-3 border border-black font-semibold">Total People Capacity</td>
           {peopleCapacity.map((val, idx) => (
@@ -355,7 +342,6 @@ export default function CapacitySummary() {
             </td>
           ))}
         </tr>
-
         <tr className="bg-gray-200">
           <td className="px-6 py-3 border border-black font-semibold">Remaining Capacity</td>
           {remainingCapacity.map((val, idx) => (
@@ -367,43 +353,35 @@ export default function CapacitySummary() {
       </tbody>
     );
   }
-  
 
-  /* ---------------------------------------------------------
-     FINAL RENDER
-  --------------------------------------------------------- */
   return (
-    <div className="w-full">
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* HEADER */}
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        {/* Header Section */}
+        <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-4">
-            <h2 className="text-3xl font-bold text-gray-900" style={styles.outfitFont}>
+            <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
               Capacity Report
             </h2>
 
             <button
               onClick={() => router.push('/resource-manager/dashboard')}
-              className="px-4 py-2 rounded text-sm bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20 transition-colors 
-              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-              active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
+              className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
               style={styles.outfitFont}
             >
-              Back to Dashboard
+              ← Back to Dashboard
             </button>
           </div>
 
-          <div className="flex items-center gap-6">
-            {/* VIEW DROPDOWN */}
+          <div className="flex items-center gap-4">
+            {/* View Selector */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">View:</label>
-
+              <label className="text-sm font-medium text-gray-700" style={styles.outfitFont}>View:</label>
               <select
                 value={viewMode}
                 onChange={(e) => setViewMode(e.target.value)}
-                className="px-3 py-2 rounded text-sm bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20 transition-colors 
-                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
+                className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
                 style={styles.outfitFont}
               >
                 <option value="month">Allocation per Category</option>
@@ -412,17 +390,14 @@ export default function CapacitySummary() {
               </select>
             </div>
 
-            {/* START MONTH */}
-            <div className="px-3 py-1 rounded text-sm bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20 transition-colors 
-              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-              active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-              style={styles.outfitFont}>
-              <label className="text-sm font-medium text-gray-700">Start Month:</label>
-
+            {/* Start Month Selector */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700" style={styles.outfitFont}>Start Month:</label>
               <select
                 value={startMonth}
                 onChange={(e) => setStartMonth(Number(e.target.value))}
-                className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 transition"
+                className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+                style={styles.outfitFont}
               >
                 {selectableMonths.map((m) => (
                   <option key={m.value} value={m.value}>
@@ -432,30 +407,28 @@ export default function CapacitySummary() {
               </select>
             </div>
 
-            <button
-                 onClick={handleExportCSV}
-                 className="bg-[#017ACB] text-white px-5 py-2 rounded-md shadow hover:bg-[#015f9c] transition shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                 active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-                >
-               Export CSV
+            {/* Export CSV Button */}
+            <button 
+              onClick={handleExportCSV}
+              className="px-4 py-2 rounded text-sm bg-[#017ACB] text-white hover:bg-blue-700 transition"
+              style={styles.outfitFont}
+            >
+              Export CSV
             </button>
           </div>
         </div>
 
-        {/**
-         * FILTERS
-         * Available for activity viewMode to filter by activity category, leader, requesting dept, and requestor
-         */}
+        {/* Filters - Only show for Activity view */}
         {viewMode === "activity" && (
           <div className="flex flex-col md:flex-row flex-wrap gap-4 mb-6">
             
-            {/* Activity Category options */}
             <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Activity Category:</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>Activity Category:</label>
               <select
                 value={activityCategory}
                 onChange={(e) => setActivityCategory(e.target.value)}
                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+                style={styles.outfitFont}
               >
                 <option value="all">All</option>
                 <option value="Vacation">Vacation</option>
@@ -465,13 +438,13 @@ export default function CapacitySummary() {
               </select>
             </div>
 
-            {/* Leader options */}
             <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Leader:</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>Leader:</label>
               <select
                 value={leader}
                 onChange={(e) => setLeader(e.target.value)}
                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+                style={styles.outfitFont}
               >
                 <option value="all">All</option>
                 {leaderList.map((m) => (
@@ -482,13 +455,13 @@ export default function CapacitySummary() {
               </select>
             </div>
 
-            {/* Requesting Dept options */}
             <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Requesting Dept:</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>Requesting Dept:</label>
               <select
                 value={requestingDept}
                 onChange={(e) => setRequestingDept(e.target.value)}
                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+                style={styles.outfitFont}
               >
                 <option value="all">All</option>
                 {deptList.map((m) => (
@@ -499,13 +472,13 @@ export default function CapacitySummary() {
               </select>
             </div>
 
-            {/* Requestor options */}
             <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Requestor:</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>Requestor:</label>
               <select
                 value={requestor}
                 onChange={(e) => setRequestor(e.target.value)}
                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+                style={styles.outfitFont}
               >
                 <option value="all">All</option>
                 {requestorList.map((m) => (
@@ -518,16 +491,15 @@ export default function CapacitySummary() {
           </div>
         )}
 
-        {/* TABLE */}
-        <div className="bg-white rounded-xl shadow-md border border-black overflow-hidden">
-          <div className="overflow-x-auto">
+        {/* Table */}
+        <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+          <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
             <table className="min-w-full text-sm border-collapse border border-black">
-              <thead className="bg-[#017ACB] text-white">
+              <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-3 text-left font-semibold border border-black">Row Labels</th>
-
+                  <th className="px-6 py-3 text-left font-semibold border border-black" style={styles.outfitFont}>Row Labels</th>
                   {months.map((month) => (
-                    <th key={month} className="px-6 py-3 text-center font-semibold border border-black">
+                    <th key={month} className="px-6 py-3 text-center font-semibold border border-black" style={styles.outfitFont}>
                       {month}
                     </th>
                   ))}
