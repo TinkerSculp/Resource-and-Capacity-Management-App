@@ -144,18 +144,23 @@ export default function CapacitySummary() {
 
     async function loadMonths() {
       try {
-        const res = await api.get("/capacity-summary/months");
-        const data = res?.data;
-        if (!data?.months) return;
-
-        setSelectableMonths(data.months);
-
+        const monthsArray = [];
         const today = new Date();
+
+        for (let i = -17; i <= 0; i++) {
+          const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
+          const label = date.toLocaleString("default", { month: "short", year: "2-digit" }).replace(" ", "-");
+          const value = date.getFullYear() * 100 + (date.getMonth() + 1);
+
+          monthsArray.push({ label, value });
+        }
+
+        setSelectableMonths(monthsArray);
         const currentYYYYMM = today.getFullYear() * 100 + (today.getMonth() + 1);
-
-        const match = data.months.find((m) => m.value === currentYYYYMM);
-
-        setStartMonth(match ? match.value : data.months[data.months.length - 1].value);
+        const match = monthsArray.find((m) => m.value === currentYYYYMM);
+        setStartMonth(match ? match.value : monthsArray[monthsArray.length - 1].value);
+      } catch (error) {
+        console.error("Error generating months:", error);
       } finally {
         setLoadingMonths(false);
       }
