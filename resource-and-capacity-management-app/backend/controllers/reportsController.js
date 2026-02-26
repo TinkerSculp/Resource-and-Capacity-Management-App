@@ -121,25 +121,39 @@ export const getActivityFilters = async (req, res) => {
   try {
     const db = await connectDB();
 
-    const [leaders, requestors, departments] = await Promise.all([
-      db.collection("assignment").distinct("leader", {
-        leader: { $exists: true, $ne: "" },
-      }),
+    const [leadersResult, requestors, departments] = await Promise.all([
+      db.collection("account").aggregate([
+        { $match: { "account.acc_type_id": 1 } },
+        {
+          $lookup: {
+            from: "employee",
+            localField: "emp_id",
+            foreignField: "emp_id",
+            as: "emp_details"
+          }
+        },
+        { $unwind: "$emp_details" },
+        { $group: { _id: "$emp_details.emp_name" } },
+        { $sort: { _id: 1 } }
+      ]).toArray(),
+
       db.collection("assignment").distinct("requestor", {
         requestor: { $exists: true, $ne: "" },
       }),
-      db.collection("assignment").distinct("requesting_dept", {
-        requesting_dept: { $exists: true, $ne: "" },
-      }),
+
+      db.collection("department").distinct("dept_name", {
+        dept_name: { $exists: true, $ne: "" }
+      })
     ]);
 
     return res.json({
-      leaders,
+      leaders: leadersResult.map(l => l._id),
       requestors,
-      requesting_dept: departments,
+      requesting_dept: departments.sort(),
     });
+
   } catch (error) {
-    console.error("get-assignment-filters error:", error);
+    console.error("get-activity-filters error:", error);
     return res.status(500).json({ error: "Server error" });
   }
 };

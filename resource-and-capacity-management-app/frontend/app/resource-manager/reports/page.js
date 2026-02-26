@@ -355,7 +355,7 @@ export default function CapacitySummary() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-[600px] bg-white">
       <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
         {/* Header Section */}
@@ -367,7 +367,11 @@ export default function CapacitySummary() {
 
             <button
               onClick={() => router.push('/resource-manager/dashboard')}
-              className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+              className="px-4 py-2 rounded text-sm
+              bg-gray-200 text-gray-700 border
+              hover:bg-[#017ACB]/20 transition-colors
+              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
               style={styles.outfitFont}
             >
               ← Back to Dashboard
@@ -410,7 +414,11 @@ export default function CapacitySummary() {
             {/* Export CSV Button */}
             <button 
               onClick={handleExportCSV}
-              className="px-4 py-2 rounded text-sm bg-[#017ACB] text-white hover:bg-blue-700 transition"
+              className="px-4 py-2 rounded text-sm
+              bg-gray-200 text-gray-700 border
+              hover:bg-[#017ACB]/20 transition-colors
+              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
               style={styles.outfitFont}
             >
               Export CSV
