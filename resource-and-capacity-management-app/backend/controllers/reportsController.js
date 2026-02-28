@@ -5,7 +5,7 @@ export const getActivitySummary = async (req, res) => {
   try {
     const db = await connectDB();
     const allocationCol = db.collection("allocation");
-    const { start, months, category, leader, dept, requestor } = req.query;
+    const { start, months, category, leader, dept, requestor, requestor_vp } = req.query;
 
     const monthsWindow = months ? parseInt(months, 10) : 6;
 
@@ -51,6 +51,7 @@ export const getActivitySummary = async (req, res) => {
     if (leader && leader !== "all") assignmentFilters["projectDetails.leader"] = leader;
     if (dept && dept !== "all") assignmentFilters["projectDetails.requesting_dept"] = dept;
     if (requestor && requestor !== "all") assignmentFilters["projectDetails.requestor"] = requestor;
+    if (requestor_vp && requestor_vp !== "all") assignmentFilters["projectDetails.requestor_vp"] = requestor_vp;
 
     if (Object.keys(assignmentFilters).length > 0) {
       pipeline.push({ $match: assignmentFilters });
@@ -121,7 +122,7 @@ export const getActivityFilters = async (req, res) => {
   try {
     const db = await connectDB();
 
-    const [leadersResult, requestors, departments] = await Promise.all([
+    const [leadersResult, requestors, requestor_vp, departments] = await Promise.all([
       db.collection("account").aggregate([
         { $match: { "account.acc_type_id": 1 } },
         {
@@ -141,6 +142,10 @@ export const getActivityFilters = async (req, res) => {
         requestor: { $exists: true, $ne: "" },
       }),
 
+      db.collection("assignment").distinct("requestor_vp", {
+        requestor_vp: { $exists: true, $ne: "" },
+      }),
+
       db.collection("department").distinct("dept_name", {
         dept_name: { $exists: true, $ne: "" }
       })
@@ -149,6 +154,7 @@ export const getActivityFilters = async (req, res) => {
     return res.json({
       leaders: leadersResult.map(l => l._id),
       requestors,
+      requestor_vp,
       requesting_dept: departments.sort(),
     });
 

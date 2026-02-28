@@ -37,10 +37,12 @@ export default function CapacitySummary() {
   const [leader, setLeader] = useState("all");
   const [requestingDept, setRequestingDept] = useState("all");
   const [requestor, setRequestor] = useState("all");
+  const [requestorVP, setRequestorVP] = useState("all");
 
   const [leaderList, setLeaderList] = useState([]);
   const [deptList, setDeptList] = useState([]);
   const [requestorList, setRequestorList] = useState([]);
+  const [requestorVPList, setRequestorVPList] = useState([]);
 
   const [employees, setEmployees] = useState([]);
 
@@ -147,7 +149,7 @@ export default function CapacitySummary() {
         const monthsArray = [];
         const today = new Date();
 
-        for (let i = -17; i <= 0; i++) {
+        for (let i = -11; i <= 0; i++) {
           const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
           const label = date.toLocaleString("default", { month: "short", year: "2-digit" }).replace(" ", "-");
           const value = date.getFullYear() * 100 + (date.getMonth() + 1);
@@ -221,6 +223,7 @@ export default function CapacitySummary() {
         leader: leader,
         dept: requestingDept,
         requestor: requestor,
+        requestor_vp: requestorVP,
       });
 
       try {
@@ -238,12 +241,13 @@ export default function CapacitySummary() {
 
       setLeaderList(data.leaders || []);
       setRequestorList(data.requestors || []);
+      setRequestorVPList(data.requestor_vp || []);
       setDeptList(data.requesting_dept || []);
     }
 
     loadActivitySummary();
     loadFilters();
-  }, [user, startMonth, activityCategory, leader, requestingDept, requestor]);
+  }, [user, startMonth, activityCategory, leader, requestingDept, requestor, requestorVP]);
 
   if (!user || loadingMonths || loadingSummary) {
     return (
@@ -495,6 +499,23 @@ export default function CapacitySummary() {
               >
                 <option value="all">All</option>
                 {requestorList.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>Requestor VP:</label>
+              <select
+                value={requestorVP}
+                onChange={(e) => setRequestorVP(e.target.value)}
+                className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+                style={styles.outfitFont}
+              >
+                <option value="all">All</option>
+                {requestorVPList.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
