@@ -23,7 +23,13 @@ export default function TeamMemberAssignments() {
   const [months, setMonths] = useState([]);
   const [activeTab, setActiveTab] = useState("mine");
 
-  // Auth Guard
+  // Modal state
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [projectMembers, setProjectMembers] = useState([]);
+
+  // ==============================
+  // AUTH GUARD
+  // ==============================
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) {
@@ -33,7 +39,9 @@ export default function TeamMemberAssignments() {
     setUser(JSON.parse(stored));
   }, [router]);
 
-  // Fetch data
+  // ==============================
+  // FETCH DATA
+  // ==============================
   useEffect(() => {
     if (!user) return;
 
@@ -61,96 +69,103 @@ export default function TeamMemberAssignments() {
   const rows =
     activeTab === "mine" ? mineAssignments : allAssignments;
 
+  // ==============================
+  // PROJECT CLICK HANDLER
+  // ==============================
+  const handleProjectClick = (projectName) => {
+    const members = allAssignments.filter(
+      (r) => r.assignment.project_name === projectName
+    );
+
+    setProjectMembers(members);
+    setSelectedProject(projectName);
+  };
+
   return (
-    <div className="max-w-9xl mx-auto bg-white mt-0 border border-white">
+    <div className="max-w-9xl mx-auto bg-white border border-white">
 
-    {/* TITLE SECTION */}
-    <div className="flex justify-between items-center px-6 py-4">
+      {/* HEADER ROW */}
+      <div className="relative flex items-center px-6 py-4">
 
-      <div className="flex items-center gap-9">
+        {/* BACK BUTTON */}
         <button
           onClick={() => router.push("/team-member/dashboard")}
           className="text-gray-700 text-3xl"
         >
-          &lt; 
+          &lt;
         </button>
 
+        {/* CENTERED TITLE */}
         <h2
           className="absolute left-1/2 transform -translate-x-1/2 text-4xl font-semibold text-gray-800"
           style={styles.outfitFont}
         >
           Current Assignments
         </h2>
-      </div>
-   
 
-        <div className="flex gap-2">
+        {/* ALL / MINE BUTTONS */}
+        <div className="ml-auto flex gap-3">
           <button
             onClick={() => setActiveTab("all")}
-            className={`px-5 py-1 text-sm rounded-md border font-medium transition ${
-              activeTab === "all"
-                ? "bg-[#017ACB] text-white border-[#017ACB]"
-                : "bg-gray-200 text-black border-gray-400 hover:bg-[#CDE6F7]"
-
-            }
-            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-          `}
+            className={`px-5 py-1 text-sm rounded-md border font-medium transition
+              ${
+                activeTab === "all"
+                  ? "bg-[#017ACB] text-white border-[#017ACB]"
+                  : "bg-gray-200 text-black border-gray-400 hover:bg-[#CDE6F7]"
+              }
+              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+            `}
           >
             All
-           </button>
-          
+          </button>
 
           <button
             onClick={() => setActiveTab("mine")}
-            className={`px-4 py-1 text-sm rounded-md border font-medium transition ${
-              activeTab === "mine"
-                ? "bg-[#017ACB] text-white border-[#017ACB]"
-                : "bg-gray-200 text-black border-gray-400 hover:bg-[#CDE6F7]"
-            }
-            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]`}
+            className={`px-5 py-1 text-sm rounded-md border font-medium transition
+              ${
+                activeTab === "mine"
+                  ? "bg-[#017ACB] text-white border-[#017ACB]"
+                  : "bg-gray-200 text-black border-gray-400 hover:bg-[#CDE6F7]"
+              }
+              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+            `}
           >
             Mine
           </button>
         </div>
       </div>
 
-      <div className="border-t-2 border-gray-900 w-full"></div> <br></br>
+      <div className="border-t-2 border-gray-900 w-full"></div>
 
       {/* TABLE */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
 
           <thead className="bg-gray-200">
-
-            {/* FIRST HEADER ROW */}
             <tr>
-
               <th className="border px-3 py-2 bg-[#CDE6F7] whitespace-nowrap">Resource Name</th>
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Department</th>
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Reports To</th>
+              <th className="border px-3 py-2 whitespace-nowrap">Department</th>
+              <th className="border px-3 py-2 whitespace-nowrap">Reports To</th>
               <th className="border px-3 py-2 bg-[#CDE6F7] whitespace-nowrap">Activity</th>
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Activity Category</th>
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Leader Accountable</th>
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Requestor</th>
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Requestor VP</th>
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Requesting Department</th>
+              <th className="border px-3 py-2 whitespace-nowrap">Activity Category</th>
+              <th className="border px-3 py-2 whitespace-nowrap">Leader Accountable</th>
+              <th className="border px-3 py-2 whitespace-nowrap">Requestor</th>
+              <th className="border px-3 py-2 whitespace-nowrap">Requestor VP</th>
+              <th className="border px-3 py-2 whitespace-nowrap">Requesting Department</th>
 
-              {/* Empty cell to align months row */}
               {months.map((m, i) => (
                 <th key={i} className="border px-3 py-2 text-sm whitespace-nowrap text-center">
                   {formatMonth(m)}
                 </th>
               ))}
             </tr>
-
           </thead>
 
           <tbody>
             {rows.map((row, index) => (
               <tr key={index} className="hover:bg-blue-50">
-
                 <td className="border px-2 py-1">
                   {row.employee.emp_name}
                 </td>
@@ -163,8 +178,16 @@ export default function TeamMemberAssignments() {
                   {row.employee.manager_name}
                 </td>
 
+                {/* CLICKABLE PROJECT */}
                 <td className="border px-2 py-1">
-                  {row.assignment.project_name}
+                  <button
+                    onClick={() =>
+                      handleProjectClick(row.assignment.project_name)
+                    }
+                    className="text-[#017ACB] underline hover:text-blue-800"
+                  >
+                    {row.assignment.project_name}
+                  </button>
                 </td>
 
                 <td className="border px-2 py-1">
@@ -192,7 +215,6 @@ export default function TeamMemberAssignments() {
                     {row.allocations?.[m] ?? ""}
                   </td>
                 ))}
-
               </tr>
             ))}
 
@@ -207,6 +229,37 @@ export default function TeamMemberAssignments() {
 
         </table>
       </div>
+
+      {/* MODAL */}
+      {selectedProject && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-[400px]">
+
+            <h3 className="text-xl font-semibold mb-4">
+              Team Members on "{selectedProject}"
+            </h3>
+
+            <ul className="space-y-2">
+              {projectMembers.map((member, index) => (
+                <li key={index} className="border-b pb-1">
+                  {member.employee.emp_name} — {member.employee.emp_title}
+                </li>
+              ))}
+            </ul>
+
+            <div className="text-right mt-4">
+              <button
+                onClick={() => setSelectedProject(null)}
+                className="px-4 py-1 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Close
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
