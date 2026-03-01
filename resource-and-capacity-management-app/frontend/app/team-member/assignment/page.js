@@ -70,9 +70,9 @@ export default function TeamMemberAssignments() {
       <div className="flex items-center gap-9">
         <button
           onClick={() => router.push("/team-member/dashboard")}
-          className="text-gray-700 text-lg"
+          className="text-gray-700 text-3xl"
         >
-          ← 
+          &lt; 
         </button>
 
         <h2
@@ -87,11 +87,15 @@ export default function TeamMemberAssignments() {
         <div className="flex gap-2">
           <button
             onClick={() => setActiveTab("all")}
-            className={`px-5 py-1.5 text-sm rounded-md border font-medium transition ${
+            className={`px-5 py-1 text-sm rounded-md border font-medium transition ${
               activeTab === "all"
                 ? "bg-[#017ACB] text-white border-[#017ACB]"
-                : "bg-gray-200 text-black border-gray-400 hover:bg-gray-300"
-            }`}
+                : "bg-gray-200 text-black border-gray-400 hover:bg-[#CDE6F7]"
+
+            }
+            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+          `}
           >
             All
            </button>
@@ -102,8 +106,10 @@ export default function TeamMemberAssignments() {
             className={`px-4 py-1 text-sm rounded-md border font-medium transition ${
               activeTab === "mine"
                 ? "bg-[#017ACB] text-white border-[#017ACB]"
-                : "bg-gray-200 text-black border-gray-400 hover:bg-gray-300"
-            }`}
+                : "bg-gray-200 text-black border-gray-400 hover:bg-[#CDE6F7]"
+            }
+            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]`}
           >
             Mine
           </button>
