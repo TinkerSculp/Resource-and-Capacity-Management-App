@@ -72,11 +72,11 @@ export default function TeamMemberAssignments() {
           onClick={() => router.push("/team-member/dashboard")}
           className="text-gray-700 text-lg"
         >
-          ←
+          ← 
         </button>
 
         <h2
-          className="text-4xl font-semibold text-gray-800"
+          className="absolute left-1/2 transform -translate-x-1/2 text-4xl font-semibold text-gray-800"
           style={styles.outfitFont}
         >
           Current Assignments
@@ -87,21 +87,22 @@ export default function TeamMemberAssignments() {
         <div className="flex gap-2">
           <button
             onClick={() => setActiveTab("all")}
-            className={`px-4 py-1 text-sm rounded ${
+            className={`px-5 py-1.5 text-sm rounded-md border font-medium transition ${
               activeTab === "all"
-                ? "bg-white text-black"
-                : "bg-gray-200 text-black"
+                ? "bg-[#017ACB] text-white border-[#017ACB]"
+                : "bg-gray-200 text-black border-gray-400 hover:bg-gray-300"
             }`}
           >
             All
-          </button>
+           </button>
+          
 
           <button
             onClick={() => setActiveTab("mine")}
-            className={`px-4 py-1 text-sm rounded ${
+            className={`px-4 py-1 text-sm rounded-md border font-medium transition ${
               activeTab === "mine"
-                ? "bg-white text-black"
-                : "bg-gray-200 text-black"
+                ? "bg-[#017ACB] text-white border-[#017ACB]"
+                : "bg-gray-200 text-black border-gray-400 hover:bg-gray-300"
             }`}
           >
             Mine
@@ -120,10 +121,10 @@ export default function TeamMemberAssignments() {
             {/* FIRST HEADER ROW */}
             <tr>
 
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Resource Name</th>
+              <th className="border px-3 py-2 bg-[#CDE6F7] whitespace-nowrap">Resource Name</th>
               <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Department</th>
               <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Reports To</th>
-              <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Activity</th>
+              <th className="border px-3 py-2 bg-[#CDE6F7] whitespace-nowrap">Activity</th>
               <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Activity Category</th>
               <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Leader Accountable</th>
               <th className="border px-3 py-2 border text-sm text-black whitespace-nowrap">Requestor</th>
