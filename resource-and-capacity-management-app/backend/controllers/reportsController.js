@@ -5,7 +5,7 @@ export const getActivitySummary = async (req, res) => {
   try {
     const db = await connectDB();
     const allocationCol = db.collection("allocation");
-    const { start, months, category, leader, dept, requestor } = req.query;
+    const { start, months, category, leader, dept, requestor, requestor_vp } = req.query;
 
     const monthsWindow = months ? parseInt(months, 10) : 6;
 
@@ -51,6 +51,7 @@ export const getActivitySummary = async (req, res) => {
     if (leader && leader !== "all") assignmentFilters["projectDetails.leader"] = leader;
     if (dept && dept !== "all") assignmentFilters["projectDetails.requesting_dept"] = dept;
     if (requestor && requestor !== "all") assignmentFilters["projectDetails.requestor"] = requestor;
+    if (requestor_vp && requestor_vp !== "all") assignmentFilters["projectDetails.requestor_vp"] = requestor_vp;
 
     if (Object.keys(assignmentFilters).length > 0) {
       pipeline.push({ $match: assignmentFilters });
@@ -121,25 +122,44 @@ export const getActivityFilters = async (req, res) => {
   try {
     const db = await connectDB();
 
-    const [leaders, requestors, departments] = await Promise.all([
-      db.collection("assignment").distinct("leader", {
-        leader: { $exists: true, $ne: "" },
-      }),
+    const [leadersResult, requestors, requestor_vp, departments] = await Promise.all([
+      db.collection("account").aggregate([
+        { $match: { "account.acc_type_id": 1 } },
+        {
+          $lookup: {
+            from: "employee",
+            localField: "emp_id",
+            foreignField: "emp_id",
+            as: "emp_details"
+          }
+        },
+        { $unwind: "$emp_details" },
+        { $group: { _id: "$emp_details.emp_name" } },
+        { $sort: { _id: 1 } }
+      ]).toArray(),
+
       db.collection("assignment").distinct("requestor", {
         requestor: { $exists: true, $ne: "" },
       }),
-      db.collection("assignment").distinct("requesting_dept", {
-        requesting_dept: { $exists: true, $ne: "" },
+
+      db.collection("assignment").distinct("requestor_vp", {
+        requestor_vp: { $exists: true, $ne: "" },
       }),
+
+      db.collection("department").distinct("dept_name", {
+        dept_name: { $exists: true, $ne: "" }
+      })
     ]);
 
     return res.json({
-      leaders,
+      leaders: leadersResult.map(l => l._id),
       requestors,
-      requesting_dept: departments,
+      requestor_vp,
+      requesting_dept: departments.sort(),
     });
+
   } catch (error) {
-    console.error("get-assignment-filters error:", error);
+    console.error("get-activity-filters error:", error);
     return res.status(500).json({ error: "Server error" });
   }
 };
