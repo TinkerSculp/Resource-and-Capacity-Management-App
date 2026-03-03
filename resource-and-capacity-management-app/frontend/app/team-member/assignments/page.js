@@ -136,6 +136,9 @@ export default function TeamMemberAssignments() {
 
   const rows = activeTab === 'mine' ? myRows : filteredAllRows;
 
+  // SIMPLE 12-MONTH SLICE - No useMemo, no fancy logic
+  const displayMonths = months.slice(0, 12);
+
   return (
     <>
       {/* HEADER */}
@@ -151,7 +154,7 @@ export default function TeamMemberAssignments() {
 
           <button
             onClick={() => router.push('/team-member/dashboard')}
-            className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-[#017ACB]/20 transition"
+            className="px-4 py-2 rounded text-sm bg-white text-gray-700 border shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)] hover:bg-[#017ACB]/20 transition"
             style={styles.outfitFont}
           >
             Back to Dashboard
@@ -161,7 +164,7 @@ export default function TeamMemberAssignments() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded text-sm transition ${
+            className={`px-4 py-2 rounded text-sm transition shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)] ${
               activeTab === 'all'
                 ? 'bg-[#017ACB] text-white'
                 : 'bg-white text-gray-700 border hover:bg-[#017ACB]/20'
@@ -173,7 +176,7 @@ export default function TeamMemberAssignments() {
 
           <button
             onClick={() => setActiveTab('mine')}
-            className={`px-4 py-2 rounded text-sm transition ${
+            className={`px-4 py-2 rounded text-sm transition shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)] ${
               activeTab === 'mine'
                 ? 'bg-[#017ACB] text-white'
                 : 'bg-white text-gray-700 border hover:bg-[#017ACB]/20'
@@ -202,7 +205,7 @@ export default function TeamMemberAssignments() {
                 <th className="px-4 py-2 border text-sm whitespace-nowrap">Requestor VP</th>
                 <th className="px-4 py-2 border text-sm whitespace-nowrap">Requesting Dept</th>
 
-                {months.map((m) => (
+                {displayMonths.map((m) => (
                   <th key={m} className="px-4 py-2 border text-sm whitespace-nowrap">
                     {formatMonth(m)}
                   </th>
@@ -228,7 +231,7 @@ export default function TeamMemberAssignments() {
                   <td className="px-4 py-2 border text-sm">{row.requestor_vp}</td>
                   <td className="px-4 py-2 border text-sm">{row.requesting_dept}</td>
 
-                  {months.map((m) => (
+                  {displayMonths.map((m) => (
                     <td key={m} className="px-4 py-2 border text-sm text-center">
                       {row.allocations[m] ?? ''}
                     </td>
