@@ -7,7 +7,6 @@ const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
 };
 
-// Sanitize text
 function sanitize(value) {
   if (typeof value !== 'string') return '';
   return value
@@ -17,7 +16,6 @@ function sanitize(value) {
     .trim();
 }
 
-// Convert YYYYMM → Jan-25
 function formatMonth(yyyymm) {
   const str = String(yyyymm);
   const year = str.slice(0, 4);
@@ -38,33 +36,29 @@ export default function TeamMemberAssignments() {
   const [activeTab, setActiveTab] = useState('all');
 
   const [allRows, setAllRows] = useState([]);
+  const [filteredAllRows, setFilteredAllRows] = useState([]);
   const [myRows, setMyRows] = useState([]);
   const [months, setMonths] = useState([]);
 
-  /* ---------------------------------------------------------
-     AUTH GUARD
-  --------------------------------------------------------- */
+  /* ---------------- AUTH ---------------- */
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('user');
+      const stored = localStorage.getItem('user');
       const token = localStorage.getItem('token');
 
-      if (!raw || !token) {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+      if (!stored || !token) {
+        localStorage.clear();
         router.push('/login');
         return;
       }
 
-      setUser(JSON.parse(raw));
+      setUser(JSON.parse(stored));
     } catch {
       router.push('/login');
     }
   }, [router]);
 
-  /* ---------------------------------------------------------
-     FETCH ASSIGNMENTS
-  --------------------------------------------------------- */
+  /* ---------------- FETCH ---------------- */
   useEffect(() => {
     if (!user) return;
 
@@ -80,12 +74,11 @@ export default function TeamMemberAssignments() {
 
         const data = await res.json();
 
-        const rawMonths = data.months || [];
-        setMonths(rawMonths);
+        setMonths(data.months || []);
 
-        // Helper to map backend rows
         const mapRows = (source) =>
           source.map((r) => ({
+            emp_id: r.employee.emp_id,
             resource_name: sanitize(r.employee.emp_name),
             department: sanitize(r.employee.dept_name),
             reports_to: sanitize(r.employee.manager_name),
@@ -94,14 +87,37 @@ export default function TeamMemberAssignments() {
             leader: sanitize(r.assignment.leader),
             requestor: sanitize(r.assignment.requestor),
             requestor_vp: sanitize(r.assignment.requestor_vp),
-            requesting_dept: sanitize(
-              r.assignment.requesting_dept_name
-            ),
+            requesting_dept: sanitize(r.assignment.requesting_dept_name),
             allocations: r.allocations || {}
           }));
 
-        setAllRows(mapRows(data.allAssignments || []));
-        setMyRows(mapRows(data.myAssignments || []));
+        const mappedAll = mapRows(data.allAssignments || []);
+        const mappedMine = mapRows(data.myAssignments || []);
+
+        setAllRows(mappedAll);
+        setMyRows(mappedMine);
+
+        /* ---------------- CORRECT FILTER LOGIC ---------------- */
+
+        if (!mappedMine.length) {
+          setFilteredAllRows([]);
+          return;
+        }
+
+        // Collect ALL unique activity+category combinations user belongs to
+        const userActivityPairs = new Set(
+          mappedMine.map(
+            (row) => `${row.activity}||${row.category}`
+          )
+        );
+
+        // Filter ALL rows that match ANY of those combinations
+        const matched = mappedAll.filter((row) =>
+          userActivityPairs.has(`${row.activity}||${row.category}`)
+        );
+
+        setFilteredAllRows(matched);
+
       } catch (err) {
         console.error('Fetch error:', err);
       }
@@ -118,14 +134,13 @@ export default function TeamMemberAssignments() {
     );
   }
 
-  const rows = activeTab === 'mine' ? myRows : allRows;
+  const rows = activeTab === 'mine' ? myRows : filteredAllRows;
 
   return (
     <>
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
 
-        {/* LEFT SIDE */}
         <div className="flex items-center gap-4">
           <h2
             className="text-4xl font-bold text-gray-900"
@@ -143,7 +158,6 @@ export default function TeamMemberAssignments() {
           </button>
         </div>
 
-        {/* RIGHT SIDE TABS */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab('all')}
@@ -178,39 +192,18 @@ export default function TeamMemberAssignments() {
 
             <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Resource Name
-                </th>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Department
-                </th>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Reports To
-                </th>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Activity
-                </th>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Activity Category
-                </th>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Leader Accountable
-                </th>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Requestor
-                </th>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Requestor VP
-                </th>
-                <th className="px-4 py-2 border text-sm whitespace-nowrap">
-                  Requesting Dept
-                </th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Resource Name</th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Department</th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Reports To</th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Activity</th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Activity Category</th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Leader Accountable</th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Requestor</th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Requestor VP</th>
+                <th className="px-4 py-2 border text-sm whitespace-nowrap">Requesting Dept</th>
 
                 {months.map((m) => (
-                  <th
-                    key={m}
-                    className="px-4 py-2 border text-sm whitespace-nowrap"
-                  >
+                  <th key={m} className="px-4 py-2 border text-sm whitespace-nowrap">
                     {formatMonth(m)}
                   </th>
                 ))}
@@ -225,39 +218,18 @@ export default function TeamMemberAssignments() {
                     index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                   }`}
                 >
-                  <td className="px-4 py-2 border text-sm">
-                    {row.resource_name}
-                  </td>
-                  <td className="px-4 py-2 border text-sm">
-                    {row.department}
-                  </td>
-                  <td className="px-4 py-2 border text-sm">
-                    {row.reports_to}
-                  </td>
-                  <td className="px-4 py-2 border text-sm">
-                    {row.activity}
-                  </td>
-                  <td className="px-4 py-2 border text-sm">
-                    {row.category}
-                  </td>
-                  <td className="px-4 py-2 border text-sm">
-                    {row.leader}
-                  </td>
-                  <td className="px-4 py-2 border text-sm">
-                    {row.requestor}
-                  </td>
-                  <td className="px-4 py-2 border text-sm">
-                    {row.requestor_vp}
-                  </td>
-                  <td className="px-4 py-2 border text-sm">
-                    {row.requesting_dept}
-                  </td>
+                  <td className="px-4 py-2 border text-sm">{row.resource_name}</td>
+                  <td className="px-4 py-2 border text-sm">{row.department}</td>
+                  <td className="px-4 py-2 border text-sm">{row.reports_to}</td>
+                  <td className="px-4 py-2 border text-sm">{row.activity}</td>
+                  <td className="px-4 py-2 border text-sm">{row.category}</td>
+                  <td className="px-4 py-2 border text-sm">{row.leader}</td>
+                  <td className="px-4 py-2 border text-sm">{row.requestor}</td>
+                  <td className="px-4 py-2 border text-sm">{row.requestor_vp}</td>
+                  <td className="px-4 py-2 border text-sm">{row.requesting_dept}</td>
 
                   {months.map((m) => (
-                    <td
-                      key={m}
-                      className="px-4 py-2 border text-sm text-center"
-                    >
+                    <td key={m} className="px-4 py-2 border text-sm text-center">
                       {row.allocations[m] ?? ''}
                     </td>
                   ))}
