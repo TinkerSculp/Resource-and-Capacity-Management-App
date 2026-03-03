@@ -241,7 +241,7 @@ export default function InitiativesPage() {
           </h2>
 
           <button
-            onClick={() => router.push('/resource-manager/dashboard')}
+            onClick={() => router.push('/team-member/dashboard')}
             className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-[#017ACB]/20 transition"
             style={styles.outfitFont}
           >
