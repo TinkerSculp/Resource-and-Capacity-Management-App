@@ -30,7 +30,11 @@
 --------------------------------------------------------- */
 @theme inline {
   --color-background: var(--background);     /* Tailwind color mapped to CSS variable */
-  --color-foreground: var(--foreground);     /* Tailwind color mapped to CSS variable */
+  --color-foreground: var(--foreground); 
+  
+  --color-brandBlue: #003A5C; /* Custom brand color mapped to Tailwind variable(dark blue) */
+
+  /* Tailwind color mapped to CSS variable */
   --font-sans: var(--font-geist-sans);       /* Custom sans-serif font variable */
   --font-mono: var(--font-geist-mono);       /* Custom monospace font variable */
 }

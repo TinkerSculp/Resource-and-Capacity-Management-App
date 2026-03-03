@@ -7,25 +7,10 @@ import Image from 'next/image';
 import api from '@/lib/api';
 
 export default function ForgotPasswordPage() {
-  /* ---------------------------------------------------------
-     STATE MANAGEMENT
-     ---------------------------------------------------------
-     • username → controlled input
-     • submitted → toggles success state
-     • router → navigation back to login
-  --------------------------------------------------------- */
   const [username, setUsername] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
 
-  /* ---------------------------------------------------------
-     SECURITY: SUBMIT HANDLER
-     ---------------------------------------------------------
-     • Prevents default form submission
-     • Sends username securely to backend
-     • Defensive checks on backend response
-     • Shows safe, user-friendly error messages
-  --------------------------------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -44,13 +29,6 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  /* ---------------------------------------------------------
-     FINAL RENDER
-     ---------------------------------------------------------
-     • Full-screen modal overlay
-     • Prevents header flash by capturing background clicks
-     • Clean, centered card with before/after states
-  --------------------------------------------------------- */
   return (
     <div
       className="
@@ -67,9 +45,7 @@ export default function ForgotPasswordPage() {
         onClick={(e) => e.stopPropagation()}
       >
 
-        {/* -----------------------------------------------------
-           HEADER (LOGO + TITLE)
-        ----------------------------------------------------- */}
+        {/* HEADER */}
         <div className="flex justify-between items-center mb-8">
           <Image
             src="/CapstoneDynamicsLogo.png"
@@ -96,9 +72,7 @@ export default function ForgotPasswordPage() {
           </div>
         </div>
 
-        {/* -----------------------------------------------------
-           BEFORE SUBMISSION
-        ----------------------------------------------------- */}
+        {/* BEFORE SUBMISSION */}
         {!submitted ? (
           <>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -123,7 +97,9 @@ export default function ForgotPasswordPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   className="
                     w-full px-5 py-3 border border-gray-300 rounded-lg
-                    text-gray-700 text-base focus:ring-2 focus:ring-blue-500
+                    text-gray-700 text-base
+                    hover:bg-[#017ACB]/20 transition
+                   
                   "
                   placeholder="Enter your username"
                   required
@@ -132,21 +108,30 @@ export default function ForgotPasswordPage() {
 
               {/* ACTION BUTTONS */}
               <div className="flex gap-4">
+
+                {/* BACK TO LOGIN (GRAY BUTTON WITH BEVEL) */}
                 <Link
                   href="/login"
                   className="
                     flex-1 px-5 py-3 text-center text-gray-700
-                    border border-gray-500 rounded-lg hover:bg-gray-100 text-base
+                    bg-gray-200 border border-gray-500 rounded-lg text-base
+                    hover:bg-gray-300 transition
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
                   "
                 >
                   Back to Login
                 </Link>
 
+                {/* SEND RESET LINK (BLUE BUTTON WITH BEVEL) */}
                 <button
                   type="submit"
                   className="
-                    flex-1 px-5 py-3 bg-blue-600 text-white
-                    rounded-lg hover:bg-blue-700 text-base
+                    flex-1 px-5 py-3
+                    bg-[#017ACB] text-white rounded-lg text-base
+                    hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
                   "
                 >
                   Send Reset Link
@@ -157,9 +142,7 @@ export default function ForgotPasswordPage() {
           </>
         ) : (
 
-          /* ---------------------------------------------------
-             SUCCESS STATE
-          --------------------------------------------------- */
+          /* SUCCESS STATE */
           <div className="text-center py-4">
 
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -189,8 +172,11 @@ export default function ForgotPasswordPage() {
             <Link
               href="/login"
               className="
-                inline-block px-6 py-3 bg-blue-600 text-white
-                rounded-lg hover:bg-blue-700 text-base
+                inline-block px-6 py-3
+                bg-[#017ACB] text-white rounded-lg text-base
+                hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
               "
             >
               Back to Login

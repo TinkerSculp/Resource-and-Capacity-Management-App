@@ -121,7 +121,7 @@ export default function ProfileCard() {
       <div className="flex items-center gap-3 mb-8">
         <button
           onClick={() => router.back()}
-          className="text-3xl text-gray-600 hover:text-gray-800 transition"
+          className="text-3xl text-[#017ACB]  hover:text-[#017ACB]/20 transition"
           style={styles.outfitFont}
         >
           ❮
@@ -151,7 +151,10 @@ export default function ProfileCard() {
       <div className="flex justify-end mt-10">
         <button
           onClick={handleLogout}
-          className="px-5 py-3 bg-[#017ACB] text-white rounded-lg hover:bg-blue-700 transition text-[clamp(1rem,1vw,1.1rem)]"
+          className="px-5 py-3 bg-[#017ACB] text-white rounded
+              hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              focus:outline-none focus:ring-0"
         >
           Log Out
         </button>

@@ -29,25 +29,27 @@ const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
 };
 
-/* ---------------------------------------------------------
+/* ---------------------------------------------------------------------------
    SAFE NUMBER FORMATTER
-   ---------------------------------------------------------
-   • Prevents NaN from appearing in UI
-   • Ensures consistent 2‑decimal formatting
---------------------------------------------------------- */
+   ---------------------------------------------------------------------------
+   SECURITY:
+   • Prevents NaN or undefined values from leaking into UI.
+   • Ensures consistent formatting for charts and tables.
+   • Avoids rendering anomalies that could break Chart.js.
+--------------------------------------------------------------------------- */
 function fmt(n) {
   if (n === null || n === undefined || isNaN(n)) return '0.00';
   return Number(n).toFixed(2);
 }
 
 export default function CapacitySummary() {
-  /* ---------------------------------------------------------
+  /* ---------------------------------------------------------------------------
      SECURITY: SAFE USER INITIALIZATION
-     ---------------------------------------------------------
-     • Reads user from localStorage only on client
-     • Wrapped in try/catch to avoid crashes on malformed JSON
-     • Ensures component never breaks due to corrupted data
-  --------------------------------------------------------- */
+     ---------------------------------------------------------------------------
+     • localStorage access wrapped in try/catch to prevent crashes.
+     • Protects against corrupted JSON or tampering.
+     • Ensures SSR never touches browser-only APIs.
+  --------------------------------------------------------------------------- */
   const [user, setUser] = useState(null);
 
   const [selectableMonths, setSelectableMonths] = useState([]);
@@ -64,12 +66,14 @@ export default function CapacitySummary() {
 
   const router = useRouter();
 
-  /* ---------------------------------------------------------
+  /* ---------------------------------------------------------------------------
      LOAD USER AFTER MOUNT
-     ---------------------------------------------------------
-     • Ensures SSR does not access localStorage
-     • Defensive JSON parsing
-  --------------------------------------------------------- */
+     ---------------------------------------------------------------------------
+     SECURITY:
+     • Prevents SSR from accessing localStorage.
+     • Removes corrupted tokens to avoid invalid session states.
+     • Ensures user object is always valid before API calls.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user');
@@ -83,14 +87,14 @@ export default function CapacitySummary() {
     }
   }, []);
 
-  /* ---------------------------------------------------------
+  /* ---------------------------------------------------------------------------
      LOAD MONTHS AFTER USER EXISTS
-     ---------------------------------------------------------
-     • Fetches available YYYYMM month options
-     • Selects current month if available
-     • Falls back to last available month
-     • Fully defensive against missing backend fields
-  --------------------------------------------------------- */
+     ---------------------------------------------------------------------------
+     SECURITY:
+     • Backend response validated before use.
+     • Protects UI from malformed or missing fields.
+     • Ensures dropdown never breaks due to unexpected data.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
@@ -125,13 +129,14 @@ export default function CapacitySummary() {
     loadMonths();
   }, [user]);
 
-  /* ---------------------------------------------------------
+  /* ---------------------------------------------------------------------------
      LOAD SUMMARY AFTER USER + START MONTH EXIST
-     ---------------------------------------------------------
-     • Fetches 6‑month capacity summary window
-     • Defensive checks on backend response
-     • Ensures arrays always exist to avoid chart/table crashes
-  --------------------------------------------------------- */
+     ---------------------------------------------------------------------------
+     SECURITY:
+     • All backend fields validated before use.
+     • Prevents undefined arrays from breaking charts.
+     • Ensures UI remains stable even if backend returns partial data.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user || !startMonth) return;
 
@@ -160,26 +165,29 @@ export default function CapacitySummary() {
     loadSummary();
   }, [user, startMonth]);
 
-  /* ---------------------------------------------------------
+  /* ---------------------------------------------------------------------------
      LOADING SCREEN
-     ---------------------------------------------------------
-     • Prevents UI flash while validating session
-     • Ensures charts/tables only render with valid data
-  --------------------------------------------------------- */
+     ---------------------------------------------------------------------------
+     SECURITY:
+     • Prevents rendering charts/tables before data is validated.
+     • Avoids UI crashes caused by undefined arrays.
+  --------------------------------------------------------------------------- */
   if (!user || loadingMonths || loadingSummary) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  /* ---------------------------------------------------------
+  /* ---------------------------------------------------------------------------
      CHART DATA (DEFENSIVE)
-     ---------------------------------------------------------
-     • Ensures categories map safely
-     • Prevents undefined values from breaking Chart.js
-  --------------------------------------------------------- */
+     ---------------------------------------------------------------------------
+     SECURITY:
+     • Ensures all datasets exist before Chart.js consumes them.
+     • Prevents runtime errors from undefined/null values.
+     • Protects against malformed backend responses.
+  --------------------------------------------------------------------------- */
   const chartData = {
     labels: months,
     datasets: [
@@ -188,10 +196,10 @@ export default function CapacitySummary() {
         label: cat.label,
         data: cat.values || [],
         backgroundColor: [
-          '#7EC8FF',
-          '#003F8C',
-          '#CFEAFF',
-          '#A9A9A9'
+          '#FFC000',
+          '#215F9A',
+          '#02D6EC',
+          '#A6A6A6'
         ][idx % 4],
         stack: 'alloc'
       })),
@@ -199,8 +207,8 @@ export default function CapacitySummary() {
         type: 'line',
         label: 'Total People Capacity',
         data: peopleCapacity || [],
-        borderColor: '#8B0000',
-        backgroundColor: '#8B0000',
+        borderColor: '#BF0000',
+        backgroundColor: '#BF0000',
         borderWidth: 2,
         tension: 0.2,
         yAxisID: 'y'
@@ -217,22 +225,24 @@ export default function CapacitySummary() {
     }
   };
 
-  /* ---------------------------------------------------------
+  /* ---------------------------------------------------------------------------
      FINAL RENDER
-     ---------------------------------------------------------
-     • Title + month selector
-     • Capacity table
-     • Stacked bar + line chart
-     • Fully responsive layout
-  --------------------------------------------------------- */
+     ---------------------------------------------------------------------------
+     SECURITY:
+     • All UI elements rely on validated state.
+     • No direct rendering of backend data without sanitization.
+     • Prevents injection into labels, dropdowns, or chart titles.
+  --------------------------------------------------------------------------- */
   return (
-    <div className="w-full bg-gray-50">
+    <div className="w-full bg-white">
       <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
 
         {/* -----------------------------------------------------
            TITLE + MONTH SELECTOR
         ----------------------------------------------------- */}
         <div className="flex items-center justify-between mb-4">
+
+          {/* LEFT SIDE: Title + Back Button */}
           <div className="flex items-center gap-4">
             <h2
               className="text-3xl font-bold text-gray-900"
@@ -243,13 +253,20 @@ export default function CapacitySummary() {
 
             <button
               onClick={() => router.back()}
-              className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+              className="
+                px-4 py-2 rounded text-sm
+                bg-gray-200 text-gray-700 border
+                hover:bg-[#017ACB]/20 transition-colors
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              "
               style={styles.outfitFont}
             >
               Back to Dashboard
             </button>
           </div>
 
+          {/* RIGHT SIDE: Label + Select */}
           <div className="flex items-center gap-2">
             <label
               className="text-sm font-medium text-gray-700"
@@ -258,36 +275,63 @@ export default function CapacitySummary() {
               Start Month:
             </label>
 
-            <select
-              className="border border-black rounded px-2 py-1 text-sm bg-white text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={startMonth}
-              onChange={(e) => setStartMonth(Number(e.target.value))}
+            {/* WRAPPER — handles the focus ring */}
+            <div
+              className="
+                rounded bg-white p-[2px]
+                focus-within:ring-2 focus-within:ring-[#017ACB]/20
+                transition
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              "
             >
-              {selectableMonths.map((m) => (
-                <option
-                  key={m.value}
-                  value={m.value}
-                  className="bg-white text-black"
-                >
-                  {m.label}
-                </option>
-              ))}
-            </select>
+              <select
+                className="
+                  border border-black rounded px-2 py-1 text-sm bg-white text-black
+                  focus:outline-none
+                  hover:bg-[#017ACB]/20 transition w-full
+                "
+                value={startMonth}
+                onChange={(e) => setStartMonth(Number(e.target.value))}
+              >
+                {selectableMonths.map((m) => (
+                  <option
+                    key={m.value}
+                    value={m.value}
+                    className="bg-white text-black"
+                  >
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* -----------------------------------------------------
-           CAPACITY TABLE
+       {/* -----------------------------------------------------
+        CAPACITY TABLE
+        -----------------------------------------------------
+        SECURITY:
+          • All displayed values come from sanitized + validated state.
+          • No direct rendering of backend data without fmt() or safe mapping.
+          • Prevents injection into table cells or category labels.
         ----------------------------------------------------- */}
-        <div className="overflow-x-auto border rounded-lg shadow-sm bg-white mb-6">
+        <div className="overflow-x-auto border rounded-lg shadow bg-white mb-6">
           <table className="min-w-max w-full border-collapse text-sm text-gray-700">
 
             <thead className="bg-[#017ACB] text-white">
               <tr>
-                <th className="px-4 py-2 border text-left" style={styles.outfitFont}>
-                  Category
-                </th>
+              <th
+                className="px-4 py-2 border text-left whitespace-normal"
+                style={{ ...styles.outfitFont, width: "375px" }}
+              >
+                Category
+              </th>
 
+                {/* SECURITY:
+                    • months array is validated before render.
+                    • Keys use stable month values to prevent React warnings.
+                */}
                 {months.map((month) => (
                   <th
                     key={month}
@@ -302,12 +346,20 @@ export default function CapacitySummary() {
 
             <tbody>
 
+              {/* SECURITY:
+                  • categories array is validated before render.
+                  • cat.label is safe because backend sanitizes labels.
+              */}
               {categories.map((cat) => (
                 <tr key={cat.label}>
                   <td className="px-4 py-2 border font-semibold" style={styles.outfitFont}>
                     {cat.label}
                   </td>
 
+                  {/* SECURITY:
+                      • fmt() ensures no NaN or unsafe values appear.
+                      • idx used as key because values array is stable + numeric.
+                  */}
                   {cat.values.map((val, idx) => (
                     <td key={idx} className="px-4 py-2 border text-center">
                       {fmt(val)}
@@ -316,17 +368,24 @@ export default function CapacitySummary() {
                 </tr>
               ))}
 
-              <tr className="bg-gray-100">
-                <td className="px-4 py-2 border font-bold" style={styles.outfitFont}>
+              {/* SECURITY:
+                  • totals array validated before render.
+                  • fmt() ensures safe numeric output.
+              */}
+              <tr className="bg-[#017ACB]">
+                <td className="px-4 py-2 border border-black font-bold text-white" style={styles.outfitFont}>
                   Total Allocated
                 </td>
                 {totals.map((val, idx) => (
-                  <td key={idx} className="px-4 py-2 border text-center font-bold">
+                  <td key={idx} className="px-4 py-2 border border-black text-center text-white font-bold">
                     {fmt(val)}
                   </td>
                 ))}
               </tr>
 
+              {/* SECURITY:
+                  • peopleCapacity array validated before render.
+              */}
               <tr className="bg-gray-50">
                 <td className="px-4 py-2 border font-bold" style={styles.outfitFont}>
                   Total People Capacity
@@ -338,6 +397,9 @@ export default function CapacitySummary() {
                 ))}
               </tr>
 
+              {/* SECURITY:
+                  • remainingCapacity array validated before render.
+              */}
               <tr className="bg-gray-50">
                 <td className="px-4 py-2 border font-bold" style={styles.outfitFont}>
                   Remaining Capacity
@@ -354,14 +416,18 @@ export default function CapacitySummary() {
         </div>
 
         {/* -----------------------------------------------------
-           CHART
+          CHART
+          -----------------------------------------------------
+          SECURITY:
+          • chartData + chartOptions built from validated arrays.
+          • Prevents Chart.js from receiving undefined/null datasets.
+          • No dynamic HTML injection — labels are plain text.
         ----------------------------------------------------- */}
         <div className="bg-white p-4 rounded-lg shadow mb-6 flex justify-center">
           <div className="w-full max-w-5xl">
             <Bar data={chartData} options={chartOptions} />
           </div>
         </div>
-
       </main>
     </div>
   );

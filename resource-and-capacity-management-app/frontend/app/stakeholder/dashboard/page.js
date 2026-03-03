@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import DashboardSummary from '@/components/layout/DashboardSummary';
 
 const styles = {
@@ -15,16 +16,11 @@ export default function StakeholderDashboard() {
 
   /* ---------------------------------------------------------
      SECURITY: CLIENT‑SIDE AUTH GUARD
-     ---------------------------------------------------------
-     • Ensures only authenticated users can access the dashboard
-     • Redirects immediately if no user session is found
-     • Prevents UI flash by blocking render until user is loaded
   --------------------------------------------------------- */
   useEffect(() => {
     const stored = localStorage.getItem('user');
     const token = localStorage.getItem('token');
 
-    // If either user OR token is missing → force logout
     if (!stored || !token) {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
@@ -32,44 +28,28 @@ export default function StakeholderDashboard() {
       return;
     }
 
-    // Load user into state
     startTransition(() => {
       setUser(JSON.parse(stored));
     });
   }, [router]);
 
-  // Loading state while user session is being validated
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-10 w-10 border-b-2 border-blue-600 rounded-full"></div>
+        <div className="animate-spin h-10 w-10 border-b-2 border-brandBlue rounded-full"></div>
       </div>
     );
   }
 
   return (
-    /* ---------------------------------------------------------
-       PAGE CONTAINER
-       ---------------------------------------------------------
-       • Full‑width layout for large monitors
-       • Clean spacing and centered content
-    --------------------------------------------------------- */
-    <div className="w-full max-w-450 mx-auto mt-2 space-y-12 px-4">
+    <div className="w-full max-w-full mx-auto mt-2 space-y-12 px-4">
 
-      {/* -----------------------------------------------------
-         DASHBOARD SUMMARY
-      ----------------------------------------------------- */}
+      {/* DASHBOARD SUMMARY */}
       <div className="w-full">
         <DashboardSummary />
       </div>
 
-      {/* -----------------------------------------------------
-         NAVIGATION TILES (2×2 LAYOUT)
-         -----------------------------------------------------
-         • 1 column on mobile
-         • 2 columns on all larger screens
-         • Ensures exactly 2 tiles per row → 2×2 grid
-      ----------------------------------------------------- */}
+      {/* NAVIGATION TILES */}
       <div
         className="
           grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2
@@ -78,34 +58,32 @@ export default function StakeholderDashboard() {
         "
       >
         {[
-          { label: 'Capacity Summary', icon: '📊', href: '/capacity' },
-          { label: 'Initiatives', icon: '🎯', href: null },
-          { label: 'Assignments', icon: '📋', href: null },
-          { label: 'Calendar', icon: '📅', href: '/calendar' },
+          { label: 'Capacity Summary', icon: <Image src="/capacitysummary.svg" alt="capacity icon" width={96} height={96} />, href: '/capacity' },
+          { label: 'Initiatives', icon: <Image src="/Initiatives.svg" alt="initiatives icon" width={96} height={96} />, href: '/stakeholder/view-initiatives' },
+          { label: 'Assignments', icon: <Image src="/Assignments.svg" alt="assignments icon" width={96} height={96} />, href: null },
+          { label: 'Calendar', icon: <Image src="/Calendar.svg" alt="calendar icon" width={96} height={96} />, href: '/calendar' },
         ].map((tile, i) => (
           <div
             key={i}
-            onClick={() => router.push(tile.href)}
+            onClick={() => tile.href && router.push(tile.href)}
             className="
-              bg-white rounded-lg shadow-sm border text-center border-gray-200
+              bg-white rounded-lg shadow-sm border text-center border-gray-400
               p-[clamp(1.5rem,2.2vw,3rem)]
-              hover:shadow-md hover:border-gray-500
+              hover:shadow-md hover:bg-[#017ACB]/20
               cursor-pointer transition
               w-full
             "
           >
-            {/* Tile Icon */}
-            <div className="text-[clamp(2.4rem,3vw,4rem)] mb-3 text-gray-700">
+            <div className="flex flex-col items-center justify-center gap-1">
               {tile.icon}
-            </div>
 
-            {/* Tile Label */}
-            <h3
-              className="text-[clamp(1.2rem,1.4vw,1.6rem)] font-semibold text-gray-900"
-              style={styles.outfitFont}
-            >
-              {tile.label}
-            </h3>
+              <h3
+                className="text-[clamp(1.2rem,1.4vw,1.6rem)] font-semibold text-gray-900"
+                style={styles.outfitFont}
+              >
+                {tile.label}
+              </h3>
+            </div>
           </div>
         ))}
       </div>

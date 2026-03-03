@@ -70,11 +70,11 @@ export default function Header() {
           {/* LOGO + COMPANY NAME */}
           <div className="flex items-center flex-none cursor-pointer">
             <Image
-              src="/CapstoneDynamicsLogo.png"
+              src="/CapstoneDynamicsLogoWhite.png"
               alt="Logo"
-              width={64}
-              height={64}
-              className="w-auto h-[clamp(3.2rem,3.8vw,4rem)]"
+              width={92}
+              height={92}
+              className="w-auto h-[clamp(4.6rem,5.0vw,5.6rem)]"
             />
 
             <h1
@@ -109,9 +109,10 @@ export default function Header() {
                 onClick={() => router.push('/profile')}
                 className="
                   rounded-full bg-white flex items-center justify-center
-                  cursor-pointer hover:opacity-90 transition
+                  cursor-pointer hover:bg-[#CCE4F4] hover:shadow-[0_0_6px_#017ACB]
                   w-[clamp(2.4rem,2.8vw,3rem)]
                   h-[clamp(2.4rem,2.8vw,3rem)]
+                  transition
                 "
               >
                 <span className="text-[#017ACB] font-bold text-[clamp(1.1rem,1.3vw,1.5rem)]">

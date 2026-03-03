@@ -153,6 +153,8 @@ export default function LoginPage() {
                 className="
                   w-full px-5 py-3 border text-gray-700
                   border-gray-300 rounded-lg text-base
+                  hover:bg-[#017ACB]/20
+                  transition
                 "
                 required
               />
@@ -163,16 +165,18 @@ export default function LoginPage() {
               <label className="block text-base font-medium text-gray-700 mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="
-                  w-full px-5 py-3 border text-gray-700
-                  border-gray-300 rounded-lg text-base
-                "
-                required
-              />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="
+                w-full px-5 py-3 border text-gray-700
+                border-gray-300 rounded-lg text-base
+                hover:bg-[#017ACB]/20
+                transition
+              "
+              required
+            />
             </div>
 
             {/* FORGOT PASSWORD */}
@@ -187,22 +191,31 @@ export default function LoginPage() {
 
             {/* ACTION BUTTONS */}
             <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => router.push('/login')}
-                className="
-                  flex-1 px-5 py-3 text-gray-700 border border-gray-500
-                  rounded-lg hover:bg-gray-300 text-base
-                "
-              >
-                Cancel
-              </button>
+            <button
+              type="button"
+              onClick={() => router.push('/login')}
+              className="
+                flex-1 px-5 py-3
+                bg-gray-200 text-gray-700
+                border border-gray-500
+                rounded-lg text-base
+                hover:bg-[#017ACB]/20 hover:text-gray-700
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              "
+            >
+              Cancel
+            </button>
 
               <button
                 type="submit"
                 className="
-                  flex-1 px-5 py-3 bg-blue-600 text-white
-                  rounded-lg hover:bg-blue-700 text-base
+                  flex-1 px-5 py-3
+                  bg-[#017ACB] text-white
+                  rounded-lg text-base
+                  hover:bg-[#017ACB]/20 hover:text-gray-700
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                          active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
                 "
               >
                 Sign In

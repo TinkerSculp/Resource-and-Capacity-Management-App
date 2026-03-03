@@ -1,43 +1,61 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
+import api from "@/lib/api";
 
 const styles = {
   outfitFont: { fontFamily: "Outfit, sans-serif" },
 };
 
-const MONTHS = [
-  { key: 202501, label: "Jan-25" },
-  { key: 202502, label: "Feb-25" },
-  { key: 202503, label: "Mar-25" },
-  { key: 202504, label: "Apr-25" },
-  { key: 202505, label: "May-25" },
-  { key: 202506, label: "Jun-25" },
-  { key: 202507, label: "Jul-25" },
-  { key: 202508, label: "Aug-25" },
-  { key: 202509, label: "Sep-25" },
-  { key: 202510, label: "Oct-25" },
-  { key: 202511, label: "Nov-25" },
-  { key: 202512, label: "Dec-25" },
-  { key: 202601, label: "Jan-26" },
-  { key: 202602, label: "Feb-26" },
-  { key: 202603, label: "Mar-26" },
-  { key: 202604, label: "Apr-26" },
-];
-
 const DEPARTMENT_FILTER_NAME = "Data Mgmt";
+
+function Checkbox({ checked }) {
+  return (
+    <span
+      className="
+        w-4 h-4 border border-black rounded-sm
+        flex items-center justify-center
+        relative overflow-hidden flex-shrink-0
+      "
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        readOnly
+        className="opacity-0 absolute w-4 h-4 cursor-pointer"
+      />
+      {checked && (
+        <>
+          <span
+            className="absolute inset-0"
+            style={{ backgroundColor: "#003A5C" }}
+          />
+          <svg
+            className="absolute w-3 h-3 text-white"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="white"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="4 11 8 15 16 6" />
+          </svg>
+        </>
+      )}
+    </span>
+  );
+}
 
 export default function ResourcesPage() {
   const router = useRouter();
-  const apiUrl = "http://localhost:3001";
 
-  // -------------------------------------------------------
-  // STATE
-  // -------------------------------------------------------
   const [user, setUser] = useState(null);
+  const searchParams = useSearchParams();
+  const refresh = searchParams.get("refresh");
 
   const [employees, setEmployees] = useState([]);
   const [employeesWithCapacity, setEmployeesWithCapacity] = useState([]);
@@ -50,13 +68,14 @@ export default function ResourcesPage() {
   const [error, setError] = useState("");
 
   const [activeFilter, setActiveFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedNames, setSelectedNames] = useState([]);
   const [selectedTitles, setSelectedTitles] = useState([]);
   const [selectedReportsTo, setSelectedReportsTo] = useState([]);
   const [selectedCurrentStatuses, setSelectedCurrentStatuses] = useState([]);
+  const [selectedManagerLevels, setSelectedManagerLevels] = useState([]);
+  const [selectedDirectorLevels, setSelectedDirectorLevels] = useState([]);
 
   const [nameSort, setNameSort] = useState("none");
 
@@ -64,6 +83,14 @@ export default function ResourcesPage() {
   const [showTitleMenu, setShowTitleMenu] = useState(false);
   const [showReportsToMenu, setShowReportsToMenu] = useState(false);
   const [showCurrentStatusMenu, setShowCurrentStatusMenu] = useState(false);
+  const [showManagerLevelMenu, setShowManagerLevelMenu] = useState(false);
+  const [showDirectorLevelMenu, setShowDirectorLevelMenu] = useState(false);
+
+  // NEW MONTH SYSTEM
+  const [showMonthMenu, setShowMonthMenu] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const [monthOptions, setMonthOptions] = useState([]);
+  const [visibleMonths, setVisibleMonths] = useState([]);
 
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
@@ -71,154 +98,243 @@ export default function ResourcesPage() {
   const [availableTitles, setAvailableTitles] = useState([]);
   const [availableReportsTo, setAvailableReportsTo] = useState([]);
   const [availableCurrentStatuses, setAvailableCurrentStatuses] = useState([]);
+  const [availableManagerLevels, setAvailableManagerLevels] = useState([]);
+  const [availableDirectorLevels, setAvailableDirectorLevels] = useState([]);
 
   const [portalReady, setPortalReady] = useState(false);
 
   const [editingCell, setEditingCell] = useState(null);
   const [editingValue, setEditingValue] = useState("");
 
-  // -------------------------------------------------------
-  // USER LOAD
-  // -------------------------------------------------------
+  const [selectedEmpId, setSelectedEmpId] = useState(null);
+  const monthMenuRef = useRef(null);
+
+  /* ---------------------------------------------------------
+     MONTH HELPERS
+     --------------------------------------------------------- */
+
+function generate12MonthsBackward() {
+  const arr = [];
+  const now = new Date();
+
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+
+    const key = d.getFullYear() * 100 + (d.getMonth() + 1); // NUMBER
+
+    arr.push({
+      key,
+      label: d.toLocaleString("default", { month: "long", year: "numeric" }),
+      date: d,
+    });
+  }
+
+  return arr;
+}
+
+function generate16MonthsForward(startDate) {
+  const arr = [];
+  for (let i = 0; i < 16; i++) {
+    const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+
+    const key = d.getFullYear() * 100 + (d.getMonth() + 1); // NUMBER
+
+    arr.push({
+      key,
+      label:
+        d.toLocaleString("default", { month: "short" }) +
+        "-" +
+        String(d.getFullYear()).slice(-2),
+      date: d,
+    });
+  }
+  return arr;
+}
+
+
+const handleMonthSelect = (monthObj) => {
+  setSelectedMonth(monthObj);
+  setVisibleMonths(generate16MonthsForward(monthObj.date));
+  setShowMonthMenu(false);
+};
+
+useEffect(() => {
+  if (showMonthMenu && monthMenuRef.current) {
+    const el = monthMenuRef.current.querySelector(
+      `[data-month-key="${selectedMonth?.key}"]`
+    );
+    if (el) {
+      el.scrollIntoView({ block: "center" });
+    }
+  }
+}, [showMonthMenu, selectedMonth]);
+  /* ---------------------------------------------------------
+     INITIAL MONTH SETUP
+     --------------------------------------------------------- */
+
+  useEffect(() => {
+    const backward = generate12MonthsBackward();
+    setMonthOptions(backward);
+
+    const current = backward[0];
+    setSelectedMonth(current);
+
+    setVisibleMonths(generate16MonthsForward(current.date));
+  }, []);
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem("user");
       if (stored) setUser(JSON.parse(stored));
     } catch {
-      // ignore malformed localStorage
+      // ignore
     }
   }, []);
 
-  // -------------------------------------------------------
-  // PORTAL READY
-  // -------------------------------------------------------
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
+  useEffect(() => setPortalReady(true), []);
 
-  // -------------------------------------------------------
-  // CLOSE MENUS ON OUTSIDE CLICK
-  // -------------------------------------------------------
   useEffect(() => {
-    const handleClickOutside = () => {
+    const close = () => {
       setShowNameMenu(false);
       setShowTitleMenu(false);
       setShowReportsToMenu(false);
       setShowCurrentStatusMenu(false);
+      setShowManagerLevelMenu(false);
+      setShowDirectorLevelMenu(false);
+      setShowMonthMenu(false);
     };
-    window.addEventListener("click", handleClickOutside);
-    return () => window.removeEventListener("click", handleClickOutside);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
   }, []);
 
-  // -------------------------------------------------------
-  // FETCH ALL DATA
-  // -------------------------------------------------------
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    const load = async () => {
+      try {
+        setLoading(true);
 
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
+        const [{ data: empData }, { data: deptData }, { data: mgrData }] =
+          await Promise.all([
+            api.get("/resources/employees"),
+            api.get("/resources/departments"),
+            api.get("/resources/managers"),
+          ]);
 
-      const empRes = await fetch(`${apiUrl}/api/resources/employees`);
-      if (!empRes.ok) throw new Error("Failed to load employees");
-      const empData = await empRes.json();
+        const employeesRaw = Array.isArray(empData) ? empData : [];
+        const departmentsRaw = Array.isArray(deptData) ? deptData : [];
+        const managersRaw = Array.isArray(mgrData) ? mgrData : [];
 
-      const deptRes = await fetch(`${apiUrl}/api/resources/departments`);
-      if (!deptRes.ok) throw new Error("Failed to load departments");
-      const deptData = await deptRes.json();
-      setDepartments(Array.isArray(deptData) ? deptData : []);
+        setDepartments(departmentsRaw);
+        setManagers(managersRaw);
 
-      const mgrRes = await fetch(`${apiUrl}/api/resources/managers`);
-      if (!mgrRes.ok) throw new Error("Failed to load managers");
-      const mgrData = await mgrRes.json();
-      setManagers(Array.isArray(mgrData) ? mgrData : []);
-
-      const employeesWithCap = await Promise.all(
-        (Array.isArray(empData) ? empData : []).map(async (emp) => {
-          try {
-            const capRes = await fetch(
-              `${apiUrl}/api/resources/employees/${emp.emp_id}/capacity`
-            );
-            if (!capRes.ok) {
+        const withCap = await Promise.all(
+          employeesRaw.map(async (emp) => {
+            try {
+              const { data: capData } = await api.get(
+                `/resources/employees/${emp.emp_id}/capacity`
+              );
+              const cap = {};
+              (Array.isArray(capData) ? capData : []).forEach((c) => {
+                cap[c.date] = {
+                  amount: typeof c.amount === "number" ? c.amount : null,
+                };
+              });
+              return { ...emp, capacity: cap };
+            } catch {
               return { ...emp, capacity: {} };
             }
-            const capData = await capRes.json();
-            const capacityByMonth = {};
-            (Array.isArray(capData) ? capData : []).forEach((c) => {
-              capacityByMonth[c.date] = {
-                amount: c.amount,
-                status: c.current_status,
-                comments: c.comments,
-              };
-            });
-            return { ...emp, capacity: capacityByMonth };
-          } catch {
-            return { ...emp, capacity: {} };
-          }
-        })
-      );
-
-      const dataMgmt = employeesWithCap.filter((emp) => {
-        const dept = deptData.find((d) => d.dept_no === emp.dept_no);
-        return (
-          dept &&
-          dept.dept_name.toLowerCase() === DEPARTMENT_FILTER_NAME.toLowerCase()
+          })
         );
-      });
 
-      setAllEmployeesWithCapacity(employeesWithCap);
-      setEmployeesWithCapacity(dataMgmt);
-      setEmployees(dataMgmt);
+        const filtered = withCap.filter((emp) => {
+          const dept = departmentsRaw.find(
+            (d) => d.dept_no === emp.dept_no
+          );
+          return (
+            dept &&
+            dept.dept_name &&
+            dept.dept_name.toLowerCase() ===
+              DEPARTMENT_FILTER_NAME.toLowerCase()
+          );
+        });
 
-      setAvailableNames([
-        ...new Set(dataMgmt.map((e) => e.emp_name).filter(Boolean)),
-      ]);
+        setAllEmployeesWithCapacity(withCap);
+        setEmployeesWithCapacity(filtered);
+        setEmployees(filtered);
 
-      setAvailableTitles([
-        ...new Set(dataMgmt.map((e) => e.emp_title).filter(Boolean)),
-      ]);
+        setAvailableNames([
+          ...new Set(filtered.map((e) => e.emp_name).filter(Boolean)),
+        ]);
 
-      const getReportsToNameFromList = (id) => {
-        if (!id && id !== 0) return null;
-        const match = employeesWithCap.find(
-          (e) => String(e.emp_id) === String(id)
-        );
-        return match ? match.emp_name : null;
-      };
+        setAvailableTitles([
+          ...new Set(filtered.map((e) => e.emp_title).filter(Boolean)),
+        ]);
 
-      setAvailableReportsTo([
-        ...new Set(
-          dataMgmt
-            .map((e) => getReportsToNameFromList(e.reports_to))
-            .filter(Boolean)
-        ),
-      ]);
+        const getReportsToNameFromList = (id) => {
+          if (!id && id !== 0) return null;
+          const match = withCap.find(
+            (e) => String(e.emp_id) === String(id)
+          );
+          return match ? match.emp_name : null;
+        };
 
-      const getCurrentStatusLocal = (emp) => {
-        const now = new Date();
-        const key = now.getFullYear() * 100 + (now.getMonth() + 1);
-        return emp.capacity?.[key]?.status || "Active";
-      };
+        setAvailableReportsTo([
+          ...new Set(
+            filtered
+              .map((e) => getReportsToNameFromList(e.reports_to))
+              .filter(Boolean)
+          ),
+        ]);
 
-      setAvailableCurrentStatuses([
-        ...new Set(
-          dataMgmt.map((e) => getCurrentStatusLocal(e)).filter(Boolean)
-        ),
-      ]);
+        const getCurrentStatusLocal = (emp) =>
+          emp.current_status || "Active";
 
-      setError("");
-    } catch (err) {
-      setError("Failed to load data");
-    } finally {
-      setLoading(false);
-    }
-  };
+        setAvailableCurrentStatuses([
+          ...new Set(
+            filtered
+              .map((e) => getCurrentStatusLocal(e))
+              .filter(Boolean)
+          ),
+        ]);
 
-  // -------------------------------------------------------
-  // HELPERS
-  // -------------------------------------------------------
+        const getLevelNameLocal = (id) => {
+          if (!id && id !== 0) return "";
+          const match = managersRaw.find(
+            (m) => String(m.emp_id) === String(id)
+          );
+          return match ? match.emp_name : "";
+        };
+
+        setAvailableManagerLevels([
+          ...new Set(
+            filtered
+              .map((e) => getLevelNameLocal(e.manager_level))
+              .filter(Boolean)
+          ),
+        ]);
+
+        setAvailableDirectorLevels([
+          ...new Set(
+            filtered
+              .map((e) => getLevelNameLocal(e.director_level))
+              .filter(Boolean)
+          ),
+        ]);
+
+        setError("");
+      } catch {
+        setError("Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [refresh]);
+
+  /* ---------------------------------------------------------
+     THE SECTION YOU JUST GAVE ME (MERGED AS-IS)
+     --------------------------------------------------------- */
+
   const toggleSelection = (value, setFn, current) => {
     setFn(
       current.includes(value)
@@ -239,22 +355,26 @@ export default function ResourcesPage() {
 
   const getLevelName = (id) => {
     if (!id && id !== 0) return "";
-    const match = managers.find((m) => String(m.emp_id) === String(id));
+    const match = managers.find(
+      (m) => String(m.emp_id) === String(id)
+    );
     return match ? match.emp_name : id;
   };
 
-  const getCurrentStatus = (emp) => {
-    const now = new Date();
-    const key = now.getFullYear() * 100 + (now.getMonth() + 1);
-    return emp.capacity?.[key]?.status || "Active";
-  };
+  const getCurrentStatus = (emp) => emp.current_status || "Active";
 
-  const getMonthValue = (emp, key) =>
-    emp.capacity && emp.capacity[key] ? emp.capacity[key].amount : 1;
+  const getMonthValue = (emp, key) => {
+    const val =
+      emp.capacity && emp.capacity[key]
+        ? emp.capacity[key].amount
+        : null;
+    return typeof val === "number" ? val : "";
+  };
 
   const startEditMonth = (emp, key) => {
     setEditingCell({ empId: emp.emp_id, monthKey: key });
-    setEditingValue(String(getMonthValue(emp, key)));
+    const v = getMonthValue(emp, key);
+    setEditingValue(v === "" ? "" : String(v));
   };
 
   const cancelEditMonth = () => {
@@ -264,35 +384,63 @@ export default function ResourcesPage() {
 
   const saveMonthValue = async (emp, key) => {
     const raw = editingValue.trim();
-    const parsed = Number(raw);
 
-    if (raw === "" || Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
+    if (raw === "") {
+      const updates = [
+        {
+          date: key,
+          amount: null,
+        },
+      ];
+
+      try {
+        await api.put(`/resources/employees/${emp.emp_id}/capacity`, {
+          capacityEntries: updates,
+        });
+
+        setEmployeesWithCapacity((prev) =>
+          prev.map((e) =>
+            e.emp_id === emp.emp_id
+              ? {
+                  ...e,
+                  capacity: {
+                    ...(e.capacity || {}),
+                    [key]: { amount: null },
+                  },
+                }
+              : e
+          )
+        );
+
+        setError("");
+        cancelEditMonth();
+      } catch {
+        setError("Unable to update capacity");
+      }
+
+      return;
+    }
+
+    const parsed = Number(raw);
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
       setError("Capacity must be a number between 0 and 1");
       return;
     }
 
-    const existing = emp.capacity?.[key] || {};
     const updates = [
       {
         date: key,
         amount: parsed,
-        comments: existing.comments || "",
       },
     ];
 
     try {
-      const res = await fetch(
-        `${apiUrl}/api/resources/employees/${emp.emp_id}/capacity`,
+      await api.put(
+        `/resources/employees/${emp.emp_id}/capacity`,
         {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ updates }),
+          capacityEntries: updates,
         }
       );
-
-      if (!res.ok) {
-        throw new Error("Unable to update capacity");
-      }
 
       setEmployeesWithCapacity((prev) =>
         prev.map((e) =>
@@ -313,8 +461,8 @@ export default function ResourcesPage() {
 
       setError("");
       cancelEditMonth();
-    } catch (err) {
-      setError(err.message || "Unable to update capacity");
+    } catch {
+      setError("Unable to update capacity");
     }
   };
 
@@ -330,6 +478,9 @@ export default function ResourcesPage() {
             setShowTitleMenu(false);
             setShowReportsToMenu(false);
             setShowCurrentStatusMenu(false);
+            setShowManagerLevelMenu(false);
+            setShowDirectorLevelMenu(false);
+            setShowMonthMenu(false);
           }}
         />
         <div
@@ -344,9 +495,6 @@ export default function ResourcesPage() {
     );
   };
 
-  // -------------------------------------------------------
-  // APPLY FILTERS
-  // -------------------------------------------------------
   useEffect(() => {
     let filtered = [...employeesWithCapacity];
 
@@ -354,15 +502,6 @@ export default function ResourcesPage() {
       filtered = filtered.filter(
         (emp) => String(emp.emp_id) === String(user.emp_id)
       );
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((emp) => {
-        const status = getCurrentStatus(emp);
-        return statusFilter === "active"
-          ? status === "Active"
-          : status === "Inactive";
-      });
     }
 
     if (searchTerm) {
@@ -378,15 +517,21 @@ export default function ResourcesPage() {
       departments.find((d) => d.dept_no === no)?.dept_name || "";
 
     filtered = filtered.filter(
-      (e) => deptName(e.dept_no).toLowerCase() === "data mgmt"
+      (e) =>
+        deptName(e.dept_no).toLowerCase() ===
+        DEPARTMENT_FILTER_NAME.toLowerCase()
     );
 
     if (selectedNames.length > 0) {
-      filtered = filtered.filter((e) => selectedNames.includes(e.emp_name));
+      filtered = filtered.filter((e) =>
+        selectedNames.includes(e.emp_name)
+      );
     }
 
     if (selectedTitles.length > 0) {
-      filtered = filtered.filter((e) => selectedTitles.includes(e.emp_title));
+      filtered = filtered.filter((e) =>
+        selectedTitles.includes(e.emp_title)
+      );
     }
 
     if (selectedReportsTo.length > 0) {
@@ -401,17 +546,36 @@ export default function ResourcesPage() {
       );
     }
 
-    if (nameSort === "az") {
-      filtered.sort((a, b) => a.emp_name.localeCompare(b.emp_name));
-    } else if (nameSort === "za") {
-      filtered.sort((a, b) => b.emp_name.localeCompare(a.emp_name));
+    if (selectedManagerLevels.length > 0) {
+      filtered = filtered.filter((e) =>
+        selectedManagerLevels.includes(
+          getLevelName(e.manager_level)
+        )
+      );
+    }
+
+    if (selectedDirectorLevels.length > 0) {
+      filtered = filtered.filter((e) =>
+        selectedDirectorLevels.includes(
+          getLevelName(e.director_level)
+        )
+      );
+    }
+
+    if (nameSort === "asc") {
+      filtered.sort((a, b) =>
+        a.emp_name.localeCompare(b.emp_name)
+      );
+    } else if (nameSort === "desc") {
+      filtered.sort((a, b) =>
+        b.emp_name.localeCompare(a.emp_name)
+      );
     }
 
     setEmployees(filtered);
   }, [
     employeesWithCapacity,
     activeFilter,
-    statusFilter,
     searchTerm,
     user,
     nameSort,
@@ -419,524 +583,973 @@ export default function ResourcesPage() {
     selectedTitles,
     selectedReportsTo,
     selectedCurrentStatuses,
+    selectedManagerLevels,
+    selectedDirectorLevels,
     departments,
   ]);
 
-  // -------------------------------------------------------
-  // LOADING STATE
-  // -------------------------------------------------------
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
     );
   }
 
-  // -------------------------------------------------------
-  // RENDER
-  // -------------------------------------------------------
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-full mx-auto">
-        {/* Title + Create + Back */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <h2
-              className="text-2xl font-bold text-gray-900"
-              style={styles.outfitFont}
-            >
-              Resources
-            </h2>
+    <div className="h-[600px] bg-white p-2 flex flex-col">
+      {/* HEADER */}
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <div className="flex items-center gap-4">
+          <h2
+            className="text-4xl font-bold text-gray-900"
+            style={styles.outfitFont}
+          >
+            Resources
+          </h2>
 
+          <button
+            onClick={() => router.push("/resource-manager/dashboard")}
+            className="
+              px-4 py-2 rounded text-sm
+              bg-gray-200 text-gray-700 border
+              hover:bg-[#017ACB]/20 transition-colors
+              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+            "
+            style={styles.outfitFont}
+          >
+            Back to Dashboard
+          </button>
+        </div>
+
+        <div className="flex-1 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
+            style={styles.outfitFont}
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex rounded overflow-hidden border border-gray-300">
+            {/* ALL */}
             <button
-              onClick={() => router.push("/resource-manager/dashboard")}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition text-sm cursor-pointer"
+              onClick={() => setActiveFilter("all")}
+              className={`
+                px-6 py-2 rounded-none text-sm transition-colors 
+                ${
+                  activeFilter === "all"
+                    ? "bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700"
+                    : "bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20"
+                }
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              `}
               style={styles.outfitFont}
             >
-              ← Back to Dashboard
+              All
+            </button>
+
+            {/* MINE */}
+            <button
+              onClick={() => setActiveFilter("mine")}
+              className={`
+                px-5 py-2 rounded-none text-sm transition-colors
+                ${
+                  activeFilter === "mine"
+                    ? "bg-[#017ACB] text-white  hover:bg-[#017ACB]/20 hover:text-gray-700"
+                    : "bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20"
+                }
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              `}
+              style={styles.outfitFont}
+            >
+              Mine
             </button>
           </div>
 
           <Link
             href="/resource-manager/create-edit-resources/create-resource"
-            className="px-4 py-2 bg-[#017ACB] text-white rounded hover:bg-blue-700 transition text-sm cursor-pointer"
+            className="
+              px-4 py-2 rounded text-sm
+              bg-gray-200 text-gray-700 border
+              hover:bg-[#017ACB]/20 transition-colors
+              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+            "
             style={styles.outfitFont}
           >
             + Create Resource
           </Link>
         </div>
+      </div>
 
-        {/* Error */}
-        {error && (
-          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
-            <button
-              onClick={() => setError("")}
-              className="ml-4 text-red-900 font-bold"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
-        {/* Filters */}
-        <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
-          <div className="flex flex-wrap gap-4 items-center">
-            <div>
-              <button
-                onClick={() => setActiveFilter("all")}
-                className={`p-2 w-16 border border-gray-300 text-center cursor-pointer text-sm ${
-                  activeFilter === "all"
-                    ? "bg-[#017ACB] text-white"
-                    : "text-gray-600 bg-white"
-                }`}
-                style={styles.outfitFont}
-              >
-                All
-              </button>
-
-              <button
-                onClick={() => setActiveFilter("mine")}
-                className={`p-2 w-16 border border-gray-300 text-center cursor-pointer text-sm ${
-                  activeFilter === "mine"
-                    ? "bg-[#017ACB] text-white"
-                    : "text-gray-600 bg-white"
-                }`}
-                style={styles.outfitFont}
-              >
-                Mine
-              </button>
-            </div>
-
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded text-gray-700 text-sm w-48"
-              style={styles.outfitFont}
-            />
-          </div>
+      {/* ERROR BANNER */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded shrink-0">
+          {error}
+          <button
+            onClick={() => setError("")}
+            className="ml-4 text-red-900 font-bold"
+          >
+            ×
+          </button>
         </div>
+      )}
 
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
-            <table className="w-full text-sm">
-              <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
-                <tr>
-                  <th className="px-2 py-2 w-16 text-center font-semibold border-b border-black border-r border-white">
-                    Edit
-                  </th>
+      {/* TABLE WRAPPER */}
+      <div className="border rounded-lg shadow-sm bg-white overflow-hidden shrink-0">
+        <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+          <table className="min-w-max w-full border-collapse text-sm">
+            {/* HEADER */}
+            <thead className="bg-[#017ACB] text-white">
+              <tr className="sticky top-0 z-[100] bg-[#017ACB]">
+                {/* EDIT HEADER */}
+                <th
+                  className="
+                    sticky left-0 top-0
+                    z-[9999]
+                    bg-[#017ACB] bg-opacity-100
+                    px-4 py-2
+                    text-sm font-semibold
+                    whitespace-nowrap
+                    align-middle
+                    [background-clip:padding-box]
+                  "
+                  style={styles.outfitFont}
+                >
+                  Edit
+                </th>
 
-                  {/* Name Filter Column */}
-                  <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[150px] relative">
-                    <div className="flex justify-between items-center">
-                      <span>Name</span>
+                {/* NAME HEADER */}
+                <th
+                  className="
+                    px-2 py-2 text-left font-semibold
+                    border-l border-black border-r border-black
+                    min-w-[150px] relative
+                  "
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Name</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect =
+                          e.currentTarget.getBoundingClientRect();
+                        setMenuPosition({
+                          x: rect.left,
+                          y: rect.bottom,
+                        });
+                        setShowNameMenu((prev) => !prev);
+                        setShowTitleMenu(false);
+                        setShowReportsToMenu(false);
+                        setShowCurrentStatusMenu(false);
+                        setShowManagerLevelMenu(false);
+                        setShowDirectorLevelMenu(false);
+                      }}
+                      className="
+                        ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
+                        hover:bg-[#CDE6F7] transition
+                        shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                        active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                      "
+                    >
+                      ▼
+                    </button>
+                  </div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setMenuPosition({ x: rect.left, y: rect.bottom });
-                          setShowNameMenu((prev) => !prev);
-                          setShowTitleMenu(false);
-                          setShowReportsToMenu(false);
-                          setShowCurrentStatusMenu(false);
-                        }}
-                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
-                      >
-                        ▼
-                      </button>
-                    </div>
+                  {showNameMenu &&
+                    renderDropdownPortal(
+                      <div className="bg-white text-black shadow-lg rounded w-56 max-h-110 overflow-y-auto border border-gray-200">
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 text-center">
+                          Sort by name
+                        </div>
 
-                    {showNameMenu &&
-                      renderDropdownPortal(
-                        <div className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200">
-                          <div
-                            className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                        <div
+                          className="
+                            px-3 py-2 cursor-pointer text-sm flex items-center gap-2
+                            hover:bg-[#017ACB]/20
+                            shadow-[inset_2px_2px_0_rgba(255,255,255,1),
+                                    inset_-2px_-2px_0_rgba(0,0,0,0.12)]
+                          "
+                          onClick={() =>
+                            setNameSort((prev) =>
+                              prev === "asc" ? "none" : "asc"
+                            )
+                          }
+                        >
+                          <Checkbox checked={nameSort === "asc"} />
+                          A → Z
+                        </div>
+
+                        <div
+                          className="
+                            px-3 py-2 cursor-pointer text-sm flex items-center gap-2
+                            hover:bg-[#017ACB]/20
+                            shadow-[inset_2px_2px_0_rgba(255,255,255,1),
+                                    inset_-2px_-2px_0_rgba(0,0,0,0.12)]
+                          "
+                          onClick={() =>
+                            setNameSort((prev) =>
+                              prev === "desc" ? "none" : "desc"
+                            )
+                          }
+                        >
+                          <Checkbox checked={nameSort === "desc"} />
+                          Z → A
+                        </div>
+
+                        <div className="border-t mt-1 pt-1 px-3 py-2 text-xs font-semibold text-gray-500 text-center">
+                          Filter by name
+                        </div>
+
+                        <div
+                          className={`
+                            px-3 py-2 cursor-pointer text-sm flex items-center gap-2
+                            hover:bg-[#017ACB]/20
+                            ${
                               selectedNames.length === 0 ||
-                              selectedNames.length === availableNames.length
-                                ? "bg-gray-100 font-semibold"
+                              selectedNames.length ===
+                                availableNames.length
+                                ? "font-semibold"
                                 : ""
-                            }`}
-                            onClick={() => setSelectedNames([])}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={
-                                selectedNames.length === 0 ||
-                                selectedNames.length === availableNames.length
-                              }
-                              readOnly
-                            />
-                            All
-                          </div>
+                            }
+                            shadow-[inset_2px_2px_0_rgba(255,255,255,1),
+                                    inset_-2px_-2px_0_rgba(0,0,0,0.12)]
+                          `}
+                          onClick={() => setSelectedNames([])}
+                        >
+                          <Checkbox
+                            checked={
+                              selectedNames.length === 0 ||
+                              selectedNames.length ===
+                                availableNames.length
+                            }
+                          />
+                          All
+                        </div>
 
+                        {availableNames.map((name) => (
                           <div
-                            className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 ${
-                              nameSort === "az"
-                                ? "bg-gray-100 font-semibold"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              setNameSort("az");
-                              setShowNameMenu(false);
-                            }}
-                          >
-                            A → Z
-                          </div>
-
-                          <div
-                            className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 ${
-                              nameSort === "za"
-                                ? "bg-gray-100 font-semibold"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              setNameSort("za");
-                              setShowNameMenu(false);
-                            }}
-                          >
-                            Z → A
-                          </div>
-
-                          {availableNames.map((name) => (
-                            <div
-                              key={name}
-                              className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                            key={name}
+                            className={`
+                              px-3 py-2 cursor-pointer text-sm flex items-center gap-2
+                              hover:bg-[#017ACB]/20
+                              ${
                                 selectedNames.includes(name)
-                                  ? "bg-gray-100 font-semibold"
+                                  ? "font-semibold"
                                   : ""
-                              }`}
-                              onClick={() =>
-                                toggleSelection(
-                                  name,
-                                  setSelectedNames,
-                                  selectedNames
-                                )
                               }
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedNames.includes(name)}
-                                readOnly
-                              />
-                              {name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                  </th>
-
-                  {/* Title Filter Column */}
-                  <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[150px] relative">
-                    <div className="flex justify-between items-center">
-                      <span>Title</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setMenuPosition({ x: rect.left, y: rect.bottom });
-                          setShowTitleMenu((prev) => !prev);
-                          setShowNameMenu(false);
-                          setShowReportsToMenu(false);
-                          setShowCurrentStatusMenu(false);
-                        }}
-                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
-                      >
-                        ▼
-                      </button>
-                    </div>
-
-                    {showTitleMenu &&
-                      renderDropdownPortal(
-                        <div className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200">
-                          <div
-                            className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
-                              selectedTitles.length === 0 ||
-                              selectedTitles.length === availableTitles.length
-                                ? "bg-gray-100 font-semibold"
-                                : ""
-                            }`}
-                            onClick={() => setSelectedTitles([])}
+                              shadow-[inset_2px_2px_0_rgba(255,255,255,1),
+                                      inset_-2px_-2px_0_rgba(0,0,0,0.12)]
+                            `}
+                            onClick={() =>
+                              toggleSelection(
+                                name,
+                                setSelectedNames,
+                                selectedNames
+                              )
+                            }
                           >
-                            <input
-                              type="checkbox"
-                              checked={
-                                selectedTitles.length === 0 ||
-                                selectedTitles.length === availableTitles.length
-                              }
-                              readOnly
+                            <Checkbox
+                              checked={selectedNames.includes(name)}
                             />
-                            All
+                            {name}
                           </div>
+                        ))}
+                      </div>
+                    )}
+                </th>
 
-                          {availableTitles.map((title) => (
-                            <div
-                              key={title}
-                              className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
-                                selectedTitles.includes(title)
-                                  ? "bg-gray-100 font-semibold"
-                                  : ""
-                              }`}
-                              onClick={() =>
-                                toggleSelection(
-                                  title,
-                                  setSelectedTitles,
-                                  selectedTitles
-                                )
-                              }
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedTitles.includes(title)}
-                                readOnly
-                              />
-                              {title}
-                            </div>
-                          ))}
+                {/* TITLE HEADER */}
+                <th
+                  className="
+                    px-2 py-2 text-left font-semibold
+                    border-r border-black
+                    min-w-[150px] relative
+                  "
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Title</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect =
+                          e.currentTarget.getBoundingClientRect();
+                        setMenuPosition({
+                          x: rect.left,
+                          y: rect.bottom,
+                        });
+                        setShowTitleMenu((prev) => !prev);
+                        setShowNameMenu(false);
+                        setShowReportsToMenu(false);
+                        setShowCurrentStatusMenu(false);
+                        setShowManagerLevelMenu(false);
+                        setShowDirectorLevelMenu(false);
+                      }}
+                      className="
+                        ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
+                        hover:bg-[#CDE6F7] transition
+                        shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                        active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                      "
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {showTitleMenu &&
+                    renderDropdownPortal(
+                      <div className="bg-white text-black shadow-lg rounded w-56 max-h-110 overflow-y-auto border border-gray-200">
+                        <div
+                          className={`
+                            px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                            flex items-center gap-2
+                            ${
+                              selectedTitles.length === 0 ||
+                              selectedTitles.length ===
+                                availableTitles.length
+                                ? "font-semibold"
+                                : ""
+                            }
+                          `}
+                          onClick={() => setSelectedTitles([])}
+                        >
+                          <Checkbox
+                            checked={
+                              selectedTitles.length === 0 ||
+                              selectedTitles.length ===
+                                availableTitles.length
+                            }
+                          />
+                          All
                         </div>
-                      )}
-                  </th>
 
-                  <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[100px]">
-                    Department
-                  </th>
-
-                  {/* Reports To Filter Column */}
-                  <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[130px] relative">
-                    <div className="flex justify-between items-center">
-                      <span>Reports To</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setMenuPosition({ x: rect.left, y: rect.bottom });
-                          setShowReportsToMenu((prev) => !prev);
-                          setShowTitleMenu(false);
-                          setShowNameMenu(false);
-                          setShowCurrentStatusMenu(false);
-                        }}
-                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
-                      >
-                        ▼
-                      </button>
-                    </div>
-
-                    {showReportsToMenu &&
-                      renderDropdownPortal(
-                        <div className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200">
+                        {availableTitles.map((title) => (
                           <div
-                            className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                            key={title}
+                            className={`
+                              px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                              flex items-center gap-2
+                              ${
+                                selectedTitles.includes(title)
+                                  ? "font-semibold"
+                                  : ""
+                              }
+                            `}
+                            onClick={() =>
+                              toggleSelection(
+                                title,
+                                setSelectedTitles,
+                                selectedTitles
+                              )
+                            }
+                          >
+                            <Checkbox
+                              checked={selectedTitles.includes(
+                                title
+                              )}
+                            />
+                            {title}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </th>
+
+                {/* DEPARTMENT HEADER */}
+                <th
+                  className="
+                    px-2 py-2 text-left font-semibold
+                    border-r border-black
+                    min-w-[150px]
+                  "
+                  style={styles.outfitFont}
+                >
+                  Department
+                </th>
+
+                {/* REPORTS TO HEADER */}
+                <th
+                  className="
+                    px-2 py-2 text-left font-semibold
+                    border-r border-black
+                    min-w-[150px] relative
+                  "
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Reports To</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect =
+                          e.currentTarget.getBoundingClientRect();
+                        setMenuPosition({
+                          x: rect.left,
+                          y: rect.bottom,
+                        });
+                        setShowReportsToMenu((prev) => !prev);
+                        setShowNameMenu(false);
+                        setShowTitleMenu(false);
+                        setShowCurrentStatusMenu(false);
+                        setShowManagerLevelMenu(false);
+                        setShowDirectorLevelMenu(false);
+                      }}
+                      className="
+                        ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
+                        hover:bg-[#CDE6F7] transition
+                        shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                        active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                      "
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {showReportsToMenu &&
+                    renderDropdownPortal(
+                      <div className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200">
+                        <div
+                          className={`
+                            px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                            flex items-center gap-2
+                            ${
                               selectedReportsTo.length === 0 ||
                               selectedReportsTo.length ===
                                 availableReportsTo.length
-                                ? "bg-gray-100 font-semibold"
+                                ? "font-semibold"
                                 : ""
-                            }`}
-                            onClick={() => setSelectedReportsTo([])}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={
-                                selectedReportsTo.length === 0 ||
-                                selectedReportsTo.length ===
-                                  availableReportsTo.length
-                              }
-                              readOnly
-                            />
-                            All
-                          </div>
-
-                          {availableReportsTo.map((manager) => (
-                            <div
-                              key={manager}
-                              className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
-                                selectedReportsTo.includes(manager)
-                                  ? "bg-gray-100 font-semibold"
-                                  : ""
-                              }`}
-                              onClick={() =>
-                                toggleSelection(
-                                  manager,
-                                  setSelectedReportsTo,
-                                  selectedReportsTo
-                                )
-                              }
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedReportsTo.includes(manager)}
-                                readOnly
-                              />
-                              {manager}
-                            </div>
-                          ))}
+                            }
+                          `}
+                          onClick={() => setSelectedReportsTo([])}
+                        >
+                          <Checkbox
+                            checked={
+                              selectedReportsTo.length === 0 ||
+                              selectedReportsTo.length ===
+                                availableReportsTo.length
+                            }
+                          />
+                          All
                         </div>
-                      )}
-                  </th>
 
-                  <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[130px]">
-                    Manager Level
-                  </th>
-                  <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[130px]">
-                    Director Level
-                  </th>
-                  <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[150px]">
-                    Other Information
-                  </th>
-
-                  {/* Current Status Filter Column */}
-                  <th className="px-2 py-2 text-left font-semibold border-b border-black border-r border-white min-w-[120px] relative">
-                    <div className="flex justify-between items-center">
-                      <span>Current Status</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setMenuPosition({ x: rect.left, y: rect.bottom });
-                          setShowCurrentStatusMenu((prev) => !prev);
-                          setShowTitleMenu(false);
-                          setShowNameMenu(false);
-                          setShowReportsToMenu(false);
-                        }}
-                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
-                      >
-                        ▼
-                      </button>
-                    </div>
-
-                    {showCurrentStatusMenu &&
-                      renderDropdownPortal(
-                        <div className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200">
+                        {availableReportsTo.map((name) => (
                           <div
-                            className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
+                            key={name}
+                            className={`
+                              px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                              flex items-center gap-2
+                              ${
+                                selectedReportsTo.includes(name)
+                                  ? "font-semibold"
+                                  : ""
+                              }
+                            `}
+                            onClick={() =>
+                              toggleSelection(
+                                name,
+                                setSelectedReportsTo,
+                                selectedReportsTo
+                              )
+                            }
+                          >
+                            <Checkbox
+                              checked={selectedReportsTo.includes(
+                                name
+                              )}
+                            />
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </th>
+
+                {/* MANAGER LEVEL HEADER */}
+                <th
+                  className="
+                    px-2 py-2 text-left font-semibold
+                    border-r border-black
+                    min-w-[150px] relative
+                  "
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Manager Level</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect =
+                          e.currentTarget.getBoundingClientRect();
+                        setMenuPosition({
+                          x: rect.left,
+                          y: rect.bottom,
+                        });
+                        setShowManagerLevelMenu((prev) => !prev);
+                        setShowNameMenu(false);
+                        setShowTitleMenu(false);
+                        setShowReportsToMenu(false);
+                        setShowCurrentStatusMenu(false);
+                        setShowDirectorLevelMenu(false);
+                      }}
+                      className="
+                        ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
+                        hover:bg-[#CDE6F7] transition
+                        shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                        active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                      "
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {showManagerLevelMenu &&
+                    renderDropdownPortal(
+                      <div className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200">
+                        <div
+                          className={`
+                            px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                            flex items-center gap-2
+                            ${
+                              selectedManagerLevels.length === 0 ||
+                              selectedManagerLevels.length ===
+                                availableManagerLevels.length
+                                ? "font-semibold"
+                                : ""
+                            }
+                          `}
+                          onClick={() => setSelectedManagerLevels([])}
+                        >
+                          <Checkbox
+                            checked={
+                              selectedManagerLevels.length === 0 ||
+                              selectedManagerLevels.length ===
+                                availableManagerLevels.length
+                            }
+                          />
+                          All
+                        </div>
+
+                        {availableManagerLevels.map((name) => (
+                          <div
+                            key={name}
+                            className={`
+                              px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                              flex items-center gap-2
+                              ${
+                                selectedManagerLevels.includes(name)
+                                  ? "font-semibold"
+                                  : ""
+                              }
+                            `}
+                            onClick={() =>
+                              toggleSelection(
+                                name,
+                                setSelectedManagerLevels,
+                                selectedManagerLevels
+                              )
+                            }
+                          >
+                            <Checkbox
+                              checked={selectedManagerLevels.includes(
+                                name
+                              )}
+                            />
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </th>
+
+                {/* DIRECTOR LEVEL HEADER */}
+                <th
+                  className="
+                    px-2 py-2 text-left font-semibold
+                    border-r border-black
+                    min-w-[150px] relative
+                  "
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Director Level</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect =
+                          e.currentTarget.getBoundingClientRect();
+                        setMenuPosition({
+                          x: rect.left,
+                          y: rect.bottom,
+                        });
+                        setShowDirectorLevelMenu((prev) => !prev);
+                        setShowNameMenu(false);
+                        setShowTitleMenu(false);
+                        setShowReportsToMenu(false);
+                        setShowCurrentStatusMenu(false);
+                        setShowManagerLevelMenu(false);
+                      }}
+                      className="
+                        ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
+                        hover:bg-[#CDE6F7] transition
+                        shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                        active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                      "
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {showDirectorLevelMenu &&
+                    renderDropdownPortal(
+                      <div className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200">
+                        <div
+                          className={`
+                            px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                            flex items-center gap-2
+                            ${
+                              selectedDirectorLevels.length === 0 ||
+                              selectedDirectorLevels.length ===
+                                availableDirectorLevels.length
+                                ? "font-semibold"
+                                : ""
+                            }
+                          `}
+                          onClick={() => setSelectedDirectorLevels([])}
+                        >
+                          <Checkbox
+                            checked={
+                              selectedDirectorLevels.length === 0 ||
+                              selectedDirectorLevels.length ===
+                                availableDirectorLevels.length
+                            }
+                          />
+                          All
+                        </div>
+
+                        {availableDirectorLevels.map((name) => (
+                          <div
+                            key={name}
+                            className={`
+                              px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                              flex items-center gap-2
+                              ${
+                                selectedDirectorLevels.includes(name)
+                                  ? "font-semibold"
+                                  : ""
+                              }
+                            `}
+                            onClick={() =>
+                              toggleSelection(
+                                name,
+                                setSelectedDirectorLevels,
+                                selectedDirectorLevels
+                              )
+                            }
+                          >
+                            <Checkbox
+                              checked={selectedDirectorLevels.includes(
+                                name
+                              )}
+                            />
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </th>
+
+                {/* OTHER INFO HEADER */}
+                <th
+                  className="
+                    px-2 py-2 text-left font-semibold
+                    border-r border-black
+                    min-w-[200px] max-w[400px]
+                  "
+                  style={styles.outfitFont}
+                >
+                  Other Information
+                </th>
+
+                {/* CURRENT STATUS HEADER */}
+                <th
+                  className="
+                    px-2 py-2 text-left font-semibold
+                    border-r border-black
+                    min-w-[130px] relative
+                  "
+                  style={styles.outfitFont}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>Status</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect =
+                          e.currentTarget.getBoundingClientRect();
+                        setMenuPosition({
+                          x: rect.left,
+                          y: rect.bottom,
+                        });
+                        setShowCurrentStatusMenu((prev) => !prev);
+                        setShowNameMenu(false);
+                        setShowTitleMenu(false);
+                        setShowReportsToMenu(false);
+                        setShowManagerLevelMenu(false);
+                        setShowDirectorLevelMenu(false);
+                      }}
+                      className="
+                        ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
+                        hover:bg-[#CDE6F7] transition
+                        shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                        active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                      "
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {showCurrentStatusMenu &&
+                    renderDropdownPortal(
+                      <div className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200">
+                        <div
+                          className={`
+                            px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                            flex items-center gap-2
+                            ${
                               selectedCurrentStatuses.length === 0 ||
                               selectedCurrentStatuses.length ===
                                 availableCurrentStatuses.length
-                                ? "bg-gray-100 font-semibold"
+                                ? "font-semibold"
                                 : ""
-                            }`}
-                            onClick={() => setSelectedCurrentStatuses([])}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={
-                                selectedCurrentStatuses.length === 0 ||
-                                selectedCurrentStatuses.length ===
-                                  availableCurrentStatuses.length
-                              }
-                              readOnly
-                            />
-                            All
-                          </div>
-
-                          {availableCurrentStatuses.map((status) => (
-                            <div
-                              key={status}
-                              className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-200 flex items-center gap-2 ${
-                                selectedCurrentStatuses.includes(status)
-                                  ? "bg-gray-100 font-semibold"
-                                  : ""
-                              }`}
-                              onClick={() =>
-                                toggleSelection(
-                                  status,
-                                  setSelectedCurrentStatuses,
-                                  selectedCurrentStatuses
-                                )
-                              }
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedCurrentStatuses.includes(
-                                  status
-                                )}
-                                readOnly
-                              />
-                              {status}
-                            </div>
-                          ))}
+                            }
+                          `}
+                          onClick={() =>
+                            setSelectedCurrentStatuses([])
+                          }
+                        >
+                          <Checkbox
+                            checked={
+                              selectedCurrentStatuses.length === 0 ||
+                              selectedCurrentStatuses.length ===
+                                availableCurrentStatuses.length
+                            }
+                          />
+                          All
                         </div>
-                      )}
-                  </th>
 
-                  {MONTHS.map((month) => (
-                    <th
-                      key={month.key}
-                      className="px-2 py-2 text-center font-semibold text-white border-b border-black border-r border-white min-w-[60px]"
-                    >
-                      {month.label}
-                    </th>
-                  ))}
+                        {availableCurrentStatuses.map((status) => (
+                          <div
+                            key={status}
+                            className={`
+                              px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+                              flex items-center gap-2
+                              ${
+                                selectedCurrentStatuses.includes(
+                                  status
+                                )
+                                  ? "font-semibold"
+                                  : ""
+                              }
+                            `}
+                            onClick={() =>
+                              toggleSelection(
+                                status,
+                                setSelectedCurrentStatuses,
+                                selectedCurrentStatuses
+                              )
+                            }
+                          >
+                            <Checkbox
+                              checked={selectedCurrentStatuses.includes(
+                                status
+                              )}
+                            />
+                            {status}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </th>
+{showMonthMenu &&
+  renderDropdownPortal(
+    <div
+      ref={monthMenuRef}
+      className="bg-white text-black shadow-lg rounded w-56 max-h-64 overflow-y-auto border border-gray-200"
+    >
+      {[...monthOptions].reverse().map((m) => (
+        <div
+          key={m.key}
+          data-month-key={m.key}   // ← ADD THIS
+          className="
+            px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20
+            flex items-center gap-2
+          "
+          onClick={() => handleMonthSelect(m)}
+        >
+          <Checkbox checked={selectedMonth?.key === m.key} />
+          {m.label}
+        </div>
+      ))}
+    </div>
+  )}
+{/* MONTH COLUMNS */}
+{visibleMonths.map((month, index) => (
+  <th
+    key={month.key}
+    className="
+      px-2 py-2 text-center text-white
+      border-r border-black min-w-[60px]
+      relative
+    "
+    style={styles.outfitFont}
+  >
+    <div className="flex justify-center items-center gap-1">
+      <span>{month.label}</span>
+
+      {/* FILTER BUTTON ONLY ON FIRST MONTH */}
+      {index === 0 && (
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuPosition({ x: rect.left, y: rect.bottom });
+    setShowMonthMenu((prev) => !prev);
+  }}
+  className="
+    bg-white text-[#017ACB]
+    px-2 py-1 text-xs rounded
+    hover:bg-[#CDE6F7] transition
+    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+  "
+>
+  ▼
+</button>
+      )}
+    </div>
+  </th>
+))}
+
+              </tr>
+            </thead>
+
+            {/* BODY */}
+            <tbody>
+              {employees.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={9 + visibleMonths.length}
+                    className="px-4 py-8 text-center text-black border-t border-black"
+                    style={styles.outfitFont}
+                  >
+                    No employees found
+                  </td>
                 </tr>
-              </thead>
+              ) : (
+                employees.map((employee) => {
+                  const isSelected =
+                    selectedEmpId === employee.emp_id;
 
-              <tbody>
-                {employees.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9 + MONTHS.length}
-                      className="px-4 py-8 text-center text-black"
-                      style={styles.outfitFont}
-                    >
-                      No employees found
-                    </td>
-                  </tr>
-                ) : (
-                  employees.map((employee) => (
+                  return (
                     <tr
                       key={employee.emp_id}
-                      className="hover:bg-gray-50 border-b border-black"
+                      className={`
+                        border-t border-black
+                        hover:bg-[#017ACB]/10
+                        ${isSelected ? "bg-[#CDE6F7]" : ""}
+                      `}
+                      onClick={() =>
+                        setSelectedEmpId(
+                          isSelected ? null : employee.emp_id
+                        )
+                      }
                     >
-                      <td className="px-2 py-2 w-16 border-r border-black bg-white">
+                      {/* EDIT BUTTON */}
+                      <td
+                        className="
+                          sticky left-0 z-30
+                          px-4 py-2
+                          bg-white
+                          border-r border-black
+                          text-black
+                          whitespace-nowrap
+                        "
+                      >
                         <Link
                           href={`/resource-manager/create-edit-resources/edit-resource?id=${employee.emp_id}`}
-                          className="px-2 py-1 bg-[#017ACB] text-white text-xs rounded hover:bg-blue-700 cursor-pointer inline-block"
+                          className="
+                            px-2 py-1
+                            bg-[#017ACB] text-white text-xs rounded
+                            hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                          "
                           style={styles.outfitFont}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           Edit
                         </Link>
                       </td>
 
+                      {/* NAME */}
                       <td
-                        className="px-2 py-2 text-black border-r border-black bg-white"
+                        className="
+                          px-2 py-2 text-black border-l border-black border-r border-black
+                        "
                         style={styles.outfitFont}
                       >
                         {employee.emp_name}
                       </td>
+
+                      {/* TITLE */}
                       <td
                         className="px-2 py-2 text-black border-r border-black"
                         style={styles.outfitFont}
                       >
                         {employee.emp_title}
                       </td>
+
+                      {/* DEPARTMENT */}
                       <td
                         className="px-2 py-2 text-black border-r border-black"
                         style={styles.outfitFont}
                       >
                         {getDepartmentName(employee.dept_no)}
                       </td>
+
+                      {/* REPORTS TO */}
                       <td
                         className="px-2 py-2 text-black border-r border-black"
                         style={styles.outfitFont}
                       >
                         {getReportsToName(employee)}
                       </td>
+
+                      {/* MANAGER LEVEL */}
                       <td
                         className="px-2 py-2 text-black border-r border-black"
                         style={styles.outfitFont}
                       >
                         {getLevelName(employee.manager_level)}
                       </td>
+
+                      {/* DIRECTOR LEVEL */}
                       <td
                         className="px-2 py-2 text-black border-r border-black"
                         style={styles.outfitFont}
                       >
                         {getLevelName(employee.director_level)}
                       </td>
+
+                      {/* OTHER INFO */}
                       <td
                         className="px-2 py-2 text-black border-r border-black"
                         style={styles.outfitFont}
@@ -944,76 +1557,91 @@ export default function ResourcesPage() {
                         {employee.other_info || ""}
                       </td>
 
-                      <td className="px-2 py-2 border-r border-black">
+                      {/* CURRENT STATUS */}
+                      <td
+                        className="px-2 py-2 border-r border-black"
+                        style={styles.outfitFont}
+                      >
                         <span
-                          className={`px-2 py-1 text-xs rounded ${
-                            getCurrentStatus(employee) === "Active"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                          style={styles.outfitFont}
+                          className={`
+                            px-2 py-1 text-xs rounded
+                            ${
+                              getCurrentStatus(employee) === "Active"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }
+                          `}
                         >
                           {getCurrentStatus(employee)}
                         </span>
                       </td>
 
-                      {MONTHS.map((month) => (
-                        <td
-                          key={month.key}
-                          className="px-2 py-2 text-center border-r border-black text-black"
-                          style={styles.outfitFont}
-                        >
-                          {editingCell?.empId === employee.emp_id &&
-                          editingCell?.monthKey === month.key ? (
-                            <input
-                              type="number"
-                              min="0"
-                              max="1"
-                              step="0.25"
-                              value={editingValue}
-                              onChange={(e) => setEditingValue(e.target.value)}
-                              onBlur={() => saveMonthValue(employee, month.key)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  saveMonthValue(employee, month.key);
-                                }
 
-                                if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  cancelEditMonth();
-                                }
-                              }}
-                              autoFocus
-                              className="w-16 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                startEditMonth(employee, month.key)
-                              }
-                              className="w-full text-center hover:bg-gray-100 rounded px-1 py-0.5"
-                            >
-                              {getMonthValue(employee, month.key)}
-                            </button>
-                          )}
-                        </td>
-                      ))}
+{/* MONTH CELLS */}
+{visibleMonths.map((month) => (
+  <td
+    key={month.key}
+    className="
+      px-2 py-2 text-center text-black
+      border-r border-black
+      cursor-pointer
+    "
+    style={styles.outfitFont}
+    onClick={(e) => {
+      e.stopPropagation();
+      startEditMonth(employee, month.key);
+    }}
+  >
+    {editingCell?.empId === employee.emp_id &&
+    editingCell?.monthKey === month.key ? (
+      <input
+        type="number"
+        min="0"
+        max="1"
+        step="0.25"
+        value={editingValue}
+        onChange={(e) => setEditingValue(e.target.value)}
+        onBlur={() => saveMonthValue(employee, month.key)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            saveMonthValue(employee, month.key);
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            cancelEditMonth();
+          }
+        }}
+        autoFocus
+        className="
+          w-14 px-1 py-0.5 border border-gray-300 rounded
+          text-center text-sm
+        "
+        onClick={(e) => e.stopPropagation()}
+      />
+    ) : (
+      <div className="inline-block px-1 py-0.5">
+        {getMonthValue(employee, month.key)}
+      </div>
+    )}
+  </td>
+))}
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
+      </div>
 
-        <div
-          className="mt-4 text-gray-600 text-sm"
-          style={styles.outfitFont}
-        >
-          Showing {employees.length} of {employeesWithCapacity.length} employees
-        </div>
+      {/* FOOTER */}
+      <div
+        className="mt-3 text-gray-600 text-sm shrink-0"
+        style={styles.outfitFont}
+      >
+        Showing {employees.length} of{" "}
+        {employeesWithCapacity.length} employees
       </div>
     </div>
   );

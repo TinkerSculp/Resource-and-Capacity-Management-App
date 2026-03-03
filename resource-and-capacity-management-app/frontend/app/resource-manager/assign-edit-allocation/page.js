@@ -521,7 +521,7 @@ const handleMyAssignments = () => {
 --------------------------------------------------------- */
 if (!user || loading) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
     </div>
   );
@@ -534,8 +534,8 @@ if (!user || loading) {
    • Only comments added
 --------------------------------------------------------- */
 return (
-  <div className="min-h-screen bg-gray-50">
-    <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <div className="h-[500px] bg-white">
+    <main className="max-w-full mx-auto px-4 sm:px-4 lg:px-4 py-4">
 
       {/* Title + Back + Add */}
       <div className="flex justify-between items-center mb-4">
@@ -549,10 +549,14 @@ return (
 
           <button
             onClick={() => router.push('/resource-manager/dashboard')}
-            className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+            className="              px-4 py-2 rounded text-sm
+              bg-gray-200 text-gray-700 border
+              hover:bg-[#017ACB]/20 transition-colors
+              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
             style={styles.outfitFont}
           >
-            ← Back to Dashboard
+            Back to Dashboard
           </button>
         </div>
 
@@ -561,8 +565,11 @@ return (
             onClick={handleAllAssignments}
             className={`px-4 py-2 rounded text-sm ${
               activeTab === 'all'
-                ? 'bg-[#017ACB] text-white'
-                : 'bg-white text-gray-700 border'
+                    ? "bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700"
+                    : "bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20"
+                }
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]'
             }`}
             style={styles.outfitFont}
           >
@@ -573,8 +580,11 @@ return (
             onClick={handleMyAssignments}
             className={`px-4 py-2 rounded text-sm ${
               activeTab === 'mine'
-                ? 'bg-[#017ACB] text-white'
-                : 'bg-white text-gray-700 border'
+                    ? "bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700"
+                    : "bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20"
+                }
+                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]'
             }`}
             style={styles.outfitFont}
           >
@@ -585,7 +595,11 @@ return (
             onClick={() =>
               router.push('/resource-manager/assign-edit-allocation/add-allocation')
             }
-            className="px-4 py-2 rounded text-sm bg-[#017ACB] text-white hover:bg-blue-700 transition"
+            className="px-4 py-2 rounded text-sm
+            bg-gray-200 text-gray-700 border
+            hover:bg-[#017ACB]/20 transition-colors
+            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
             style={styles.outfitFont}
           >
             + Add Allocation
@@ -600,7 +614,8 @@ return (
             <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
               <tr>
                 <th
-                  className="sticky left-0 bg-[#017ACB] px-4 py-2 border text-sm font-semibold"
+                  className="sticky left-0 bg-[#017ACB] px-4 py-2 border text-sm font-semibold
+                  "
                   style={styles.outfitFont}
                 >
                   Edit
@@ -632,7 +647,8 @@ return (
                         setShowManagerMenu(false);
                         setShowStartMonthMenu(false);
                       }}
-                      className="bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                     >
                       ▼
                     </button>
@@ -752,7 +768,8 @@ return (
                           setShowRequestingDeptMenu(false);
                           setShowStartMonthMenu(false);
                         }}
-                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                       >
                         ▼
                       </button>
@@ -825,7 +842,8 @@ return (
                           setShowManagerMenu(false);
                           setShowStartMonthMenu(false);
                         }}
-                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                       >
                         ▼
                       </button>
@@ -898,7 +916,8 @@ return (
                           setShowManagerMenu(false);
                           setShowStartMonthMenu(false);
                         }}
-                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                        className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                       >
                         ▼
                       </button>
@@ -971,7 +990,8 @@ return (
                                 setShowManagerMenu(false);
                                 setShowStartMonthMenu(false);
                               }}
-                              className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                              className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                             >
                               ▼
                             </button>
@@ -1044,7 +1064,8 @@ return (
                                 setShowManagerMenu(false);
                                 setShowStartMonthMenu(false);
                               }}
-                              className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                              className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                             >
                               ▼
                             </button>
@@ -1117,7 +1138,8 @@ return (
                                 setShowManagerMenu(false);
                                 setShowStartMonthMenu(false);
                               }}
-                              className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                              className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                             >
                               ▼
                             </button>
@@ -1190,7 +1212,8 @@ return (
                                 setShowManagerMenu(false);
                                 setShowStartMonthMenu(false);
                               }}
-                              className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                              className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                             >
                               ▼
                             </button>
@@ -1293,7 +1316,8 @@ return (
                                 return next;
                               });
                             }}
-                            className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-gray-100 transition"
+                            className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
+                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                           >
                             ▼
                           </button>
@@ -1393,7 +1417,10 @@ return (
                                   e.stopPropagation();
                                   handleEditAllocation(row);
                                 }}
-                                className="px-2 py-1 bg-[#017ACB] text-white text-xs rounded hover:bg-blue-700"
+                                className="                            px-2 py-1
+                            bg-[#017ACB] text-white text-xs rounded
+                            hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
                               >
                                 Edit
                               </button>

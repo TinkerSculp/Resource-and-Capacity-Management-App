@@ -21,7 +21,7 @@ And enables Tailwind inside globals.css.
 
 🔐 Frontend .env.local File
 Create a .env.local file inside /frontend:
-NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
 
 
 🚀 Start the Frontend

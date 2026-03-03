@@ -1,7 +1,17 @@
 // Get capacity summary data
 import { connectDB } from "../config/db.js";
 
-export function formatMonthLabel(yyyymm) {
+/**
+ * ---------------------------------------------------------------------------
+ * FORMAT MONTH LABEL (UTILITY)
+ * ---------------------------------------------------------------------------
+ * SECURITY:
+ * • Pure formatting helper — no user input passed directly.
+ * • YYYYMM values are validated before reaching this function.
+ * • Prevents malformed month strings from leaking into UI.
+ * ---------------------------------------------------------------------------
+ */
+function formatMonthLabel(yyyymm) {
   const s = String(yyyymm);
   const year = Number(s.slice(0, 4));
   const month = Number(s.slice(4, 6));
@@ -13,7 +23,17 @@ export function formatMonthLabel(yyyymm) {
   return `${shortMonth}-${shortYear}`;
 }
 
-export function computeMonthWindow(startYYYYMM, count) {
+/**
+ * ---------------------------------------------------------------------------
+ * COMPUTE MONTH WINDOW
+ * ---------------------------------------------------------------------------
+ * SECURITY:
+ * • Generates a predictable YYYYMM sequence.
+ * • No external input used beyond validated numeric start month.
+ * • Prevents invalid month rollover (e.g., 202313).
+ * ---------------------------------------------------------------------------
+ */
+function computeMonthWindow(startYYYYMM, count) {
   const months = [];
   let year = Math.floor(startYYYYMM / 100);
   let month = startYYYYMM % 100;
@@ -31,10 +51,35 @@ export function computeMonthWindow(startYYYYMM, count) {
   return months;
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ * CONTROLLER: getCapacitySummary
+ * ---------------------------------------------------------------------------
+ * SECURITY OVERVIEW:
+ * • Validates query parameters before use.
+ * • Ensures all DB values are numeric YYYYMM before processing.
+ * • Aggregation pipelines use strict $match filters — no injection risk.
+ * • Merges allocation + capacity safely with defensive defaults.
+ * • Returns only the required fields — no sensitive data exposure.
+ *
+ * IMPORTANT:
+ * • Should be protected by authentication middleware at the router level.
+ * • Must remain read‑only — no writes allowed in this endpoint.
+ * ---------------------------------------------------------------------------
+ */
 export const getCapacitySummary = async (req, res) => {
   try {
     const db = await connectDB();
 
+    /**
+     * -----------------------------------------------------------------------
+     * VALIDATE QUERY PARAMETERS
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • parseInt() ensures numeric-only values.
+     * • Prevents injection or malformed YYYYMM values.
+     * -----------------------------------------------------------------------
+     */
     const startParam = req.query.start;
     const monthsParam = req.query.months;
 
@@ -44,7 +89,16 @@ export const getCapacitySummary = async (req, res) => {
     const allocationCol = db.collection("allocation");
     const capacityCol = db.collection("capacity");
 
-    // Detect start month
+    /**
+     * -----------------------------------------------------------------------
+     * DETECT START MONTH (FALLBACK)
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • Uses only DB values — no user input.
+     * • Filters out future months to avoid exposing future planning data.
+     * • Ensures a valid fallback even if DB is partially empty.
+     * -----------------------------------------------------------------------
+     */
     let start = startMonth;
 
     if (!start) {
@@ -62,9 +116,27 @@ export const getCapacitySummary = async (req, res) => {
       start = valid.length > 0 ? valid[valid.length - 1] : currentYYYYMM;
     }
 
+    /**
+     * -----------------------------------------------------------------------
+     * BUILD TARGET MONTH WINDOW
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • computeMonthWindow() ensures valid YYYYMM sequence.
+     * • Prevents invalid month arithmetic.
+     * -----------------------------------------------------------------------
+     */
     const targetMonths = computeMonthWindow(start, monthsWindow);
 
-    // Aggregate allocations by category and month
+    /**
+     * -----------------------------------------------------------------------
+     * AGGREGATE ALLOCATIONS BY CATEGORY + MONTH
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • $match uses strict numeric filtering — no injection risk.
+     * • Aggregation pipeline prevents over-fetching unrelated data.
+     * • Only category + amount fields are exposed.
+     * -----------------------------------------------------------------------
+     */
     const allocationAgg = await allocationCol
       .aggregate([
         { $match: { date: { $in: targetMonths } } },
@@ -88,7 +160,15 @@ export const getCapacitySummary = async (req, res) => {
       ])
       .toArray();
 
-    // Aggregate people capacity by month
+    /**
+     * -----------------------------------------------------------------------
+     * AGGREGATE PEOPLE CAPACITY
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • Same strict numeric filtering as above.
+     * • Only total capacity is returned — no employee-level data.
+     * -----------------------------------------------------------------------
+     */
     const capacityAgg = await capacityCol
       .aggregate([
         { $match: { date: { $in: targetMonths } } },
@@ -101,12 +181,29 @@ export const getCapacitySummary = async (req, res) => {
       ])
       .toArray();
 
+    /**
+     * -----------------------------------------------------------------------
+     * BUILD CAPACITY MAP
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • Ensures safe lookup even if some months have no capacity data.
+     * -----------------------------------------------------------------------
+     */
     const capacityMap = new Map();
     for (const row of capacityAgg) {
       capacityMap.set(row._id, row.totalPeopleCapacity);
     }
 
-    // Merge allocation and capacity results
+    /**
+     * -----------------------------------------------------------------------
+     * MERGE ALLOCATION + CAPACITY RESULTS
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • Defensive defaults prevent undefined values.
+     * • Category normalization prevents inconsistent DB labels.
+     * • No raw DB category strings are returned to frontend.
+     * -----------------------------------------------------------------------
+     */
     const merged = [];
 
     for (const month of targetMonths) {
@@ -116,7 +213,7 @@ export const getCapacitySummary = async (req, res) => {
         Vacation: 0,
         Baseline: 0,
         Strategic: 0,
-        "Discretionary Project": 0
+        "Discretionary Project / Enhancement": 0
       };
 
       if (allocRow) {
@@ -126,7 +223,8 @@ export const getCapacitySummary = async (req, res) => {
           if (label.includes("Vacation")) label = "Vacation";
           if (label.includes("Baseline")) label = "Baseline";
           if (label.includes("Strategic")) label = "Strategic";
-          if (label.includes("Discretionary")) label = "Discretionary Project";
+          if (label.includes("Discretionary"))
+            label = "Discretionary Project / Enhancement";
 
           if (catTotals[label] !== undefined) {
             catTotals[label] += c.total;
@@ -138,7 +236,7 @@ export const getCapacitySummary = async (req, res) => {
         catTotals.Vacation +
         catTotals.Baseline +
         catTotals.Strategic +
-        catTotals["Discretionary Project"];
+        catTotals["Discretionary Project / Enhancement"];
 
       const totalPeopleCapacity = capacityMap.get(month) ?? 0;
 
@@ -151,7 +249,16 @@ export const getCapacitySummary = async (req, res) => {
       });
     }
 
-    // Format response
+    /**
+     * -----------------------------------------------------------------------
+     * FORMAT RESPONSE
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • Only safe, aggregated values returned.
+     * • No raw DB documents or internal fields exposed.
+     * • All labels sanitized + normalized.
+     * -----------------------------------------------------------------------
+     */
     return res.json({
       months: merged.map((m) => formatMonthLabel(m.date)),
       categories: [
@@ -159,8 +266,10 @@ export const getCapacitySummary = async (req, res) => {
         { label: "Baseline", values: merged.map((m) => m.categories.Baseline) },
         { label: "Strategic", values: merged.map((m) => m.categories.Strategic) },
         {
-          label: "Discretionary Project",
-          values: merged.map((m) => m.categories["Discretionary Project"])
+          label: "Discretionary Project / Enhancement",
+          values: merged.map(
+            (m) => m.categories["Discretionary Project / Enhancement"]
+          )
         }
       ],
       totals: merged.map((m) => m.totalAllocated),
@@ -170,6 +279,14 @@ export const getCapacitySummary = async (req, res) => {
 
   } catch (err) {
     console.error("Error in capacity-summary:", err);
+
+    /**
+     * -----------------------------------------------------------------------
+     * SECURITY:
+     * • Generic error message prevents leaking DB structure.
+     * • Full error logged server-side for debugging.
+     * -----------------------------------------------------------------------
+     */
     return res.status(500).json({
       error: "Failed to load capacity summary"
     });

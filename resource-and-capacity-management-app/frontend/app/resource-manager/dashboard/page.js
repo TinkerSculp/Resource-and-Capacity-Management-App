@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import DashboardSummary from '@/components/layout/DashboardSummary';
 
 const styles = {
@@ -55,62 +56,53 @@ export default function DashboardPage() {
          ultra‑wide monitors without restriction
        • Same layout, same spacing — just more horizontal room
     --------------------------------------------------------- */
-    <div className="w-full max-w-full mx-auto mt-2 space-y-12 px-4">
+    <div className="w-full max-w-full mx-auto -mt-4 space-y-6 px-4">
 
-      {/* -----------------------------------------------------
-         DASHBOARD SUMMARY (FULL WIDTH)
-      ----------------------------------------------------- */}
-      <div className="w-full">
-        <DashboardSummary />
-      </div>
+  <div className="w-full">
+    <DashboardSummary />
+  </div>
 
-      {/* -----------------------------------------------------
-         NAVIGATION TILES (EXPAND WITH SCREEN SIZE)
-         -----------------------------------------------------
-         • Same 1 → 2 → 3 column behavior
-         • Tiles now stretch wider because container is wider
-      ----------------------------------------------------- */}
+  <div className="border-t-2 border-gray-900 w-full"></div>
+
+  <div
+    className="
+      grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3
+      gap-[clamp(1.2rem,1.8vw,2.4rem)]
+      w-full
+    "
+  >
+    {[
+      { label: 'Capacity Summary', icon: <Image src="/capacitysummary.svg" alt="capacitysummary icon" width={96} height={96} />, href: '/capacity' },
+      { label: 'Resources', icon: <Image src="/Resources.svg" alt="resources icon" width={96} height={96} />, href: '/resource-manager/create-edit-resources' },
+      { label: 'Initiatives', icon: <Image src="/Initiatives.svg" alt="initiatives icon" width={96} height={96} />, href: '/resource-manager/create-edit-initiatives' },
+      { label: 'Assignments', icon: <Image src="/Assignments.svg" alt="assignment icon" width={96} height={96} />, href: '/resource-manager/assign-edit-allocation' },
+      { label: 'Calendar', icon: <Image src="/Calendar.svg" alt="calendar icon" width={96} height={96} />, href: '/calendar' },
+      { label: 'Reports', icon: <Image src="/Reports.svg" alt="reports icon" width={96} height={96} />, href: '/resource-manager/reports' },
+    ].map((tile, i) => (
       <div
+        key={i}
+        onClick={() => router.push(tile.href)}
         className="
-          grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3
-          gap-[clamp(1.5rem,2vw,3rem)]
+          bg-white rounded-lg shadow-sm border text-center border-4 border-gray-400
+          p-[clamp(0.8rem,1.6vw,2.4rem)]
+          hover:shadow-md hover:bg-[#017ACB]/20
+          cursor-pointer transition
           w-full
         "
       >
-        {[
-          { label: 'Capacity Summary', icon: '📊', href: '/capacity' },
-          { label: 'Resources', icon: '👥', href: '/resource-manager/create-edit-resources' },
-          { label: 'Initiatives', icon: '🎯', href: '/resource-manager/create-edit-initiatives' },
-          { label: 'Assignments', icon: '📋', href: '/resource-manager/assign-edit-allocation' },
-          { label: 'Calendar', icon: '📅', href: '/calendar' },
-          { label: 'Reports', icon: '📈', href: '/resource-manager/reports' },
-        ].map((tile, i) => (
-          <div
-            key={i}
-            onClick={() => router.push(tile.href)}
-            className="
-              bg-white rounded-lg shadow-sm border text-center border-gray-200
-              p-[clamp(1.5rem,2.2vw,3rem)]
-              hover:shadow-md hover:border-gray-500
-              cursor-pointer transition
-              w-full
-            "
-          >
-            {/* Tile Icon */}
-            <div className="text-[clamp(2.4rem,3vw,4rem)] mb-3 text-gray-700">
-              {tile.icon}
-            </div>
+        <div className="flex flex-col items-center justify-center gap-1">
+          {tile.icon}
 
-            {/* Tile Label */}
-            <h3
-              className="text-[clamp(1.2rem,1.4vw,1.6rem)] font-semibold text-gray-900"
-              style={styles.outfitFont}
-            >
-              {tile.label}
-            </h3>
-          </div>
-        ))}
+          <h3
+            className="text-[clamp(1.1rem,1.4vw,1.6rem)] font-semibold text-gray-900"
+            style={styles.outfitFont}
+          >
+            {tile.label}
+          </h3>
+        </div>
       </div>
-    </div>
+    ))}
+  </div>
+</div>
   );
 }
