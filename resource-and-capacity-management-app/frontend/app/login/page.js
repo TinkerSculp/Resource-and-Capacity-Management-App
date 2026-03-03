@@ -7,25 +7,11 @@ import Image from 'next/image';
 import api from '@/lib/api';
 
 export default function LoginPage() {
-  /* ---------------------------------------------------------
-     STATE MANAGEMENT
-     ---------------------------------------------------------
-     • username/password → controlled inputs
-     • router → navigation after login
-  --------------------------------------------------------- */
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
-  /* ---------------------------------------------------------
-     SECURITY: LOGIN HANDLER
-     ---------------------------------------------------------
-     • Prevents default form submission
-     • Sends credentials securely to backend
-     • Defensive checks on response structure
-     • Stores token + user safely in localStorage
-     • Applies role‑based routing
-  --------------------------------------------------------- */
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -38,22 +24,13 @@ export default function LoginPage() {
       const user = res?.data?.user;
       const token = res?.data?.token;
 
-      // Defensive: ensure backend returned required fields
       if (!user || !token) {
         throw new Error('Invalid login response');
       }
 
-      // Save user + token
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('token', token);
 
-      /* -----------------------------------------------------
-         ROLE‑BASED ROUTING
-         -----------------------------------------------------
-         • 1 → Resource Manager
-         • 2 → Stakeholder
-         • 3 → Team Member
-      ----------------------------------------------------- */
       if (user.acc_type_id === 1) {
         router.push('/resource-manager/dashboard');
         return;
@@ -69,7 +46,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Fallback
       router.push('/dashboard');
 
     } catch (error) {
@@ -84,13 +60,6 @@ export default function LoginPage() {
     }
   };
 
-  /* ---------------------------------------------------------
-     FINAL RENDER
-     ---------------------------------------------------------
-     • Full‑screen modal overlay
-     • Prevents header flash by capturing background clicks
-     • Clean, centered login card
-  --------------------------------------------------------- */
   return (
     <>
       <div
@@ -108,9 +77,7 @@ export default function LoginPage() {
           onClick={(e) => e.stopPropagation()}
         >
 
-          {/* ---------------------------------------------------
-             HEADER (LOGO + TITLE)
-          --------------------------------------------------- */}
+          {/* HEADER */}
           <div className="flex justify-between items-center mb-6">
             <Image
               src="/CapstoneDynamicsLogo.png"
@@ -136,9 +103,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* ---------------------------------------------------
-             LOGIN FORM
-          --------------------------------------------------- */}
+          {/* LOGIN FORM */}
           <form onSubmit={handleLogin} className="space-y-6">
 
             {/* USERNAME */}
@@ -165,18 +130,36 @@ export default function LoginPage() {
               <label className="block text-base font-medium text-gray-700 mb-2">
                 Password
               </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="
-                w-full px-5 py-3 border text-gray-700
-                border-gray-300 rounded-lg text-base
-                hover:bg-[#017ACB]/20
-                transition
-              "
-              required
-            />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="
+                    w-full px-5 py-3 border text-gray-700
+                    border-gray-300 rounded-lg text-base
+                    hover:bg-[#017ACB]/20
+                    transition
+                  "
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* FORGOT PASSWORD */}
@@ -191,21 +174,21 @@ export default function LoginPage() {
 
             {/* ACTION BUTTONS */}
             <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => router.push('/login')}
-              className="
-                flex-1 px-5 py-3
-                bg-gray-200 text-gray-700
-                border border-gray-500
-                rounded-lg text-base
-                hover:bg-[#017ACB]/20 hover:text-gray-700
-                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-              "
-            >
-              Cancel
-            </button>
+              <button
+                type="button"
+                onClick={() => router.push('/login')}
+                className="
+                  flex-1 px-5 py-3
+                  bg-gray-200 text-gray-700
+                  border border-gray-500
+                  rounded-lg text-base
+                  hover:bg-[#017ACB]/20 hover:text-gray-700
+                  shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                  active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                "
+              >
+                Cancel
+              </button>
 
               <button
                 type="submit"
@@ -214,8 +197,8 @@ export default function LoginPage() {
                   bg-[#017ACB] text-white
                   rounded-lg text-base
                   hover:bg-[#017ACB]/20 hover:text-gray-700
-                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                          active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                  shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                  active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
                 "
               >
                 Sign In
