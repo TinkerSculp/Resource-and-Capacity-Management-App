@@ -16,7 +16,7 @@ npx tailwindcss init -p
 
 This generates:
 - tailwind.config.js
-- postcss.config.js
+- postcss.config.js 
 And enables Tailwind inside globals.css.
 
 🔐 Frontend .env.local File

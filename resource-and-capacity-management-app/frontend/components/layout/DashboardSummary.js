@@ -125,46 +125,64 @@ export default function DashboardSummary() {
          • Highlighted when active
       ----------------------------------------------------- */}
       <div className="flex gap-2 mb-[clamp(0.6rem,1vw,1.2rem)]">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-[clamp(0.4rem,0.6vw,0.8rem)]
-                      py-[clamp(0.2rem,0.4vw,0.6rem)]
-                      w-[clamp(3.5rem,4.5vw,5.5rem)]
-                      border text-center cursor-pointer rounded
-                      text-[clamp(0.9rem,1vw,1.1rem)]
-                      ${
-                        filter === 'all'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
-            }
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]'
-                      }`}
-          style={styles.outfitFont}
-        >
-          All
-        </button>
+<button
+  onClick={() => setFilter('all')}
+  className={`
+    px-[clamp(0.4rem,0.6vw,0.8rem)]
+    py-[clamp(0.2rem,0.4vw,0.6rem)]
+    w-[clamp(3.5rem,4.5vw,5.5rem)]
+    border border-[#00263F]
+    text-center cursor-pointer rounded
+    text-[clamp(0.9rem,1vw,1.1rem)]
 
-        <button
-        onClick={() => setFilter('mine')}
-        className={`px-[clamp(0.4rem,0.6vw,0.8rem)]
-                    py-[clamp(0.2rem,0.4vw,0.6rem)]
-                    w-[clamp(3.5rem,4.5vw,5.5rem)]
-                    border text-center cursor-pointer rounded
-                    text-[clamp(0.9rem,1vw,1.1rem)]
-                    transition
-                    ${
-                      filter === 'mine'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
-            }
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]'
-                    }`}
-        style={styles.outfitFont}
-      >
-        Mine
-      </button>
+    ${
+      filter === 'all'
+        ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
+        : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+    }
+
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+
+    relative
+    before:content-[''] before:absolute before:inset-0 before:rounded
+    before:pointer-events-none
+    before:shadow-[inset_0_0px_1px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.12)]
+  `}
+  style={styles.outfitFont}
+>
+  All
+</button>
+
+<button
+  onClick={() => setFilter('mine')}
+  className={`
+    px-[clamp(0.4rem,0.6vw,0.8rem)]
+    py-[clamp(0.2rem,0.4vw,0.6rem)]
+    w-[clamp(3.5rem,4.5vw,5.5rem)]
+    border border-[#00263F]
+    text-center cursor-pointer rounded
+    text-[clamp(0.9rem,1vw,1.1rem)]
+    transition
+
+    ${
+      filter === 'mine'
+        ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
+        : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+    }
+
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+
+    relative
+    before:content-[''] before:absolute before:inset-0 before:rounded
+    before:pointer-events-none
+    before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.12)]
+  `}
+  style={styles.outfitFont}
+>
+  Mine
+</button>
       </div>
 
 

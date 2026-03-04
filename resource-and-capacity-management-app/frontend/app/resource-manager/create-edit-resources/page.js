@@ -1273,7 +1273,7 @@ useEffect(() => {
                   className="
                     px-2 py-2 text-left font-semibold
                     border-r border-black
-                    min-w-[200px] max-w[400px]
+                    min-w-[200px] max-w[200px]
                   "
                   style={styles.outfitFont}
                 >
@@ -1464,7 +1464,7 @@ useEffect(() => {
                       key={employee.emp_id}
                       className={`
                         border-t border-black
-                        hover:bg-[#017ACB]/10
+                        hover:bg-[#017ACB]/20
                         ${isSelected ? "bg-[#CDE6F7]" : ""}
                       `}
                       onClick={() =>
@@ -1551,7 +1551,7 @@ useEffect(() => {
 
                       {/* OTHER INFO */}
                       <td
-                        className="px-2 py-2 text-black border-r border-black"
+                        className="px-2 py-2 text-black border-r border-black max-w-[500px] "
                         style={styles.outfitFont}
                       >
                         {employee.other_info || ""}

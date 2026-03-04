@@ -252,18 +252,18 @@ export default function CapacitySummary() {
             </h2>
 
             <button
-              onClick={() => router.back()}
-              className="
-                px-4 py-2 rounded text-sm
-                bg-gray-200 text-gray-700 border
-                hover:bg-[#017ACB]/20 transition-colors
-                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-              "
-              style={styles.outfitFont}
-            >
-              Back to Dashboard
-            </button>
+  onClick={() => router.back()}
+  className="
+    px-4 py-2 rounded text-sm
+    bg-gray-200 text-gray-700 border border-[#00263F]
+    hover:bg-[#017ACB]/20 transition-colors
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  "
+  style={styles.outfitFont}
+>
+  Back to Dashboard
+</button>
           </div>
 
           {/* RIGHT SIDE: Label + Select */}
@@ -279,10 +279,10 @@ export default function CapacitySummary() {
             <div
               className="
                 rounded bg-white p-[2px]
-                focus-within:ring-2 focus-within:ring-[#017ACB]/20
+                 focus-within:ring-[#017ACB]/20
                 transition
-                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
               "
             >
               <select

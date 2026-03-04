@@ -1,30 +1,113 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+
+/* ---------------------------------------------------------
+   STYLED DROPDOWN — NOW SUPPORTS OBJECTS (valueKey + displayKey)
+   Matches Initiatives modal styling 1:1
+--------------------------------------------------------- */
+/* ---------------------------------------------------------
+   SEARCHABLE + STYLED DROPDOWN (supports objects)
+   Matches Initiatives modal styling 1:1
+--------------------------------------------------------- */
+function SearchableStyledDropdown({ label, value, onChange, options, valueKey, displayKey }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef(null);
+
+  const selectedLabel =
+    options.find((o) => o[valueKey] === value)?.[displayKey] || "";
+
+  const filtered = options.filter((opt) =>
+    opt[displayKey].toLowerCase().includes(search.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div className="flex flex-col relative" ref={ref}>
+      <label className="text-xs text-black mb-1">{label}</label>
+
+      {/* Trigger */}
+      <div
+        className="
+          bg-white text-black border border-gray-500 p-2 rounded
+          cursor-pointer flex justify-between items-center
+          hover:bg-[#017ACB]/20 transition
+        "
+        onClick={() => setOpen(!open)}
+      >
+        <span>{selectedLabel || `Select ${label}`}</span>
+
+        <svg
+          className={`w-4 h-4 ml-2 transition-transform ${
+            open ? "rotate-180" : "rotate-0"
+          }`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {/* Menu */}
+      {open && (
+        <div className="absolute top-full left-0 w-full bg-white border border-gray-500 rounded shadow-lg z-50 mt-1">
+
+          {/* Search bar */}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="
+              p-2 border-b border-gray-500 w-full text-black bg-white
+              hover:bg-[#017ACB]/20 transition
+              focus:outline-none
+            "
+          />
+
+          {/* List */}
+          <div className="max-h-70 overflow-y-auto">
+            {filtered.map((opt) => (
+              <div
+                key={opt[valueKey]}
+                className="
+                  p-2 cursor-pointer text-black
+                  hover:bg-[#017ACB]/20 transition
+                "
+                onClick={() => {
+                  onChange(opt[valueKey]);
+                  setOpen(false);
+                  setSearch("");
+                }}
+              >
+                {opt[displayKey]}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ---------------------------------------------------------
    ADD ALLOCATION MODAL
-   ---------------------------------------------------------
-   PURPOSE:
-   • Allows a DM to assign an employee to a project
-   • Auto-loads project + employee details
-   • Auto-populates assignment metadata (leader, requestor, dept)
-   • Saves allocation via Express backend
-
-   DESIGN NOTES:
-   • No UI changes — layout preserved exactly as provided
-   • Fully defensive fetch logic
-   • Safe JSON parsing + null guards
-   • Consistent with Add/Edit Initiative modal structure
 --------------------------------------------------------- */
 export default function AddAllocationModal() {
   const router = useRouter();
   const apiUrl = "http://localhost:3001";
 
-  /* ---------------------------------------------------------
-     STATE
-  --------------------------------------------------------- */
   const [projects, setProjects] = useState([]);
   const [employees, setEmployees] = useState([]);
 
@@ -37,9 +120,10 @@ export default function AddAllocationModal() {
   const [departmentName, setDepartmentName] = useState("");
 
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   /* ---------------------------------------------------------
-     LOAD DROPDOWNS (PROJECTS + DM EMPLOYEES)
+     LOAD DROPDOWNS
   --------------------------------------------------------- */
   useEffect(() => {
     async function load() {
@@ -66,7 +150,7 @@ export default function AddAllocationModal() {
   }, []);
 
   /* ---------------------------------------------------------
-     LOAD ASSIGNMENT DETAILS WHEN PROJECT SELECTED
+     LOAD ASSIGNMENT DETAILS
   --------------------------------------------------------- */
   useEffect(() => {
     if (!selectedProject) return;
@@ -83,16 +167,14 @@ export default function AddAllocationModal() {
 
         const json = await res.json();
         setAssignmentData(json.assignment || null);
-      } catch {
-        // silent fail
-      }
+      } catch {}
     }
 
     loadAssignment();
   }, [selectedProject]);
 
   /* ---------------------------------------------------------
-     LOAD EMPLOYEE DETAILS + DEPARTMENT + MANAGER
+     LOAD EMPLOYEE DETAILS
   --------------------------------------------------------- */
   useEffect(() => {
     if (!selectedEmployee) return;
@@ -110,7 +192,6 @@ export default function AddAllocationModal() {
         setEmployeeData(json.employee || null);
         setDepartmentName(json.department_name || "");
 
-        // Load manager if employee has a reports_to value
         if (json.employee?.reports_to) {
           const mgrRes = await fetch(
             `${apiUrl}/api/assignments-allocations/employee/${json.employee.reports_to}`
@@ -121,22 +202,23 @@ export default function AddAllocationModal() {
             setManagerName(mgrJson.employee?.emp_name || "");
           }
         }
-      } catch {
-        // silent fail
-      }
+      } catch {}
     }
 
     loadEmployee();
   }, [selectedEmployee]);
 
   /* ---------------------------------------------------------
-     SAVE ALLOCATION
+     SAVE
   --------------------------------------------------------- */
   async function handleSave() {
     if (!selectedProject || !selectedEmployee) {
       setError("Please select both project and employee");
       return;
     }
+
+    setLoading(true);
+    setError("");
 
     try {
       const res = await fetch(`${apiUrl}/api/assignments-allocations`, {
@@ -160,226 +242,150 @@ export default function AddAllocationModal() {
       router.back();
 
       setTimeout(() => {
-        router.replace(
-          `/resource-manager/assign-edit-allocation?refresh=${Date.now()}`
-        );
-      }, 100);
+        router.replace(`/resource-manager/assign-edit-allocation?refresh=${Date.now()}`);
+      }, 120);
     } catch {
       setError("Network error. Try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
   /* ---------------------------------------------------------
-     MODAL UI
+     UI — MATCHES INITIATIVES MODAL EXACTLY
   --------------------------------------------------------- */
-return (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div
-      className="
-        bg-white text-black rounded-lg border border-black
-        shadow-[4px_4px_0_rgba(0,0,0,1)]
-        w-[500px] p-6
-      "
-    >
-      <h2 className="text-xl font-bold mb-4">Add Allocation</h2>
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6">
 
-      {error && (
-        <p className="mb-3 text-red-600 font-semibold">{error}</p>
-      )}
+        <h2 className="text-2xl font-bold font-[Outfit] mb-4 text-black">
+          Add Allocation
+        </h2>
 
-      {/* PROJECT */}
-      <div className="mb-4">
-        <label className="block mb-1 font-semibold">Project</label>
-        <div
-          className="
-            border border-black rounded bg-white
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                    inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-          "
-        >
-          <select
-            className="w-full bg-transparent px-2 py-1"
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded border border-red-300">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+
+          {/* PROJECT */}
+<SearchableStyledDropdown
+  label="Project"
+  value={selectedProject}
+  onChange={setSelectedProject}
+  options={projects}
+  valueKey="project_name"
+  displayKey="project_name"
+/>
+
+          {/* EMPLOYEE */}
+<SearchableStyledDropdown
+  label="Employee"
+  value={selectedEmployee}
+  onChange={setSelectedEmployee}
+  options={employees}
+  valueKey="emp_id"
+  displayKey="emp_name"
+/>
+
+          {/* RESOURCE NAME */}
+          <div className="flex flex-col">
+            <label className="text-xs text-black mb-1">Resource Name</label>
+            <div className="bg-gray-200 text-black border border-gray-500 p-2 ">
+              {employeeData?.emp_name || "—"}
+            </div>
+          </div>
+
+          {/* DEPARTMENT */}
+          <div className="flex flex-col">
+            <label className="text-xs text-black mb-1">Department</label>
+            <div className="bg-gray-200 text-black border border-gray-500 p-2 ">
+              {departmentName || "—"}
+            </div>
+          </div>
+
+          {/* REPORTS TO */}
+          <div className="flex flex-col">
+            <label className="text-xs text-black mb-1">Reports To</label>
+            <div className="bg-gray-200 text-black border border-gray-500 p-2 ">
+              {managerName || "—"}
+            </div>
+          </div>
+
+          {/* CATEGORY */}
+          <div className="flex flex-col">
+            <label className="text-xs text-black mb-1">Activity Category</label>
+            <div className="bg-gray-200 text-black border border-gray-500 p-2 ">
+              {assignmentData?.category || "—"}
+            </div>
+          </div>
+
+          {/* LEADER */}
+          <div className="flex flex-col">
+            <label className="text-xs text-black mb-1">Leader Accountable</label>
+            <div className="bg-gray-200 text-black border border-gray-500 p-2">
+              {assignmentData?.leader || "—"}
+            </div>
+          </div>
+
+          {/* REQUESTOR */}
+          <div className="flex flex-col">
+            <label className="text-xs text-black mb-1">Requestor</label>
+            <div className="bg-gray-200 text-black border border-gray-500 p-2">
+              {assignmentData?.requestor || "—"}
+            </div>
+          </div>
+
+          {/* REQUESTOR VP */}
+          <div className="flex flex-col">
+            <label className="text-xs text-black mb-1">Requestor VP</label>
+            <div className="bg-gray-200 text-black border border-gray-500 p-2 ">
+              {assignmentData?.requestor_vp || "—"}
+            </div>
+          </div>
+
+          {/* REQUESTING DEPT */}
+          <div className="flex flex-col">
+            <label className="text-xs text-black mb-1">Requesting Dept</label>
+            <div className="bg-gray-200 text-black border border-gray-500 p-2 ">
+              {assignmentData?.requesting_dept || "—"}
+            </div>
+          </div>
+        </div>
+
+        {/* ACTION BUTTONS */}
+        <div className="flex justify-end gap-4 mt-6">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="
+              px-4 py-2
+              bg-gray-200 text-black rounded
+              hover:bg-[#017ACB]/20 transition
+              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              focus:outline-none focus:ring-0
+            "
           >
-            <option value="">-- Choose Project --</option>
-            {projects.map((p) => (
-              <option key={p.project_name} value={p.project_name}>
-                {p.project_name}
-              </option>
-            ))}
-          </select>
+            Cancel
+          </button>
+
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="
+              px-4 py-2
+              bg-[#017ACB] text-white rounded
+              hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+              focus:outline-none focus:ring-0
+            "
+          >
+            {loading ? "Saving..." : "Save Allocation"}
+          </button>
         </div>
       </div>
-
-      {/* EMPLOYEE */}
-      <div className="mb-4">
-        <label className="block mb-1 font-semibold">Employee</label>
-        <div
-          className="
-            border border-black rounded bg-white
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                    inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-          "
-        >
-          <select
-            className="w-full bg-transparent px-2 py-1"
-            value={selectedEmployee}
-            onChange={(e) => setSelectedEmployee(e.target.value)}
-          >
-            <option value="">-- Choose Employee --</option>
-            {employees.map((e) => (
-              <option key={e.emp_id} value={e.emp_id}>
-                {e.emp_name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* AUTO-POPULATED FIELDS */}
-<div className="grid grid-cols-2 gap-4 mb-4">
-
-  {/* Resource Name */}
-  <div>
-    <label className="block mb-1 font-semibold">Resource Name</label>
-    <div
-      className="
-        border border-black rounded bg-white px-2 py-1
-        shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-      "
-    >
-      {employeeData?.emp_name || "—"}
     </div>
-  </div>
-
-  {/* Department */}
-  <div>
-    <label className="block mb-1 font-semibold">Department</label>
-    <div
-      className="
-        border border-black rounded bg-white px-2 py-1
-        shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-      "
-    >
-      {departmentName || "—"}
-    </div>
-  </div>
-
-  {/* Reports To */}
-  <div>
-    <label className="block mb-1 font-semibold">Reports To</label>
-    <div
-      className="
-        border border-black rounded bg-white px-2 py-1
-        shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-      "
-    >
-      {managerName || "—"}
-    </div>
-  </div>
-
-  {/* Activity Category */}
-  <div>
-    <label className="block mb-1 font-semibold">Activity Category</label>
-    <div
-      className="
-        border border-black rounded bg-white px-2 py-1
-        shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-      "
-    >
-      {assignmentData?.category || "—"}
-    </div>
-  </div>
-
-  {/* Leader Accountable */}
-  <div>
-    <label className="block mb-1 font-semibold">Leader Accountable</label>
-    <div
-      className="
-        border border-black rounded bg-white px-2 py-1
-        shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-      "
-    >
-      {assignmentData?.leader || "—"}
-    </div>
-  </div>
-
-  {/* Requestor */}
-  <div>
-    <label className="block mb-1 font-semibold">Requestor</label>
-    <div
-      className="
-        border border-black rounded bg-white px-2 py-1
-        shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-      "
-    >
-      {assignmentData?.requestor || "—"}
-    </div>
-  </div>
-
-  {/* Requestor VP */}
-  <div>
-    <label className="block mb-1 font-semibold">Requestor VP</label>
-    <div
-      className="
-        border border-black rounded bg-white px-2 py-1
-        shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-      "
-    >
-      {assignmentData?.requestor_vp || "—"}
-    </div>
-  </div>
-
-  {/* Requesting Dept */}
-  <div>
-    <label className="block mb-1 font-semibold">Requesting Dept</label>
-    <div
-      className="
-        border border-black rounded bg-white px-2 py-1
-        shadow-[inset_2px_2px_0_rgba(255,255,255,1),
-                inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-      "
-    >
-      {assignmentData?.requesting_dept || "—"}
-    </div>
-  </div>
-
-</div>
-      {/* ACTION BUTTONS */}
-      <div className="flex justify-between mt-4">
-        <button
-          className="
-            px-4 py-2 border border-black rounded
-            bg-white text-black
-            hover:bg-black hover:text-white transition
-            shadow-[2px_2px_0_rgba(0,0,0,1)]
-          "
-          onClick={() => router.back()}
-        >
-          Cancel
-        </button>
-
-        <button
-          className="
-            px-4 py-2 border border-black rounded
-            bg-white text-black
-            hover:bg-black hover:text-white transition
-            shadow-[2px_2px_0_rgba(0,0,0,1)]
-          "
-          onClick={handleSave}
-        >
-          Save Allocation
-        </button>
-      </div>
-    </div>
-  </div>
-);
+  );
 }

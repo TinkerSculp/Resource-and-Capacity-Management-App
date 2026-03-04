@@ -10,7 +10,8 @@ import {
   deleteAllocation,
   updateAllocation,
   getAllocationDropdowns,
-  createAllocation
+  createAllocation,
+  reassignAllocation   // ⭐ ADDED
 } from "../controllers/assignmentController.js";
 
 const router = express.Router();
@@ -37,6 +38,9 @@ router.get("/employees/dm", getDMEmployees);
 
 // All projects
 router.get("/projects", getProjects);
+
+// ⭐ NEW — Reassign allocation (Edit modal save)
+router.post("/reassign", reassignAllocation);
 
 // Create new allocation
 router.post("/", createAllocation);

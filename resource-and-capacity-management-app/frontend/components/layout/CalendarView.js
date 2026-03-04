@@ -382,19 +382,25 @@ return (
             Calendar View
           </h2>
 
-          <button
-            onClick={() => router.back()}
-            className="
-              px-4 py-2 rounded text-sm
-              bg-gray-200 text-gray-700 border
-              hover:bg-[#017ACB]/20 transition-colors
-              shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-              active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            "
-            style={styles.outfitFont}
-          >
-            Back to Dashboard
-          </button>
+<button
+  onClick={() => router.back()}
+  className="
+    px-4 py-2 rounded text-sm
+    bg-gray-200 text-gray-700 border
+    hover:bg-[#017ACB]/20 transition-colors
+
+
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+    relative
+    before:content-[''] before:absolute before:inset-0 before:rounded
+    before:pointer-events-none
+    before:shadow-[inset_0_0px_1px_rgba(255,255,255,0.35),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  "
+  style={styles.outfitFont}
+>
+  Back to Dashboard
+</button>
         </div>
       </div>
 
@@ -455,31 +461,54 @@ return (
                   </h3>
 
                   {index === activitiesByMonth.length - 1 && (
-                    <div
-                      className={`
-                        absolute
-                        right-2.5
-                        text-white text-4xl font-normal cursor-pointer select-none
-                        ${
-                          selectedMonths.length === 0
-                            ? 'opacity-40 cursor-default'
-                            : ''
-                        }
-                      `}
-                      style={{
-                        transform:
-                          showSelector && selectedMonths.length > 0
-                            ? 'rotate(90deg)'
-                            : 'rotate(-90deg)',
-                        transition: 'transform 0.2s ease'
-                      }}
-                      onClick={() => {
-                        if (selectedMonths.length === 0) return;
-                        setShowSelector((prev) => !prev);
-                      }}
-                    >
-                      {'<'}
-                    </div>
+
+<div
+  className={`
+    absolute
+    right-2.5
+    flex flex-col justify-center
+    gap-1.5
+    cursor-pointer select-none
+    ${selectedMonths.length === 0 ? 'opacity-40 cursor-default' : ''}
+  `}
+  onClick={() => {
+    if (selectedMonths.length === 0) return;
+    setShowSelector(prev => !prev);
+  }}
+>
+  <span className="block w-6 h-[3px] bg-white transition-all duration-200"></span>
+  <span className="block w-6 h-[3px] bg-white transition-all duration-200"></span>
+  <span className="block w-6 h-[3px] bg-white transition-all duration-200"></span>
+</div>
+
+// {/* <div
+//   className={`
+//     absolute
+//     right-2.5
+//     flex flex-col justify-center
+//     gap-1.5
+//     cursor-pointer select-none
+//     ${selectedMonths.length === 0 ? 'opacity-40 cursor-default' : ''}
+//   `}
+//   style={{
+//     transition: 'transform 0.2s ease',
+//     transform:
+//       showSelector && selectedMonths.length > 0
+//         ? 'rotate(180deg)'
+//         : 'rotate(0deg)'  
+//   }}
+//   onClick={() => {
+//     if (selectedMonths.length === 0) return;
+//     setShowSelector(prev => !prev);
+//   }}
+// >
+//   <span className="block w-6 h-[3px] bg-white transition-all duration-200"></span>
+//   <span className="block w-6 h-[3px] bg-white transition-all duration-200"></span>
+//   <span className="block w-6 h-[3px] bg-white transition-all duration-200"></span>
+// </div> */}
+
+
+
                   )}
                 </div>
 
@@ -679,54 +708,75 @@ return (
                 <div className="flex flex-col gap-2 mb-4">
 
                   {/* ALL FILTER */}
-                  <button
-                    className={`
-                      px-4 py-2 rounded text-sm transition-colors
-                      ${
-                        filterMode === 'all'
-                          ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                          : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
-                      }
-                      shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                      active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                    `}
-                    onClick={() => setFilterMode('all')}
-                  >
-                    All
-                  </button>
+<button
+  className={`
+    px-4 py-2 rounded text-sm transition-colors
+    border border-[#00263F]
+
+    ${
+      filterMode === 'all'
+        ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
+        : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+    }
+
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+    relative
+    before:content-[''] before:absolute before:inset-0 before:rounded
+    before:pointer-events-none
+    before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.35),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  `}
+  onClick={() => setFilterMode('all')}
+>
+  All
+</button>
 
                   {/* JUST MINE FILTER */}
-                  <button
-                    className={`
-                      px-4 py-2 rounded text-sm transition-colors
-                      ${
-                        filterMode === 'mine'
-                          ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                          : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
-                      }
-                      shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                      active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                    `}
-                    onClick={() => setFilterMode('mine')}
-                  >
-                    Just Mine
-                  </button>
+<button
+  className={`
+    px-4 py-2 rounded text-sm transition-colors border border-[#00263F]
+    ${
+      filterMode === 'mine'
+        ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
+        : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
+    }
+
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+    relative
+    before:content-[''] before:absolute before:inset-0 before:rounded
+    before:pointer-events-none
+    before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.12)]
+  `}
+  onClick={() => setFilterMode('mine')}
+>
+  Just Mine
+</button>
                 </div>
               </div>
 
               {/* APPLY BUTTON */}
-              <button
-                onClick={applyFilters}
-                className="
-                  w-full px-4 py-2 rounded text-sm font-semibold transition-colors
-                  bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700
-                  shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                  active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                "
-                style={styles.outfitFont}
-              >
-                Apply
-              </button>
+<button
+  onClick={applyFilters}
+  className="
+    w-full px-4 py-2 rounded text-sm font-semibold transition-colors
+    bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700
+    border border-black
+
+
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+
+
+    relative
+    before:content-[''] before:absolute before:inset-0 before:rounded
+    before:pointer-events-none
+    before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.12)]
+  "
+  style={styles.outfitFont}
+>
+  Apply
+</button>
              </div>
             </div>  
           </div>

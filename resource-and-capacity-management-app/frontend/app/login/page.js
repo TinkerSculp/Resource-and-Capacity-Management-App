@@ -191,35 +191,35 @@ export default function LoginPage() {
 
             {/* ACTION BUTTONS */}
             <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => router.push('/login')}
-              className="
-                flex-1 px-5 py-3
-                bg-gray-200 text-gray-700
-                border border-gray-500
-                rounded-lg text-base
-                hover:bg-[#017ACB]/20 hover:text-gray-700
-                shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-              "
-            >
-              Cancel
-            </button>
+<button
+  type="button"
+  onClick={() => router.push('/login')}
+  className="
+    flex-1 px-5 py-3
+    bg-[#003A5C] text-white
+    rounded-lg text-base
+    hover:bg-[#017ACB]/20 hover:text-gray-700
+    transition-all
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  "
+>
+  Cancel
+</button>
 
-              <button
-                type="submit"
-                className="
-                  flex-1 px-5 py-3
-                  bg-[#017ACB] text-white
-                  rounded-lg text-base
-                  hover:bg-[#017ACB]/20 hover:text-gray-700
-                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                          active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                "
-              >
-                Sign In
-              </button>
+<button
+  className="
+    flex-1 px-5 py-3
+    bg-[#017ACB] text-white
+    rounded-lg text-base
+    transition-all
+    hover:bg-[#017ACB]/20 hover:text-gray-700
+    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  "
+>
+  Sign In
+</button>
             </div>
 
           </form>
