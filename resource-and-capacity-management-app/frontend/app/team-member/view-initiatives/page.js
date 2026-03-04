@@ -7,7 +7,6 @@ const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
 };
 
-// Strict sanitization
 function sanitizeText(value) {
   if (typeof value !== 'string') return '';
   return value
@@ -17,12 +16,10 @@ function sanitizeText(value) {
     .trim();
 }
 
-// Validate user object
 function isValidUser(user) {
   return user && typeof user.username === 'string' && user.username.trim();
 }
 
-// Validate initiative object
 function isValidInitiative(item) {
   return item && item._id;
 }
@@ -32,16 +29,13 @@ export default function InitiativesPage() {
   const searchParams = useSearchParams();
   const refresh = searchParams.get('refresh');
 
-  // User + view state
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  // Initiatives
   const [initiatives, setInitiatives] = useState([]);
   const [mine, setMine] = useState([]);
   const [filteredInitiatives, setFilteredInitiatives] = useState([]);
 
-  // Filters
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [selectedVPs, setSelectedVPs] = useState([]);
@@ -50,11 +44,9 @@ export default function InitiativesPage() {
   const [selectedRequestors, setSelectedRequestors] = useState([]);
   const [selectedProjects, setSelectedProjects] = useState([]);
 
-  // Sorting
   const [projectSort, setProjectSort] = useState('');
   const [showProjectSortMenu, setShowProjectSortMenu] = useState(false);
 
-  // Dropdown visibility
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showVPMenu, setShowVPMenu] = useState(false);
@@ -62,10 +54,8 @@ export default function InitiativesPage() {
   const [showLeadMenu, setShowLeadMenu] = useState(false);
   const [showRequestorMenu, setShowRequestorMenu] = useState(false);
 
-  // Dropdown positioning
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
-  // Available filter values
   const [availableCategories, setAvailableCategories] = useState([]);
   const [availableStatuses, setAvailableStatuses] = useState([]);
   const [availableVPs, setAvailableVPs] = useState([]);
@@ -74,22 +64,20 @@ export default function InitiativesPage() {
   const [availableRequestors, setAvailableRequestors] = useState([]);
   const [availableProjects, setAvailableProjects] = useState([]);
 
-  // Load user
   useEffect(() => {
     try {
       const raw = localStorage.getItem('user');
-      if (!raw) return router.push('/resource-and-capacity-management-app/frontend/app/login');
+      if (!raw) return router.push('/login');
 
       const parsed = JSON.parse(raw);
-      if (!isValidUser(parsed)) return router.push('/resource-and-capacity-management-app/frontend/app/login');
+      if (!isValidUser(parsed)) return router.push('/login');
 
       setUser(parsed);
     } catch {
-      router.push('/resource-and-capacity-management-app/frontend/app/login');
+      router.push('/login');
     }
   }, [router]);
 
-  // Fetch initiatives
   useEffect(() => {
     if (!user) return;
 
@@ -161,7 +149,6 @@ export default function InitiativesPage() {
     return () => (aborted = true);
   }, [user, refresh]);
 
-  // Apply filters + sorting
   useEffect(() => {
     if (!user) return;
 
@@ -187,27 +174,17 @@ export default function InitiativesPage() {
 
     setFilteredInitiatives(filtered);
   }, [
-    activeTab,
-    initiatives,
-    mine,
-    user,
-    selectedCategories,
-    selectedStatuses,
-    selectedVPs,
-    selectedDepts,
-    selectedLeads,
-    selectedRequestors,
-    selectedProjects,
-    projectSort
+    activeTab, initiatives, mine, user,
+    selectedCategories, selectedStatuses, selectedVPs,
+    selectedDepts, selectedLeads, selectedRequestors,
+    selectedProjects, projectSort
   ]);
 
-  // Toggle helper
   const toggleSelection = (value, setFn, current) => {
     if (!value) return;
     setFn(current.includes(value) ? current.filter(v => v !== value) : [...current, value]);
   };
 
-  // Close dropdowns
   useEffect(() => {
     const closeAll = () => {
       setShowCategoryMenu(false);
@@ -222,7 +199,6 @@ export default function InitiativesPage() {
     return () => window.removeEventListener('click', closeAll);
   }, []);
 
-
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -230,6 +206,9 @@ export default function InitiativesPage() {
       </div>
     );
   }
+
+  // Reusable dropdown button class - FIXED: all use hover:bg-[#CDE6F7]
+  const dropdownBtnClass = "ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition";
 
   return (
     <>
@@ -239,7 +218,6 @@ export default function InitiativesPage() {
           <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
             Initiatives
           </h2>
-
           <button
             onClick={() => router.push('/team-member/dashboard')}
             className="px-4 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-[#017ACB]/20 transition"
@@ -254,7 +232,7 @@ export default function InitiativesPage() {
             onClick={() => setActiveTab('all')}
             className={`px-4 py-2 rounded text-sm transition ${
               activeTab === 'all'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20'
+                ? 'bg-[#017ACB] text-white'
                 : 'bg-white text-gray-700 border hover:bg-[#017ACB]/20'
             }`}
             style={styles.outfitFont}
@@ -266,7 +244,7 @@ export default function InitiativesPage() {
             onClick={() => setActiveTab('mine')}
             className={`px-4 py-2 rounded text-sm transition ${
               activeTab === 'mine'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20'
+                ? 'bg-[#017ACB] text-white'
                 : 'bg-white text-gray-700 border hover:bg-[#017ACB]/20'
             }`}
             style={styles.outfitFont}
@@ -278,15 +256,13 @@ export default function InitiativesPage() {
             onClick={() => setActiveTab('completed')}
             className={`px-4 py-2 rounded text-sm transition ${
               activeTab === 'completed'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20'
+                ? 'bg-[#017ACB] text-white'
                 : 'bg-white text-gray-700 border hover:bg-[#017ACB]/20'
             }`}
             style={styles.outfitFont}
           >
             Completed
           </button>
-
-        
         </div>
       </div>
 
@@ -297,13 +273,8 @@ export default function InitiativesPage() {
             <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
               <tr>
 
-             
-
                 {/* PROJECT */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Project</span>
                     <button
@@ -312,75 +283,38 @@ export default function InitiativesPage() {
                         const rect = e.target.getBoundingClientRect();
                         setMenuPosition({ x: rect.left, y: rect.bottom });
                         setShowProjectSortMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowRequestorMenu(false);
+                        setShowCategoryMenu(false); setShowStatusMenu(false);
+                        setShowVPMenu(false); setShowDeptMenu(false);
+                        setShowLeadMenu(false); setShowRequestorMenu(false);
                       }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition"
+                      className={dropdownBtnClass}
                     >
                       ▼
                     </button>
                   </div>
-
                   {showProjectSortMenu && (
                     <div
                       className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
                       style={{ top: menuPosition.y, left: menuPosition.x }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500">
-                        Sort by project
-                      </div>
-
-                     
-
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500">Sort by project</div>
+                      <div className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${projectSort === 'asc' ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => setProjectSort('asc')}>A → Z</div>
+                      <div className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${projectSort === 'desc' ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => setProjectSort('desc')}>Z → A</div>
+                      <div className="border-t mt-1 pt-1 px-3 py-2 text-xs font-semibold text-gray-500">Filter by project</div>
                       <div
-                        className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${
-                          projectSort === 'asc' ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setProjectSort('asc')}
-                      >
-                        A → Z
-                      </div>
-
-                      <div
-                        className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${
-                          projectSort === 'desc' ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setProjectSort('desc')}
-                      >
-                        Z → A
-                      </div>
-
-                      <div className="border-t mt-1 pt-1 px-3 py-2 text-xs font-semibold text-gray-500">
-                        Filter by project
-                      </div>
-
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                          selectedProjects.length === 0 ? 'bg-gray-100 font-semibold' : ''
-                        }`}
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedProjects.length === 0 ? 'bg-gray-100 font-semibold' : ''}`}
                         onClick={() => setSelectedProjects([])}
                       >
-                        <input type="checkbox" checked={selectedProjects.length === 0} readOnly />
-                        All
+                        <input type="checkbox" checked={selectedProjects.length === 0} readOnly /> All
                       </div>
-
                       {availableProjects.map((proj) => (
                         <div
                           key={proj}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                            selectedProjects.includes(proj) ? 'bg-gray-100 font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(proj, setSelectedProjects, selectedProjects)
-                          }
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedProjects.includes(proj) ? 'bg-gray-100 font-semibold' : ''}`}
+                          onClick={() => toggleSelection(proj, setSelectedProjects, selectedProjects)}
                         >
-                          <input type="checkbox" checked={selectedProjects.includes(proj)} readOnly />
-                          {proj}
+                          <input type="checkbox" checked={selectedProjects.includes(proj)} readOnly /> {proj}
                         </div>
                       ))}
                     </div>
@@ -388,10 +322,7 @@ export default function InitiativesPage() {
                 </th>
 
                 {/* CATEGORY */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Category</span>
                     <button
@@ -400,47 +331,27 @@ export default function InitiativesPage() {
                         const rect = e.target.getBoundingClientRect();
                         setMenuPosition({ x: rect.left, y: rect.bottom });
                         setShowCategoryMenu(prev => !prev);
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                        setShowRequestorMenu(false);
+                        setShowStatusMenu(false); setShowVPMenu(false);
+                        setShowDeptMenu(false); setShowLeadMenu(false);
+                        setShowProjectSortMenu(false); setShowRequestorMenu(false);
                       }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition"
+                      className={dropdownBtnClass}
                     >
                       ▼
                     </button>
                   </div>
-
                   {showCategoryMenu && (
                     <div
                       className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
                       style={{ top: menuPosition.y, left: menuPosition.x }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                          selectedCategories.length === 0 ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedCategories([])}
-                      >
-                        <input type="checkbox" checked={selectedCategories.length === 0} readOnly />
-                        All
+                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedCategories.length === 0 ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => setSelectedCategories([])}>
+                        <input type="checkbox" checked={selectedCategories.length === 0} readOnly /> All
                       </div>
-
                       {availableCategories.map((cat) => (
-                        <div
-                          key={cat}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                            selectedCategories.includes(cat) ? 'bg-gray-100 font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(cat, setSelectedCategories, selectedCategories)
-                          }
-                        >
-                          <input type="checkbox" checked={selectedCategories.includes(cat)} readOnly />
-                          {cat}
+                        <div key={cat} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedCategories.includes(cat) ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => toggleSelection(cat, setSelectedCategories, selectedCategories)}>
+                          <input type="checkbox" checked={selectedCategories.includes(cat)} readOnly /> {cat}
                         </div>
                       ))}
                     </div>
@@ -448,60 +359,36 @@ export default function InitiativesPage() {
                 </th>
 
                 {/* LEADER */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                <div className="flex justify-between items-center">
-                  <span>Leader Accountable</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const rect = e.target.getBoundingClientRect();
-                      setMenuPosition({ x: rect.left, y: rect.bottom });
-
-                      setShowLeadMenu(prev => !prev);
-                      setShowCategoryMenu(false);
-                      setShowStatusMenu(false);
-                      setShowVPMenu(false);
-                      setShowDeptMenu(false);
-                      setShowProjectSortMenu(false);
-                      setShowRequestorMenu(false);
-                    }}
-                    className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition"
-                  >
-                    ▼
-                  </button>
-                </div>
-
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap" style={styles.outfitFont}>
+                  <div className="flex justify-between items-center">
+                    <span>Leader Accountable</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = e.target.getBoundingClientRect();
+                        setMenuPosition({ x: rect.left, y: rect.bottom });
+                        setShowLeadMenu(prev => !prev);
+                        setShowCategoryMenu(false); setShowStatusMenu(false);
+                        setShowVPMenu(false); setShowDeptMenu(false);
+                        setShowProjectSortMenu(false); setShowRequestorMenu(false);
+                      }}
+                      className={dropdownBtnClass}
+                    >
+                      ▼
+                    </button>
+                  </div>
                   {showLeadMenu && (
                     <div
                       className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
                       style={{ top: menuPosition.y, left: menuPosition.x }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                          selectedLeads.length === 0 ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedLeads([])}
-                      >
-                        <input type="checkbox" checked={selectedLeads.length === 0} readOnly />
-                        All
+                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedLeads.length === 0 ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => setSelectedLeads([])}>
+                        <input type="checkbox" checked={selectedLeads.length === 0} readOnly /> All
                       </div>
-
                       {availableLeads.map((lead) => (
-                        <div
-                          key={lead}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                            selectedLeads.includes(lead) ? 'bg-gray-100 font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(lead, setSelectedLeads, selectedLeads)
-                          }
-                        >
-                          <input type="checkbox" checked={selectedLeads.includes(lead)} readOnly />
-                          {lead}
+                        <div key={lead} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedLeads.includes(lead) ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => toggleSelection(lead, setSelectedLeads, selectedLeads)}>
+                          <input type="checkbox" checked={selectedLeads.includes(lead)} readOnly /> {lead}
                         </div>
                       ))}
                     </div>
@@ -509,10 +396,7 @@ export default function InitiativesPage() {
                 </th>
 
                 {/* STATUS */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Status</span>
                     <button
@@ -521,47 +405,27 @@ export default function InitiativesPage() {
                         const rect = e.target.getBoundingClientRect();
                         setMenuPosition({ x: rect.left, y: rect.bottom });
                         setShowStatusMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                        setShowRequestorMenu(false);
+                        setShowCategoryMenu(false); setShowVPMenu(false);
+                        setShowDeptMenu(false); setShowLeadMenu(false);
+                        setShowProjectSortMenu(false); setShowRequestorMenu(false);
                       }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition"
+                      className={dropdownBtnClass}
                     >
                       ▼
                     </button>
                   </div>
-
                   {showStatusMenu && (
                     <div
                       className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
                       style={{ top: menuPosition.y, left: menuPosition.x }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                          selectedStatuses.length === 0 ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedStatuses([])}
-                      >
-                        <input type="checkbox" checked={selectedStatuses.length === 0} readOnly />
-                        All
+                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedStatuses.length === 0 ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => setSelectedStatuses([])}>
+                        <input type="checkbox" checked={selectedStatuses.length === 0} readOnly /> All
                       </div>
-
                       {availableStatuses.map((status) => (
-                        <div
-                          key={status}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                            selectedStatuses.includes(status) ? 'bg-gray-100 font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(status, setSelectedStatuses, selectedStatuses)
-                          }
-                        >
-                          <input type="checkbox" checked={selectedStatuses.includes(status)} readOnly />
-                          {status}
+                        <div key={status} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedStatuses.includes(status) ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => toggleSelection(status, setSelectedStatuses, selectedStatuses)}>
+                          <input type="checkbox" checked={selectedStatuses.includes(status)} readOnly /> {status}
                         </div>
                       ))}
                     </div>
@@ -569,10 +433,7 @@ export default function InitiativesPage() {
                 </th>
 
                 {/* REQUESTOR */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor</span>
                     <button
@@ -581,47 +442,27 @@ export default function InitiativesPage() {
                         const rect = e.target.getBoundingClientRect();
                         setMenuPosition({ x: rect.left, y: rect.bottom });
                         setShowRequestorMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
+                        setShowCategoryMenu(false); setShowStatusMenu(false);
+                        setShowVPMenu(false); setShowDeptMenu(false);
+                        setShowLeadMenu(false); setShowProjectSortMenu(false);
                       }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#017ACB]/20 transition"
+                      className={dropdownBtnClass}
                     >
                       ▼
                     </button>
                   </div>
-
                   {showRequestorMenu && (
                     <div
                       className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
                       style={{ top: menuPosition.y, left: menuPosition.x }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                          selectedRequestors.length === 0 ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedRequestors([])}
-                      >
-                        <input type="checkbox" checked={selectedRequestors.length === 0} readOnly />
-                        All
+                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestors.length === 0 ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => setSelectedRequestors([])}>
+                        <input type="checkbox" checked={selectedRequestors.length === 0} readOnly /> All
                       </div>
-
                       {availableRequestors.map((req) => (
-                        <div
-                          key={req}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                            selectedRequestors.includes(req) ? 'bg-gray-100 font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(req, setSelectedRequestors, selectedRequestors)
-                          }
-                        >
-                          <input type="checkbox" checked={selectedRequestors.includes(req)} readOnly />
-                          {req}
+                        <div key={req} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestors.includes(req) ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => toggleSelection(req, setSelectedRequestors, selectedRequestors)}>
+                          <input type="checkbox" checked={selectedRequestors.includes(req)} readOnly /> {req}
                         </div>
                       ))}
                     </div>
@@ -629,10 +470,7 @@ export default function InitiativesPage() {
                 </th>
 
                 {/* REQUESTOR VP */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor VP</span>
                     <button
@@ -641,47 +479,27 @@ export default function InitiativesPage() {
                         const rect = e.target.getBoundingClientRect();
                         setMenuPosition({ x: rect.left, y: rect.bottom });
                         setShowVPMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                        setShowRequestorMenu(false);
+                        setShowCategoryMenu(false); setShowStatusMenu(false);
+                        setShowDeptMenu(false); setShowLeadMenu(false);
+                        setShowProjectSortMenu(false); setShowRequestorMenu(false);
                       }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#017ACB]/20 transition"
+                      className={dropdownBtnClass}
                     >
                       ▼
                     </button>
                   </div>
-
                   {showVPMenu && (
                     <div
                       className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
                       style={{ top: menuPosition.y, left: menuPosition.x }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                          selectedVPs.length === 0 ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedVPs([])}
-                      >
-                        <input type="checkbox" checked={selectedVPs.length === 0} readOnly />
-                        All
+                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedVPs.length === 0 ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => setSelectedVPs([])}>
+                        <input type="checkbox" checked={selectedVPs.length === 0} readOnly /> All
                       </div>
-
                       {availableVPs.map((vp) => (
-                        <div
-                          key={vp}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                            selectedVPs.includes(vp) ? 'bg-gray-100 font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(vp, setSelectedVPs, selectedVPs)
-                          }
-                        >
-                          <input type="checkbox" checked={selectedVPs.includes(vp)} readOnly />
-                          {vp}
+                        <div key={vp} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedVPs.includes(vp) ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => toggleSelection(vp, setSelectedVPs, selectedVPs)}>
+                          <input type="checkbox" checked={selectedVPs.includes(vp)} readOnly /> {vp}
                         </div>
                       ))}
                     </div>
@@ -689,10 +507,7 @@ export default function InitiativesPage() {
                 </th>
 
                 {/* REQUESTING DEPT */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requesting Dept</span>
                     <button
@@ -701,47 +516,27 @@ export default function InitiativesPage() {
                         const rect = e.target.getBoundingClientRect();
                         setMenuPosition({ x: rect.left, y: rect.bottom });
                         setShowDeptMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                        setShowRequestorMenu(false);
+                        setShowCategoryMenu(false); setShowStatusMenu(false);
+                        setShowVPMenu(false); setShowLeadMenu(false);
+                        setShowProjectSortMenu(false); setShowRequestorMenu(false);
                       }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#017ACB]/20 transition"
+                      className={dropdownBtnClass}
                     >
                       ▼
                     </button>
                   </div>
-
                   {showDeptMenu && (
                     <div
                       className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
                       style={{ top: menuPosition.y, left: menuPosition.x }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                          selectedDepts.length === 0 ? 'bg-gray-100 font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedDepts([])}
-                      >
-                        <input type="checkbox" checked={selectedDepts.length === 0} readOnly />
-                        All
+                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedDepts.length === 0 ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => setSelectedDepts([])}>
+                        <input type="checkbox" checked={selectedDepts.length === 0} readOnly /> All
                       </div>
-
                       {availableDepts.map((dept) => (
-                        <div
-                          key={dept}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${
-                            selectedDepts.includes(dept) ? 'bg-gray-100 font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(dept, setSelectedDepts, selectedDepts)
-                          }
-                        >
-                          <input type="checkbox" checked={selectedDepts.includes(dept)} readOnly />
-                          {dept}
+                        <div key={dept} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedDepts.includes(dept) ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => toggleSelection(dept, setSelectedDepts, selectedDepts)}>
+                          <input type="checkbox" checked={selectedDepts.includes(dept)} readOnly /> {dept}
                         </div>
                       ))}
                     </div>
@@ -749,52 +544,26 @@ export default function InitiativesPage() {
                 </th>
 
                 {/* COMPLETION DATE */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  Completion Date
-                </th>
+                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap" style={styles.outfitFont}>Completion Date</th>
 
                 {/* TARGET PERIOD */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  Target Period
-                </th>
+                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap" style={styles.outfitFont}>Target Period</th>
 
                 {/* DESCRIPTION */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  Description
-                </th>
+                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap" style={styles.outfitFont}>Description</th>
 
                 {/* RESOURCE NOTES */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  Resource Consideration
-                </th>
+                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap" style={styles.outfitFont}>Resource Consideration</th>
 
               </tr>
             </thead>
 
-            {/* BODY */}
             <tbody>
               {filteredInitiatives.map((item, index) => (
                 <tr
                   key={item.id}
-                  className={`hover:bg-[#017ACB]/20 ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                  }`}
+                  className={`hover:bg-[#017ACB]/20 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                 >
-                  
-
-                  {/* NORMAL SCROLLING COLUMNS */}
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.project}</td>
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.category}</td>
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.lead}</td>
@@ -802,18 +571,12 @@ export default function InitiativesPage() {
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.requestor}</td>
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.requestor_vp}</td>
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.requesting_dept}</td>
-
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                    {item.completion_date
-                      ? new Date(item.completion_date).toLocaleDateString()
-                      : ''}
+                    {item.completion_date ? new Date(item.completion_date).toLocaleDateString() : ''}
                   </td>
-
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.target_period}</td>
                   <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.description}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                    {item.resource_consideration}
-                  </td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">{item.resource_consideration}</td>
                 </tr>
               ))}
             </tbody>
