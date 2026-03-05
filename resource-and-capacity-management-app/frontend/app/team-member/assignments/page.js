@@ -410,14 +410,19 @@ export default function TeamMemberAssignments() {
           <button
             onClick={() => setActiveTab("all")}
             className={`
-              relative px-4 py-2 rounded text-sm transition-colors
-              border border-black
+              relative px-4 py-2 rounded text-sm transition-colors border border-black
+              /* Base Shadows (Always Visible) */
+              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+              
+              /* Pseudo-element Inner Highlight */
               before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none
               before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+              
               ${
                 activeTab === "all"
-                  ? "bg-[#017ACB] text-white shadow-none"
-                  : "bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]"
+                  ? "bg-[#017ACB] text-white" 
+                  : "bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20"
               }
             `}
             style={styles.outfitFont}
@@ -428,14 +433,19 @@ export default function TeamMemberAssignments() {
           <button
             onClick={() => setActiveTab("mine")}
             className={`
-              relative px-4 py-2 rounded text-sm transition-colors
-              border border-black
+              relative px-4 py-2 rounded text-sm transition-colors border border-black
+              /* Base Shadows (Always Visible) */
+              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+              
+              /* Pseudo-element Inner Highlight */
               before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none
               before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+              
               ${
                 activeTab === "mine"
-                  ? "bg-[#017ACB] text-white shadow-none"
-                  : "bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]"
+                  ? "bg-[#017ACB] text-white" 
+                  : "bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20"
               }
             `}
             style={styles.outfitFont}
