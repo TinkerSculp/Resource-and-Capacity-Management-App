@@ -1,5 +1,55 @@
 'use client';
 
+/* =============================================================================
+   CapacitySummary.jsx
+   -----------------------------------------------------------------------------
+   PURPOSE:
+     Displays the Capacity Summary dashboard — a stacked bar chart and table
+     showing allocation totals by category vs total people capacity across a
+     configurable 6-month rolling window.
+
+   HOW IT WORKS:
+     1. On mount, reads and validates the user session from localStorage
+     2. Once the user exists, fetches the list of selectable months
+     3. Defaults to the current month (or the most recent available)
+     4. When startMonth changes, fetches summary data for the 6-month window
+     5. Renders a table and a stacked bar + line chart from the validated data
+
+   SECURITY MODEL:
+     • localStorage is accessed inside try/catch — malformed JSON is caught,
+       the session is cleared, and the component resets to prevent a broken
+       auth state from persisting across renders.
+     • All API responses are validated for presence before setState — prevents
+       undefined arrays from reaching Chart.js or table renders and causing
+       runtime errors.
+     • startMonth is passed through encodeURIComponent() before being appended
+       to the API URL — prevents injection or malformed requests.
+     • The select onChange coerces the value with Number() — prevents a
+       string-typed YYYYMM from being sent to the backend.
+     • All numeric values rendered in the table are passed through fmt() —
+       prevents NaN, null, or undefined from appearing in UI cells.
+     • All state arrays default to [] — prevents Chart.js from receiving
+       undefined datasets which would cause a runtime crash.
+     • Chart labels and category names come from the validated backend response
+       — they are plain text values, not HTML, so no injection risk.
+
+   RESPONSIVENESS:
+     • Header row uses flex-col on mobile, flex-row on sm+ — title, button,
+       and month selector each get their own line on small screens.
+     • overflow-x-auto on the table wrapper — table scrolls horizontally on
+       narrow screens without breaking the layout.
+     • Chart wrapper uses w-full max-w-5xl and responsive: true — scales
+       naturally from mobile to large desktop.
+     • All padding and font sizes have sm: breakpoint variants for mobile comfort.
+     • Month selector wraps into its own row on mobile via flex-col.
+
+   DEPENDENCIES:
+     • @/lib/api           — Axios instance with JWT Bearer token auto-injection
+     • react-chartjs-2     — Bar chart component
+     • chart.js            — Chart.js core with required scale/element registration
+     • next/navigation     — useRouter for programmatic navigation
+   ============================================================================= */
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -15,6 +65,11 @@ import {
   Legend
 } from 'chart.js';
 
+/* -----------------------------------------------------------------------------
+   CHART.JS REGISTRATION
+   All required components must be explicitly registered before use.
+   LineElement and PointElement are required for the mixed bar+line dataset.
+----------------------------------------------------------------------------- */
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -29,57 +84,40 @@ const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
 };
 
-/* ---------------------------------------------------------------------------
-   SAFE NUMBER FORMATTER
-   ---------------------------------------------------------------------------
-   SECURITY:
-   • Prevents NaN or undefined values from leaking into UI.
-   • Ensures consistent formatting for charts and tables.
-   • Avoids rendering anomalies that could break Chart.js.
---------------------------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   UTILITY: fmt
+   Formats a numeric value to two decimal places. Guards against NaN, null,
+   and undefined to prevent rendering anomalies in table cells or chart tooltips.
+----------------------------------------------------------------------------- */
 function fmt(n) {
   if (n === null || n === undefined || isNaN(n)) return '0.00';
   return Number(n).toFixed(2);
 }
 
 export default function CapacitySummary() {
-  /* ---------------------------------------------------------------------------
-     SECURITY: SAFE USER INITIALIZATION
-     ---------------------------------------------------------------------------
-     • localStorage access wrapped in try/catch to prevent crashes.
-     • Protects against corrupted JSON or tampering.
-     • Ensures SSR never touches browser-only APIs.
-  --------------------------------------------------------------------------- */
-  const [user, setUser] = useState(null);
 
-  const [selectableMonths, setSelectableMonths] = useState([]);
-  const [startMonth, setStartMonth] = useState(null);
-
-  const [months, setMonths] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [totals, setTotals] = useState([]);
-  const [peopleCapacity, setPeopleCapacity] = useState([]);
+  const [user, setUser]                           = useState(null);
+  const [selectableMonths, setSelectableMonths]   = useState([]);
+  const [startMonth, setStartMonth]               = useState(null);
+  const [months, setMonths]                       = useState([]);
+  const [categories, setCategories]               = useState([]);
+  const [totals, setTotals]                       = useState([]);
+  const [peopleCapacity, setPeopleCapacity]       = useState([]);
   const [remainingCapacity, setRemainingCapacity] = useState([]);
-
-  const [loadingMonths, setLoadingMonths] = useState(true);
-  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [loadingMonths, setLoadingMonths]         = useState(true);
+  const [loadingSummary, setLoadingSummary]       = useState(true);
 
   const router = useRouter();
 
   /* ---------------------------------------------------------------------------
-     LOAD USER AFTER MOUNT
-     ---------------------------------------------------------------------------
-     SECURITY:
-     • Prevents SSR from accessing localStorage.
-     • Removes corrupted tokens to avoid invalid session states.
-     • Ensures user object is always valid before API calls.
+     EFFECT 1: LOAD USER SESSION ON MOUNT
+     Runs client-side only — localStorage is a browser-only API.
+     Malformed JSON is caught and the session is cleared.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user');
-      if (stored) {
-        setUser(JSON.parse(stored));
-      }
+      if (stored) setUser(JSON.parse(stored));
     } catch (err) {
       console.error('LocalStorage parse error:', err);
       localStorage.removeItem('user');
@@ -88,12 +126,9 @@ export default function CapacitySummary() {
   }, []);
 
   /* ---------------------------------------------------------------------------
-     LOAD MONTHS AFTER USER EXISTS
-     ---------------------------------------------------------------------------
-     SECURITY:
-     • Backend response validated before use.
-     • Protects UI from malformed or missing fields.
-     • Ensures dropdown never breaks due to unexpected data.
+     EFFECT 2: LOAD SELECTABLE MONTHS (runs when user is set)
+     Skips if user is null — prevents API calls before JWT is available.
+     Defaults startMonth to current month, or most recent if not found.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
@@ -111,9 +146,7 @@ export default function CapacitySummary() {
         setSelectableMonths(data.months);
 
         const today = new Date();
-        const currentYYYYMM =
-          today.getFullYear() * 100 + (today.getMonth() + 1);
-
+        const currentYYYYMM = today.getFullYear() * 100 + (today.getMonth() + 1);
         const match = data.months.find((m) => m.value === currentYYYYMM);
 
         setStartMonth(
@@ -130,30 +163,25 @@ export default function CapacitySummary() {
   }, [user]);
 
   /* ---------------------------------------------------------------------------
-     LOAD SUMMARY AFTER USER + START MONTH EXIST
-     ---------------------------------------------------------------------------
-     SECURITY:
-     • All backend fields validated before use.
-     • Prevents undefined arrays from breaking charts.
-     • Ensures UI remains stable even if backend returns partial data.
+     EFFECT 3: LOAD SUMMARY DATA (runs when user or startMonth changes)
+     encodeURIComponent guards the URL param.
+     All response arrays default to [] to protect Chart.js from undefined.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user || !startMonth) return;
 
     async function loadSummary() {
       setLoadingSummary(true);
-
       try {
         const res = await api.get(
           `/capacity-summary?start=${encodeURIComponent(startMonth)}&months=6`
         );
-
         const data = res?.data || {};
 
-        setMonths(data.months || []);
-        setCategories(data.categories || []);
-        setTotals(data.totals || []);
-        setPeopleCapacity(data.peopleCapacity || []);
+        setMonths(data.months                     || []);
+        setCategories(data.categories             || []);
+        setTotals(data.totals                     || []);
+        setPeopleCapacity(data.peopleCapacity     || []);
         setRemainingCapacity(data.remainingCapacity || []);
       } catch (err) {
         console.error('Failed to load summary:', err);
@@ -166,27 +194,24 @@ export default function CapacitySummary() {
   }, [user, startMonth]);
 
   /* ---------------------------------------------------------------------------
-     LOADING SCREEN
-     ---------------------------------------------------------------------------
-     SECURITY:
-     • Prevents rendering charts/tables before data is validated.
-     • Avoids UI crashes caused by undefined arrays.
+     LOADING STATE
+     Prevents charts and tables from rendering before data arrays are populated.
   --------------------------------------------------------------------------- */
   if (!user || loadingMonths || loadingSummary) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]"
+          role="status"
+          aria-label="Loading capacity summary"
+        />
       </div>
     );
   }
 
   /* ---------------------------------------------------------------------------
-     CHART DATA (DEFENSIVE)
-     ---------------------------------------------------------------------------
-     SECURITY:
-     • Ensures all datasets exist before Chart.js consumes them.
-     • Prevents runtime errors from undefined/null values.
-     • Protects against malformed backend responses.
+     CHART DATA
+     All datasets use validated state arrays — Chart.js never receives undefined.
   --------------------------------------------------------------------------- */
   const chartData = {
     labels: months,
@@ -195,12 +220,7 @@ export default function CapacitySummary() {
         type: 'bar',
         label: cat.label,
         data: cat.values || [],
-        backgroundColor: [
-          '#FFC000',
-          '#215F9A',
-          '#02D6EC',
-          '#A6A6A6'
-        ][idx % 4],
+        backgroundColor: ['#FFC000', '#215F9A', '#02D6EC', '#A6A6A6'][idx % 4],
         stack: 'alloc'
       })),
       {
@@ -216,8 +236,15 @@ export default function CapacitySummary() {
     ]
   };
 
+  // aspectRatio controls the height relative to width.
+  // Lower value = taller chart. 1 on mobile gives a square-ish chart
+  // that's easy to read; 2 on larger screens keeps the standard wide look.
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: true,
+    aspectRatio: isMobile ? 1 : 2,
     plugins: { legend: { position: 'top' } },
     scales: {
       x: { stacked: true },
@@ -226,80 +253,92 @@ export default function CapacitySummary() {
   };
 
   /* ---------------------------------------------------------------------------
-     FINAL RENDER
+     RENDER
      ---------------------------------------------------------------------------
-     SECURITY:
-     • All UI elements rely on validated state.
-     • No direct rendering of backend data without sanitization.
-     • Prevents injection into labels, dropdowns, or chart titles.
+     RESPONSIVENESS STRATEGY:
+     • Header: flex-col on mobile (stacks title, button, selector vertically),
+       sm:flex-row on larger screens (single horizontal row).
+     • Title + back button: flex-col on mobile, sm:flex-row on larger screens.
+     • Month selector: full-width on mobile (w-full), auto on sm+.
+     • Table: overflow-x-auto — scrolls horizontally on mobile.
+     • Chart: w-full, responsive:true — scales to container at all sizes.
+     • All font sizes and padding have sm: variants for comfortable mobile reading.
   --------------------------------------------------------------------------- */
   return (
     <div className="w-full bg-white">
-      <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4">
 
-        {/* -----------------------------------------------------
-           TITLE + MONTH SELECTOR
-        ----------------------------------------------------- */}
-        <div className="flex items-center justify-between mb-4">
+        {/* -----------------------------------------------------------------
+           HEADER
+           On mobile: stacks as title → button → month selector (flex-col)
+           On sm+: title + button on left, month selector on right (flex-row)
+        ----------------------------------------------------------------- */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
 
-          {/* LEFT SIDE: Title + Back Button */}
-          <div className="flex items-center gap-4">
+          {/* LEFT: Title + Back Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <h2
-              className="text-3xl font-bold text-gray-900"
+              className="text-2xl sm:text-3xl font-bold text-gray-900"
               style={styles.outfitFont}
             >
               Capacity Summary
             </h2>
 
             <button
-  onClick={() => router.back()}
-  className="
-    px-4 py-2 rounded text-sm
-    bg-gray-200 text-gray-700 border border-[#00263F]
-    hover:bg-[#017ACB]/20 transition-colors
-    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-  "
-  style={styles.outfitFont}
->
-  Back to Dashboard
-</button>
+              onClick={() => router.back()}
+              aria-label="Go back to dashboard"
+              className="
+                w-full sm:w-auto
+                px-4 py-2 rounded text-sm
+                bg-[#017ACB] text-white border border-black
+                hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                relative
+                before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+              "
+              style={styles.outfitFont}
+            >
+              Back to Dashboard
+            </button>
           </div>
 
-          {/* RIGHT SIDE: Label + Select */}
-          <div className="flex items-center gap-2">
+          {/* RIGHT: Month selector — full width on mobile, auto on sm+ */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label
+              htmlFor="start-month-select"
               className="text-sm font-medium text-gray-700"
               style={styles.outfitFont}
             >
               Start Month:
             </label>
 
-            {/* WRAPPER — handles the focus ring */}
             <div
               className="
                 rounded bg-white p-[2px]
-                 focus-within:ring-[#017ACB]/20
-                transition
-    shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-    active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                focus-within:ring-[#017ACB]/20 transition
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                relative
+                before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
               "
             >
               <select
+                id="start-month-select"
                 className="
                   border border-black rounded px-2 py-1 text-sm bg-white text-black
-                  focus:outline-none
-                  hover:bg-[#017ACB]/20 transition w-full
+                  focus:outline-none hover:bg-[#017ACB]/20 transition
+                  w-full sm:w-auto
                 "
                 value={startMonth}
                 onChange={(e) => setStartMonth(Number(e.target.value))}
+                style={styles.outfitFont}
               >
                 {selectableMonths.map((m) => (
-                  <option
-                    key={m.value}
-                    value={m.value}
-                    className="bg-white text-black"
-                  >
+                  <option key={m.value} value={m.value} className="bg-white text-black">
                     {m.label}
                   </option>
                 ))}
@@ -308,35 +347,28 @@ export default function CapacitySummary() {
           </div>
         </div>
 
-       {/* -----------------------------------------------------
-        CAPACITY TABLE
-        -----------------------------------------------------
-        SECURITY:
-          • All displayed values come from sanitized + validated state.
-          • No direct rendering of backend data without fmt() or safe mapping.
-          • Prevents injection into table cells or category labels.
-        ----------------------------------------------------- */}
-        <div className="overflow-x-auto border rounded-lg shadow bg-white mb-6">
-          <table className="min-w-max w-full border-collapse text-sm text-gray-700">
+        {/* -----------------------------------------------------------------
+           CAPACITY TABLE
+           overflow-x-auto — scrolls horizontally on mobile so the table
+           never breaks the page layout on narrow screens.
+           min-w-max — prevents columns from collapsing below readable width.
+        ----------------------------------------------------------------- */}
+        <div className="overflow-x-auto border rounded-lg shadow bg-white mb-6 -mx-3 sm:mx-0">
+          <table className="min-w-max w-full border-collapse text-xs sm:text-sm text-gray-700">
 
             <thead className="bg-[#017ACB] text-white">
               <tr>
-              <th
-                className="px-4 py-2 border text-left whitespace-normal"
-                style={{ ...styles.outfitFont, width: "375px" }}
-              >
-                Category
-              </th>
-
-                {/* SECURITY:
-                    • months array is validated before render.
-                    • Keys use stable month values to prevent React warnings.
-                */}
+                <th
+                  className="px-3 sm:px-4 py-2 border text-left whitespace-normal"
+                  style={{ ...styles.outfitFont, width: '150px', minWidth: '100px' }}
+                >
+                  Category
+                </th>
                 {months.map((month) => (
                   <th
                     key={month}
-                    className="px-4 py-2 border text-center"
-                    style={styles.outfitFont}
+                    className="px-2 py-2 border text-center whitespace-nowrap"
+                    style={{ ...styles.outfitFont, width: '85px', minWidth: '75px' }}
                   >
                     {month}
                   </th>
@@ -345,89 +377,67 @@ export default function CapacitySummary() {
             </thead>
 
             <tbody>
-
-              {/* SECURITY:
-                  • categories array is validated before render.
-                  • cat.label is safe because backend sanitizes labels.
-              */}
               {categories.map((cat) => (
                 <tr key={cat.label}>
-                  <td className="px-4 py-2 border font-semibold" style={styles.outfitFont}>
+                  <td className="px-3 sm:px-4 py-2 border font-semibold" style={styles.outfitFont}>
                     {cat.label}
                   </td>
-
-                  {/* SECURITY:
-                      • fmt() ensures no NaN or unsafe values appear.
-                      • idx used as key because values array is stable + numeric.
-                  */}
                   {cat.values.map((val, idx) => (
-                    <td key={idx} className="px-4 py-2 border text-center">
+                    <td key={idx} className="px-2 py-2 border text-center">
                       {fmt(val)}
                     </td>
                   ))}
                 </tr>
               ))}
 
-              {/* SECURITY:
-                  • totals array validated before render.
-                  • fmt() ensures safe numeric output.
-              */}
               <tr className="bg-[#017ACB]">
-                <td className="px-4 py-2 border border-black font-bold text-white" style={styles.outfitFont}>
+                <td className="px-3 sm:px-4 py-2 border border-black font-bold text-white" style={styles.outfitFont}>
                   Total Allocated
                 </td>
                 {totals.map((val, idx) => (
-                  <td key={idx} className="px-4 py-2 border border-black text-center text-white font-bold">
+                  <td key={idx} className="px-3 sm:px-4 py-2 border border-black text-center text-white font-bold">
                     {fmt(val)}
                   </td>
                 ))}
               </tr>
 
-              {/* SECURITY:
-                  • peopleCapacity array validated before render.
-              */}
               <tr className="bg-gray-50">
-                <td className="px-4 py-2 border font-bold" style={styles.outfitFont}>
+                <td className="px-3 sm:px-4 py-2 border font-bold" style={styles.outfitFont}>
                   Total People Capacity
                 </td>
                 {peopleCapacity.map((val, idx) => (
-                  <td key={idx} className="px-4 py-2 border text-center">
+                  <td key={idx} className="px-2 py-2 border text-center">
                     {fmt(val)}
                   </td>
                 ))}
               </tr>
 
-              {/* SECURITY:
-                  • remainingCapacity array validated before render.
-              */}
               <tr className="bg-gray-50">
-                <td className="px-4 py-2 border font-bold" style={styles.outfitFont}>
+                <td className="px-3 sm:px-4 py-2 border font-bold" style={styles.outfitFont}>
                   Remaining Capacity
                 </td>
                 {remainingCapacity.map((val, idx) => (
-                  <td key={idx} className="px-4 py-2 border text-center">
+                  <td key={idx} className="px-2 py-2 border text-center">
                     {fmt(val)}
                   </td>
                 ))}
               </tr>
-
             </tbody>
           </table>
         </div>
 
-        {/* -----------------------------------------------------
-          CHART
-          -----------------------------------------------------
-          SECURITY:
-          • chartData + chartOptions built from validated arrays.
-          • Prevents Chart.js from receiving undefined/null datasets.
-          • No dynamic HTML injection — labels are plain text.
-        ----------------------------------------------------- */}
-        <div className="bg-white p-4 rounded-lg shadow mb-6 flex justify-center">
+        {/* -----------------------------------------------------------------
+           CHART
+           responsive:true + maintainAspectRatio:true — scales naturally.
+           w-full ensures it fills the container at all screen widths.
+           max-w-5xl prevents it from becoming too wide on large screens.
+        ----------------------------------------------------------------- */}
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow mb-6 flex justify-center">
           <div className="w-full max-w-5xl">
             <Bar data={chartData} options={chartOptions} />
           </div>
         </div>
+
       </main>
     </div>
   );
