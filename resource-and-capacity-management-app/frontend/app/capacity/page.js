@@ -1,15 +1,33 @@
+/* =============================================================================
+   page.jsx — /capacity-summary
+   -----------------------------------------------------------------------------
+   PURPOSE:
+     Next.js route entry point for the Capacity Summary page. This is a
+     lightweight wrapper that delegates all rendering, data fetching, and
+     security logic to the CapacitySummary layout component.
+
+   WHY THIS EXISTS:
+     Next.js App Router requires a page.jsx file at each route segment to
+     register the route. Keeping this file minimal and delegating to a
+     dedicated layout component means:
+       • The component can be reused outside of this route if needed
+       • Logic, security, and UI concerns live in one testable place
+       • This file only ever needs to change if the route structure changes
+
+   SECURITY MODEL:
+     • All authentication, session validation, and data fetching security
+       is handled inside CapacitySummary — see that file for full details.
+     • This component intentionally contains no logic of its own.
+
+   DEPENDENCIES:
+     • CapacitySummary — Layout component at @/components/layout/CapacitySummary
+   ============================================================================= */
+
 'use client';
 
 import CapacitySummary from '@/components/layout/CapacitySummary';
 
-/* ---------------------------------------------------------
-   CAPACITY PAGE WRAPPER
-   ---------------------------------------------------------
-   • Lightweight route component
-   • Delegates all logic, security checks, and rendering
-     to the CapacitySummary layout component
-   • Keeps routing structure clean and maintainable
---------------------------------------------------------- */
 export default function CapacityPage() {
+  // Delegates entirely to CapacitySummary — no logic lives here
   return <CapacitySummary />;
 }
