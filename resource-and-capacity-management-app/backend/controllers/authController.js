@@ -84,21 +84,25 @@ export const login = async (req, res) => {
     });
 
     if (!user) {
-      // SECURITY: Return the same message as wrong password to prevent
-      // user enumeration — never reveal that the username doesn't exist
+      // Returns a distinct error code so the frontend can show a targeted message.
+      // NOTE: This reveals that the username does not exist — accepted usability
+      // trade-off for this internal application. For public-facing apps, always
+      // return the same message for both cases to prevent user enumeration.
       return res.status(401).json({
         success: false,
-        message: "Invalid username or password"
+        error: "username_not_found",
+        message: "Username not found"
       });
     }
 
     // ⚠️  TODO: Replace this plaintext comparison with bcrypt before production:
     //     const isMatch = await bcrypt.compare(password, user.account.password);
-    //     if (!isMatch) { return res.status(401).json({ ... }) }
+    //     if (!isMatch) { return res.status(401).json({ error: "wrong_password", ... }) }
     if (password !== user.account.password) {
       return res.status(401).json({
         success: false,
-        message: "Invalid username or password" // Same message as "not found" — intentional
+        error: "wrong_password",
+        message: "Incorrect password"
       });
     }
 
