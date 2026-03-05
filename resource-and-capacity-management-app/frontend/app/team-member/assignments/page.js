@@ -181,23 +181,35 @@ export default function TeamMemberAssignments() {
     const applyFilters = (base) => {
       let out = base.filter((row) => {
         // resources
-        if (selectedResources && selectedResources.length > 0 && !selectedResources.includes(row.resource_name)) return false;
+        if (selectedResources && selectedResources.length > 0 && !selectedResources.includes(row.resource_name))
+          return false;
         // departments
-        if (selectedDepartments && selectedDepartments.length > 0 && !selectedDepartments.includes(row.department)) return false;
+        if (selectedDepartments && selectedDepartments.length > 0 && !selectedDepartments.includes(row.department))
+          return false;
         // reports to
-        if (selectedReportsTo && selectedReportsTo.length > 0 && !selectedReportsTo.includes(row.reports_to)) return false;
+        if (selectedReportsTo && selectedReportsTo.length > 0 && !selectedReportsTo.includes(row.reports_to))
+          return false;
         // activities
-        if (selectedActivities && selectedActivities.length > 0 && !selectedActivities.includes(row.activity)) return false;
+        if (selectedActivities && selectedActivities.length > 0 && !selectedActivities.includes(row.activity))
+          return false;
         // categories
-        if (selectedCategories && selectedCategories.length > 0 && !selectedCategories.includes(row.category)) return false;
+        if (selectedCategories && selectedCategories.length > 0 && !selectedCategories.includes(row.category))
+          return false;
         // leaders
         if (selectedLeaders && selectedLeaders.length > 0 && !selectedLeaders.includes(row.leader)) return false;
         // requestors
-        if (selectedRequestors && selectedRequestors.length > 0 && !selectedRequestors.includes(row.requestor)) return false;
+        if (selectedRequestors && selectedRequestors.length > 0 && !selectedRequestors.includes(row.requestor))
+          return false;
         // requestor VPs
-        if (selectedRequestorVPs && selectedRequestorVPs.length > 0 && !selectedRequestorVPs.includes(row.requestor_vp)) return false;
+        if (selectedRequestorVPs && selectedRequestorVPs.length > 0 && !selectedRequestorVPs.includes(row.requestor_vp))
+          return false;
         // requesting depts
-        if (selectedRequestingDepts && selectedRequestingDepts.length > 0 && !selectedRequestingDepts.includes(row.requesting_dept)) return false;
+        if (
+          selectedRequestingDepts &&
+          selectedRequestingDepts.length > 0 &&
+          !selectedRequestingDepts.includes(row.requesting_dept)
+        )
+          return false;
 
         return true;
       });
@@ -234,7 +246,6 @@ export default function TeamMemberAssignments() {
     myRows,
     matchedAllRows,
   ]);
-
 
   useEffect(() => {
     if (activeTab === "mine") {
@@ -294,8 +305,8 @@ export default function TeamMemberAssignments() {
       setShowVPMenu(false);
       setShowReqDeptMenu(false);
     };
-    window.addEventListener('click', closeAll);
-    return () => window.removeEventListener('click', closeAll);
+    window.addEventListener("click", closeAll);
+    return () => window.removeEventListener("click", closeAll);
   }, []);
 
   if (!user) {
@@ -309,8 +320,18 @@ export default function TeamMemberAssignments() {
   const rows =
     activeTab === "mine" ? (filteredMyRows && filteredMyRows.length ? filteredMyRows : myRows) : filteredAllRows;
 
-  // SIMPLE 12-MONTH SLICE - No useMemo, no fancy logic
-  const displayMonths = months.slice(0, 12);
+  // SIMPLE 12-MONTH ROLLING WINDOW - start from current month and show 12 months
+  const displayMonths = (() => {
+    const out = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      out.push(`${y}${m}`);
+    }
+    return out;
+  })();
 
   const dropdownBtnClass =
     "ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition";
@@ -326,7 +347,17 @@ export default function TeamMemberAssignments() {
 
           <button
             onClick={() => router.push("/team-member/dashboard")}
-            className="px-4 py-2 rounded text-sm bg-white text-gray-700 border shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)] hover:bg-[#017ACB]/20 transition"
+            className="px-4 py-2 rounded text-sm
+              bg-[#017ACB] text-white border border-black
+              hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
+          
+              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+              relative
+              before:content-[''] before:absolute before:inset-0 before:rounded
+              before:pointer-events-none
+              before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+            "
             style={styles.outfitFont}
           >
             Back to Dashboard
@@ -336,9 +367,17 @@ export default function TeamMemberAssignments() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab("all")}
-            className={`px-4 py-2 rounded text-sm transition shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)] ${
-              activeTab === "all" ? "bg-[#017ACB] text-white" : "bg-white text-gray-700 border hover:bg-[#017ACB]/20"
-            }`}
+            className={`
+              relative px-4 py-2 rounded text-sm transition-colors
+              border border-black
+              before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none
+              before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+              ${
+                activeTab === "all"
+                  ? "bg-[#017ACB] text-white shadow-none"
+                  : "bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]"
+              }
+            `}
             style={styles.outfitFont}
           >
             All Assignments
@@ -346,9 +385,17 @@ export default function TeamMemberAssignments() {
 
           <button
             onClick={() => setActiveTab("mine")}
-            className={`px-4 py-2 rounded text-sm transition shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)] ${
-              activeTab === "mine" ? "bg-[#017ACB] text-white" : "bg-white text-gray-700 border hover:bg-[#017ACB]/20"
-            }`}
+            className={`
+              relative px-4 py-2 rounded text-sm transition-colors
+              border border-black
+              before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none
+              before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+              ${
+                activeTab === "mine"
+                  ? "bg-[#017ACB] text-white shadow-none"
+                  : "bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]"
+              }
+            `}
             style={styles.outfitFont}
           >
             My Assignments
@@ -452,12 +499,23 @@ export default function TeamMemberAssignments() {
                     </button>
                   </div>
                   {showDeptMenu && (
-                    <div className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedDepartments.length === 0 ? "bg-gray-100 font-semibold" : ""}`} onClick={() => setSelectedDepartments([])}>
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedDepartments.length === 0 ? "bg-gray-100 font-semibold" : ""}`}
+                        onClick={() => setSelectedDepartments([])}
+                      >
                         <input type="checkbox" checked={selectedDepartments.length === 0} readOnly /> All
                       </div>
                       {availableDepartments.map((name) => (
-                        <div key={name} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedDepartments.includes(name) ? "bg-gray-100 font-semibold" : ""}`} onClick={() => toggleList(setSelectedDepartments, name)}>
+                        <div
+                          key={name}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedDepartments.includes(name) ? "bg-gray-100 font-semibold" : ""}`}
+                          onClick={() => toggleList(setSelectedDepartments, name)}
+                        >
                           <input type="checkbox" checked={selectedDepartments.includes(name)} readOnly /> {name}
                         </div>
                       ))}
@@ -489,12 +547,23 @@ export default function TeamMemberAssignments() {
                     </button>
                   </div>
                   {showReportsToMenu && (
-                    <div className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedReportsTo.length === 0 ? "bg-gray-100 font-semibold" : ""}`} onClick={() => setSelectedReportsTo([])}>
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedReportsTo.length === 0 ? "bg-gray-100 font-semibold" : ""}`}
+                        onClick={() => setSelectedReportsTo([])}
+                      >
                         <input type="checkbox" checked={selectedReportsTo.length === 0} readOnly /> All
                       </div>
                       {availableReportsTo.map((name) => (
-                        <div key={name} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedReportsTo.includes(name) ? "bg-gray-100 font-semibold" : ""}`} onClick={() => toggleList(setSelectedReportsTo, name)}>
+                        <div
+                          key={name}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedReportsTo.includes(name) ? "bg-gray-100 font-semibold" : ""}`}
+                          onClick={() => toggleList(setSelectedReportsTo, name)}
+                        >
                           <input type="checkbox" checked={selectedReportsTo.includes(name)} readOnly /> {name}
                         </div>
                       ))}
@@ -526,12 +595,23 @@ export default function TeamMemberAssignments() {
                     </button>
                   </div>
                   {showActivityMenu && (
-                    <div className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedActivities.length === 0 ? "bg-gray-100 font-semibold" : ""}`} onClick={() => setSelectedActivities([])}>
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedActivities.length === 0 ? "bg-gray-100 font-semibold" : ""}`}
+                        onClick={() => setSelectedActivities([])}
+                      >
                         <input type="checkbox" checked={selectedActivities.length === 0} readOnly /> All
                       </div>
                       {availableActivities.map((name) => (
-                        <div key={name} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedActivities.includes(name) ? "bg-gray-100 font-semibold" : ""}`} onClick={() => toggleList(setSelectedActivities, name)}>
+                        <div
+                          key={name}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedActivities.includes(name) ? "bg-gray-100 font-semibold" : ""}`}
+                          onClick={() => toggleList(setSelectedActivities, name)}
+                        >
                           <input type="checkbox" checked={selectedActivities.includes(name)} readOnly /> {name}
                         </div>
                       ))}
@@ -563,12 +643,23 @@ export default function TeamMemberAssignments() {
                     </button>
                   </div>
                   {showCategoryMenu && (
-                    <div className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedCategories.length === 0 ? "bg-gray-100 font-semibold" : ""}`} onClick={() => setSelectedCategories([])}>
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedCategories.length === 0 ? "bg-gray-100 font-semibold" : ""}`}
+                        onClick={() => setSelectedCategories([])}
+                      >
                         <input type="checkbox" checked={selectedCategories.length === 0} readOnly /> All
                       </div>
                       {availableCategories.map((name) => (
-                        <div key={name} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedCategories.includes(name) ? "bg-gray-100 font-semibold" : ""}`} onClick={() => toggleList(setSelectedCategories, name)}>
+                        <div
+                          key={name}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedCategories.includes(name) ? "bg-gray-100 font-semibold" : ""}`}
+                          onClick={() => toggleList(setSelectedCategories, name)}
+                        >
                           <input type="checkbox" checked={selectedCategories.includes(name)} readOnly /> {name}
                         </div>
                       ))}
@@ -600,12 +691,23 @@ export default function TeamMemberAssignments() {
                     </button>
                   </div>
                   {showLeaderMenu && (
-                    <div className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedLeaders.length === 0 ? "bg-gray-100 font-semibold" : ""}`} onClick={() => setSelectedLeaders([])}>
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedLeaders.length === 0 ? "bg-gray-100 font-semibold" : ""}`}
+                        onClick={() => setSelectedLeaders([])}
+                      >
                         <input type="checkbox" checked={selectedLeaders.length === 0} readOnly /> All
                       </div>
                       {availableLeaders.map((name) => (
-                        <div key={name} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedLeaders.includes(name) ? "bg-gray-100 font-semibold" : ""}`} onClick={() => toggleList(setSelectedLeaders, name)}>
+                        <div
+                          key={name}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedLeaders.includes(name) ? "bg-gray-100 font-semibold" : ""}`}
+                          onClick={() => toggleList(setSelectedLeaders, name)}
+                        >
                           <input type="checkbox" checked={selectedLeaders.includes(name)} readOnly /> {name}
                         </div>
                       ))}
@@ -637,12 +739,23 @@ export default function TeamMemberAssignments() {
                     </button>
                   </div>
                   {showRequestorMenu && (
-                    <div className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestors.length === 0 ? "bg-gray-100 font-semibold" : ""}`} onClick={() => setSelectedRequestors([])}>
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestors.length === 0 ? "bg-gray-100 font-semibold" : ""}`}
+                        onClick={() => setSelectedRequestors([])}
+                      >
                         <input type="checkbox" checked={selectedRequestors.length === 0} readOnly /> All
                       </div>
                       {availableRequestors.map((name) => (
-                        <div key={name} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestors.includes(name) ? "bg-gray-100 font-semibold" : ""}`} onClick={() => toggleList(setSelectedRequestors, name)}>
+                        <div
+                          key={name}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestors.includes(name) ? "bg-gray-100 font-semibold" : ""}`}
+                          onClick={() => toggleList(setSelectedRequestors, name)}
+                        >
                           <input type="checkbox" checked={selectedRequestors.includes(name)} readOnly /> {name}
                         </div>
                       ))}
@@ -674,12 +787,23 @@ export default function TeamMemberAssignments() {
                     </button>
                   </div>
                   {showVPMenu && (
-                    <div className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestorVPs.length === 0 ? "bg-gray-100 font-semibold" : ""}`} onClick={() => setSelectedRequestorVPs([])}>
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestorVPs.length === 0 ? "bg-gray-100 font-semibold" : ""}`}
+                        onClick={() => setSelectedRequestorVPs([])}
+                      >
                         <input type="checkbox" checked={selectedRequestorVPs.length === 0} readOnly /> All
                       </div>
                       {availableRequestorVPs.map((name) => (
-                        <div key={name} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestorVPs.includes(name) ? "bg-gray-100 font-semibold" : ""}`} onClick={() => toggleList(setSelectedRequestorVPs, name)}>
+                        <div
+                          key={name}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestorVPs.includes(name) ? "bg-gray-100 font-semibold" : ""}`}
+                          onClick={() => toggleList(setSelectedRequestorVPs, name)}
+                        >
                           <input type="checkbox" checked={selectedRequestorVPs.includes(name)} readOnly /> {name}
                         </div>
                       ))}
@@ -711,12 +835,23 @@ export default function TeamMemberAssignments() {
                     </button>
                   </div>
                   {showReqDeptMenu && (
-                    <div className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                      <div className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestingDepts.length === 0 ? "bg-gray-100 font-semibold" : ""}`} onClick={() => setSelectedRequestingDepts([])}>
+                    <div
+                      className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
+                      style={{ top: menuPosition.y, left: menuPosition.x }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestingDepts.length === 0 ? "bg-gray-100 font-semibold" : ""}`}
+                        onClick={() => setSelectedRequestingDepts([])}
+                      >
                         <input type="checkbox" checked={selectedRequestingDepts.length === 0} readOnly /> All
                       </div>
                       {availableRequestingDepts.map((name) => (
-                        <div key={name} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestingDepts.includes(name) ? "bg-gray-100 font-semibold" : ""}`} onClick={() => toggleList(setSelectedRequestingDepts, name)}>
+                        <div
+                          key={name}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedRequestingDepts.includes(name) ? "bg-gray-100 font-semibold" : ""}`}
+                          onClick={() => toggleList(setSelectedRequestingDepts, name)}
+                        >
                           <input type="checkbox" checked={selectedRequestingDepts.includes(name)} readOnly /> {name}
                         </div>
                       ))}
