@@ -227,7 +227,13 @@ export default function LoginPage() {
               id="username-input"
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                // Strip anything that isn't a letter or number — prevents
+                // code injection characters (quotes, brackets, semicolons etc.)
+                // from being typed into the field entirely
+                const sanitized = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
+                setUsername(sanitized);
+              }}
               className="
                 w-full px-5 py-3 border text-gray-700
                 border-gray-300 rounded-lg text-base
@@ -250,7 +256,12 @@ export default function LoginPage() {
               id="password-input"
               type="password" // Masks input — prevents shoulder surfing
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                // Strip anything that isn't a letter or number — prevents
+                // code injection characters from being entered into the field
+                const sanitized = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
+                setPassword(sanitized);
+              }}
               className="
                 w-full px-5 py-3 border text-gray-700
                 border-gray-300 rounded-lg text-base
