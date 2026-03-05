@@ -312,7 +312,7 @@ return (
           onClick={() => router.push('/resource-manager/dashboard')}
           className="
             px-4 py-2 rounded text-sm
-            bg-gray-200 text-gray-700 border
+            bg-[#017ACB] text-white border
             hover:bg-[#017ACB]/20 transition-colors
             shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
             active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
@@ -410,7 +410,7 @@ return (
           onClick={handleAddInitiative}
           className="
             px-4 py-2 rounded text-sm
-            bg-gray-200 text-gray-700 border
+            bg-[#017ACB] text-white border
             hover:bg-[#017ACB]/20 transition-colors
             shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
             active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
