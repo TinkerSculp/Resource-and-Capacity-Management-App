@@ -76,7 +76,7 @@ import capacitySummaryRoutes from "./routes/capacitySummaryRoutes.js"; // GET /a
 import capacityMonthsRoutes from "./routes/capacityMonthsRoutes.js";   // GET /api/capacity-summary/months
 import initiativeRoutes from "./routes/initiativeRoutes.js";           // GET/POST /api/initiatives
 import assignmentRoutes from "./routes/assignmentRoutes.js";           // GET/POST /api/assignments-allocations
-// import reportsRoutes from "./routes/reportsRoutes.js";              // Planned: /api/reports
+import reportsRoutes from "./routes/reportsRoutes.js";              // Planned: /api/reports
 
 /* -----------------------------------------------------------------------------
    APP INITIALISATION
@@ -165,7 +165,7 @@ app.use("/api/capacity-summary", capacitySummaryRoutes);           // Capacity s
 app.use("/api/capacity-summary/months", capacityMonthsRoutes);     // Capacity month selectors
 app.use("/api/initiatives", initiativeRoutes);                     // Initiative management
 app.use("/api/assignments-allocations", assignmentRoutes);         // Assignment + allocation data
-// app.use("/api/reports", reportsRoutes);                         // Planned: reporting module
+app.use("/api/reports", reportsRoutes);                         // Planned: reporting module
 
 /* =============================================================================
    404 HANDLER
