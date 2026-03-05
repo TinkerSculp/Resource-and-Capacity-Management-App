@@ -257,9 +257,11 @@ export default function LoginPage() {
               type="password" // Masks input — prevents shoulder surfing
               value={password}
               onChange={(e) => {
-                // Strip anything that isn't a letter or number — prevents
-                // code injection characters from being entered into the field
-                const sanitized = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
+                // Block characters used in code/script injection attacks:
+                // < > ' " ` ; — covers HTML injection, SQL injection, and JS injection.
+                // All other special characters (!@#$%^&*-_+=) are allowed
+                // so legitimate complex passwords are not restricted.
+                const sanitized = e.target.value.replace(/[<>'"`;]/g, '');
                 setPassword(sanitized);
               }}
               className="
