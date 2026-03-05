@@ -185,8 +185,8 @@ export default function Header() {
               wrap) rather than being hidden or truncated on narrow screens. */}
           <div className="text-center">
             <h1
-              className="font-bold text-white leading-snug text-[clamp(0.75rem,1.8vw,1.3rem)]"
-              style={{ ...styles.outfitFont, maxWidth: '28rem', textAlign: 'center' }}
+              className="font-bold text-white leading-snug text-[clamp(0.9rem,1.6vw,1.6rem)]"
+              style={{ ...styles.outfitFont, maxWidth: '38rem', textAlign: 'center' }}
             >
               Resource &amp; Capacity Management Planner
             </h1>
