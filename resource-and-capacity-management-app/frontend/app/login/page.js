@@ -86,8 +86,9 @@ export default function LoginPage() {
        is never written to localStorage under any circumstance.
      • acc_type_id comes from the validated server response — the client never
        self-assigns a role, it only routes based on what the backend returned.
-     • Error message chain: backend message → thrown error message → generic
-       fallback. Internal stack traces and server details are never shown.
+     • The backend returns distinct error codes (username_not_found, wrong_password)
+       so the frontend can show a targeted message to the user. This is an accepted
+       usability trade-off for this internal application — see authController.js.
   --------------------------------------------------------------------------- */
   const handleLogin = async (e) => {
     e.preventDefault(); // Prevent GET submission — keeps credentials out of URL
@@ -131,11 +132,15 @@ export default function LoginPage() {
     } catch (error) {
       console.error('Login error:', error);
 
-      // Error message chain: backend message → thrown message → generic fallback
-      // Internal server details are never shown to the user
+      // Read the error code from the backend response to show a targeted message.
+      // Falls back to the backend message, then a generic fallback if neither exists.
+      const errorCode = error?.response?.data?.error;
+
       const message =
-        error?.response?.data?.error ||
-        error?.message ||
+        errorCode === 'username_not_found' ? 'Username not found. Please check and try again.' :
+        errorCode === 'wrong_password'     ? 'Incorrect password. Please try again.' :
+        error?.response?.data?.message    ||
+        error?.message                    ||
         'Login failed. Please try again.';
 
       alert(message);
@@ -273,7 +278,7 @@ export default function LoginPage() {
               type="submit" // Explicit type — prevents ambiguous button behaviour
               className="
                 w-full sm:w-2/3 sm:mx-auto
-                px-5 py-3 sm:py-2.5 border border-black
+                px-5 py-3 sm:py-3 border border-black
                 bg-[#017ACB] text-white
                 rounded-lg text-sm sm:text-lg
                 transition-all
