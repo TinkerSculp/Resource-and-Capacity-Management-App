@@ -73,6 +73,11 @@ export default function TeamMemberAssignments() {
   const [showVPMenu, setShowVPMenu] = useState(false);
   const [showReqDeptMenu, setShowReqDeptMenu] = useState(false);
 
+  // month filter state (first-column month picker)
+  const [availablePastMonths, setAvailablePastMonths] = useState([]);
+  const [selectedPastMonths, setSelectedPastMonths] = useState([]);
+  const [showMonthFilterMenu, setShowMonthFilterMenu] = useState(false);
+
   function toggleSelection(name) {
     setSelectedResources((prev) => {
       if (!name) return prev;
@@ -86,6 +91,15 @@ export default function TeamMemberAssignments() {
       if (!name) return prev;
       if (prev.includes(name)) return prev.filter((n) => n !== name);
       return [...prev, name];
+    });
+  }
+
+  // single-select month chooser for the first-month filter
+  function selectPastMonth(mm) {
+    setSelectedPastMonths((prev) => {
+      // toggle: clicking the same month clears selection; otherwise select only that month
+      if (prev.includes(mm)) return [];
+      return [mm];
     });
   }
 
@@ -293,6 +307,19 @@ export default function TeamMemberAssignments() {
     }
   }, [activeTab, allRows, myRows]);
 
+  // populate the 12 past months (choices for the first-month filter)
+  useEffect(() => {
+    const out = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      out.push(`${y}${m}`);
+    }
+    setAvailablePastMonths(out);
+  }, [months]);
+
   useEffect(() => {
     const closeAll = () => {
       setShowDeptMenu(false);
@@ -304,6 +331,7 @@ export default function TeamMemberAssignments() {
       setShowRequestorMenu(false);
       setShowVPMenu(false);
       setShowReqDeptMenu(false);
+      setShowMonthFilterMenu(false);
     };
     window.addEventListener("click", closeAll);
     return () => window.removeEventListener("click", closeAll);
@@ -323,13 +351,27 @@ export default function TeamMemberAssignments() {
   // SIMPLE 12-MONTH ROLLING WINDOW - start from current month and show 12 months
   const displayMonths = (() => {
     const out = [];
-    const now = new Date();
+    let startYear;
+    let startMonthIndex;
+
+    if (selectedPastMonths && selectedPastMonths.length === 1) {
+      // selectedPastMonths holds YYYYMM string
+      const sel = selectedPastMonths[0];
+      startYear = parseInt(sel.slice(0, 4), 10);
+      startMonthIndex = parseInt(sel.slice(4, 6), 10) - 1; // 0-based
+    } else {
+      const now = new Date();
+      startYear = now.getFullYear();
+      startMonthIndex = now.getMonth();
+    }
+
     for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const d = new Date(startYear, startMonthIndex + i, 1);
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       out.push(`${y}${m}`);
     }
+
     return out;
   })();
 
@@ -859,10 +901,49 @@ export default function TeamMemberAssignments() {
                   )}
                 </th>
 
-                {displayMonths.map((m) => (
-                  <th key={m} className="px-4 py-2 border text-sm whitespace-nowrap">
-                    {formatMonth(m)}
-                  </th>
+                {displayMonths.map((m, idx) => (
+                  idx === 0 ? (
+                    <th key={m} className="px-4 py-2 border text-sm whitespace-nowrap" style={styles.outfitFont}>
+                      <div className="flex justify-between items-center">
+                        <span>{formatMonth(m)}</span>
+                        <button
+                          data-filter-button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuPosition({ x: rect.left, y: rect.bottom });
+                            setShowMonthFilterMenu((p) => !p);
+                            // close other menus
+                            setShowResourceMenu(false);
+                            setShowDeptMenu(false);
+                            setShowReportsToMenu(false);
+                            setShowActivityMenu(false);
+                            setShowCategoryMenu(false);
+                            setShowLeaderMenu(false);
+                            setShowRequestorMenu(false);
+                            setShowVPMenu(false);
+                            setShowReqDeptMenu(false);
+                          }}
+                          className={dropdownBtnClass}
+                        >
+                          ▼
+                        </button>
+                      </div>
+                      {showMonthFilterMenu && (
+                        <div data-filter-menu className="fixed bg-white text-black shadow-lg rounded w-56 z-50" style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                          {availablePastMonths.map((mm) => (
+                            <div key={mm} className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedPastMonths.includes(mm) ? 'bg-gray-100 font-semibold' : ''}`} onClick={() => selectPastMonth(mm)}>
+                              <input type="checkbox" checked={selectedPastMonths.includes(mm)} readOnly /> {formatMonth(mm)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </th>
+                  ) : (
+                    <th key={m} className="px-4 py-2 border text-sm whitespace-nowrap">
+                      {formatMonth(m)}
+                    </th>
+                  )
                 ))}
               </tr>
             </thead>
