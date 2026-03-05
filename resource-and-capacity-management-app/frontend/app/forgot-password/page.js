@@ -66,9 +66,12 @@ export default function ForgotPasswordPage() {
      username:  Controlled input value — drives the POST body on submit.
      submitted: Flips to true on successful API response, triggering the
                 success state render.
+     errorMsg:  Inline error message shown beneath the username input when
+                the backend returns a failure — avoids using alert().
   --------------------------------------------------------------------------- */
   const [username, setUsername]   = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [errorMsg, setErrorMsg]   = useState(''); // Inline error — cleared on each new submit
 
   const router = useRouter();
 
@@ -92,14 +95,15 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault(); // Prevent browser form submission — keeps username out of URL
 
+    setErrorMsg(''); // Clear any previous error before each new attempt
+
     try {
       // POST body — username never sent as a URL parameter
       const res = await api.post('/auth/forgot-password', { username });
 
       if (!res?.data?.success) {
-        // ⚠️  TODO: Remove this alert once backend returns generic success —
-        // showing "not found" reveals whether the account exists (enumeration risk)
-        alert('Username not found. Please retype the correct username.');
+        // Show inline error beneath the input — no alert() needed
+        setErrorMsg('Username not found. Please check and try again.');
         return;
       }
 
@@ -107,9 +111,9 @@ export default function ForgotPasswordPage() {
       setSubmitted(true);
 
     } catch (error) {
-      // Log full error server-side — only a generic retry message shown to user
       console.error('Password reset error:', error);
-      alert('Failed to send reset instructions. Please try again.');
+      // Show inline error — never expose internal error details to the user
+      setErrorMsg('Failed to send reset instructions. Please try again.');
     }
   };
 
@@ -209,16 +213,30 @@ export default function ForgotPasswordPage() {
                   id="username-input"
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="
-                    w-full px-5 py-3 border border-gray-300 rounded-lg
+                  onChange={(e) => {
+                    // Strip anything that isn't a letter or number — prevents
+                    // code injection characters from being typed into the field
+                    const sanitized = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
+                    setUsername(sanitized);
+                    if (errorMsg) setErrorMsg(''); // Clear error as user starts retyping
+                  }}
+                  className={`
+                    w-full px-5 py-3 rounded-lg
                     text-gray-700 text-base
                     hover:bg-[#017ACB]/20 transition
-                  "
+                    border ${errorMsg ? 'border-red-500' : 'border-gray-300'}
+                  `}
                   placeholder="Enter your username"
                   autoComplete="username"
                   required // Client-side UX guard — backend validates authoritatively
                 />
+
+                {/* Inline error — shown beneath input when username is not found */}
+                {errorMsg && (
+                  <p className="mt-2 text-sm text-red-600" role="alert">
+                    {errorMsg}
+                  </p>
+                )}
               </div>
 
               {/* ACTION BUTTONS — flex-1 gives each button equal width */}
