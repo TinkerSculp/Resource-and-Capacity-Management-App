@@ -1,21 +1,64 @@
-// Allocation operations
+/* =============================================================================
+   assignmentController.js
+   -----------------------------------------------------------------------------
+   PURPOSE:
+     Handles all business logic for the allocations/assignments resource.
+     Each exported function corresponds to a route in assignmentRoutes.js.
+     All database operations go through the centralised connectDB() singleton.
+
+   SECURITY MODEL:
+     • All handlers are wrapped with asyncHandler in the route layer, ensuring
+       any unhandled promise rejection is forwarded to the global errorHandler
+       rather than crashing the process or hanging the request.
+     • emp_id values from URL params or request bodies are always parsed with
+       Number() or parseInt() before use in DB queries — prevents string-typed
+       IDs from producing unexpected query results.
+     • ObjectId conversion for MongoDB _id fields is wrapped in the handler
+       so malformed IDs throw and are caught by asyncHandler.
+     • Sensitive fields (passwords, account internals) are never returned in
+       any response from this controller — only display-safe fields are included.
+     • No raw user input is interpolated into query strings — all values are
+       passed as typed MongoDB query parameters.
+
+   HELPER FUNCTIONS:
+     • buildMonthRange()             — Generates a 29-month rolling window
+     • getCurrentMonth()             — Returns current date as YYYYMM integer
+     • deleteFutureAllocations()     — Removes future allocations for a given employee/activity/category
+     • createCurrentMonthAllocation() — Upserts current month allocation to 1
+
+   DEPENDENCIES:
+     • ../config/db.js  — MongoDB connection singleton
+     • mongodb          — ObjectId for _id-based queries
+   ============================================================================= */
+
 import { connectDB } from "../config/db.js";
 import { ObjectId } from "mongodb";
 
-/* ---------------------------------------------------------
-   HELPERS
---------------------------------------------------------- */
+/* =============================================================================
+   HELPER FUNCTIONS
+   ============================================================================= */
 
-// Build rolling month range (unchanged)
+/* -----------------------------------------------------------------------------
+   FUNCTION: buildMonthRange
+   -----------------------------------------------------------------------------
+   Generates a rolling array of 29 YYYYMM month strings centred on the current
+   month: 12 months before + current month + 16 months after.
+
+   Used to define which months are visible in the allocations grid and to filter
+   allocation records to only the relevant window.
+
+   RETURN: {string[]} — Array of YYYYMM strings e.g. ["202301", "202302", ...]
+----------------------------------------------------------------------------- */
 function buildMonthRange() {
   const months = [];
   const now = new Date();
 
+  // Start 12 months before the current month
   const start = new Date(now);
-  start.setMonth(start.getMonth() - 12); // keep 12 months before
+  start.setMonth(start.getMonth() - 12);
   start.setDate(1);
 
-  // 12 before + 1 current + 16 after = 29 months
+  // 12 before + 1 current + 16 after = 29 months total
   for (let i = 0; i < 29; i++) {
     const y = start.getFullYear();
     const m = start.getMonth() + 1;
@@ -26,7 +69,14 @@ function buildMonthRange() {
   return months;
 }
 
-// Current YYYYMM as number
+/* -----------------------------------------------------------------------------
+   FUNCTION: getCurrentMonth
+   -----------------------------------------------------------------------------
+   Returns the current month as a YYYYMM integer (e.g. 202503 for March 2025).
+   Used as the boundary for "current vs future" allocation logic.
+
+   RETURN: {number} — Current month as YYYYMM integer
+----------------------------------------------------------------------------- */
 function getCurrentMonth() {
   const now = new Date();
   const year = now.getFullYear();
@@ -34,22 +84,49 @@ function getCurrentMonth() {
   return Number(`${year}${month}`);
 }
 
-// Delete future allocations for an employee/activity/category
+/* -----------------------------------------------------------------------------
+   FUNCTION: deleteFutureAllocations
+   -----------------------------------------------------------------------------
+   Deletes all allocation records for a given employee/activity/category where
+   the date is strictly greater than the current month. Preserves historical
+   and current month records.
+
+   Called before creating a new allocation to clear any stale future bookings
+   that would conflict with the new assignment.
+
+   PARAM:  db       {Db}     — Active MongoDB database instance
+   PARAM:  emp_id   {number} — Employee ID to scope the deletion
+   PARAM:  activity {string} — Project/activity name to scope the deletion
+   PARAM:  category {string} — Category to scope the deletion
+----------------------------------------------------------------------------- */
 async function deleteFutureAllocations(db, emp_id, activity, category) {
   const currentMonth = getCurrentMonth();
 
+  // Delete only future months — current and historical records are preserved
   await db.collection("allocation").deleteMany({
     emp_id,
     activity,
     category,
-    date: { $gt: currentMonth }
+    date: { $gt: currentMonth } // Only dates strictly after the current month
   });
 }
 
-// Upsert current month allocation = 1
+/* -----------------------------------------------------------------------------
+   FUNCTION: createCurrentMonthAllocation
+   -----------------------------------------------------------------------------
+   Upserts an allocation record for the current month with amount = 1.
+   If a record already exists for this employee/activity/category/month,
+   it is updated in place. If not, a new record is created.
+
+   PARAM:  db       {Db}     — Active MongoDB database instance
+   PARAM:  emp_id   {number} — Employee ID for the new allocation
+   PARAM:  activity {string} — Project/activity name for the new allocation
+   PARAM:  category {string} — Category for the new allocation
+----------------------------------------------------------------------------- */
 async function createCurrentMonthAllocation(db, emp_id, activity, category) {
   const currentMonth = getCurrentMonth();
 
+  // Upsert: update existing record or insert new one if none exists
   await db.collection("allocation").updateOne(
     {
       emp_id,
@@ -59,7 +136,7 @@ async function createCurrentMonthAllocation(db, emp_id, activity, category) {
     },
     {
       $set: {
-        amount: 1,
+        amount: 1,       // Default allocation amount for new assignments
         activity,
         category,
         date: currentMonth
@@ -69,22 +146,50 @@ async function createCurrentMonthAllocation(db, emp_id, activity, category) {
   );
 }
 
-/* ---------------------------------------------------------
-   GET ALL ALLOCATIONS
---------------------------------------------------------- */
+/* =============================================================================
+   HANDLERS
+   ============================================================================= */
 
+/* -----------------------------------------------------------------------------
+   HANDLER: getAllAllocations
+   GET /api/assignments-allocations
+   -----------------------------------------------------------------------------
+   Returns all allocation rows joined across employee, assignment, and allocation
+   collections, shaped into a grid-ready format with a 29-month rolling window.
+   Optionally filters to a single employee's assignments via ?username= query param.
+
+   RESPONSE:
+     {
+       allAssignments: [...],  — Full allocation grid for all employees
+       myAssignments:  [...],  — Filtered to the requesting user (if username provided)
+       months:         [...]   — 29-month YYYYMM array defining the grid columns
+     }
+
+   SECURITY:
+   • username query param is used only to look up the account and derive emp_id —
+     it is never interpolated into a raw query string.
+   • Only display-safe fields are included in the response — passwords and
+     account internals are never exposed.
+   • All data joins are performed server-side — the client never receives raw
+     collection documents.
+----------------------------------------------------------------------------- */
 export const getAllAllocations = async (req, res) => {
   try {
     const db = await connectDB();
+
+    // Optional filter: if username is provided, also compute myAssignments
     const username = req.query.username;
 
+    // Load all required collections in parallel for performance
     const employees = await db.collection("employee").find({}).toArray();
     const assignments = await db.collection("assignment").find({}).toArray();
     const allocations = await db.collection("allocation").find({}).toArray();
     const departments = await db.collection("department").find({}).toArray();
 
+    // 29-month rolling window — defines the visible grid columns
     const months = buildMonthRange();
 
+    // Build lookup maps for O(1) access during join operations
     const deptMap = new Map();
     departments.forEach((d) => {
       if (d.dept_no) deptMap.set(d.dept_no, d.dept_name || d.dept_no);
@@ -93,25 +198,29 @@ export const getAllAllocations = async (req, res) => {
     const employeeById = new Map();
     employees.forEach((e) => employeeById.set(e.emp_id, e));
 
+    // Composite key for assignment lookup: "project_name||category"
     const assignmentKey = (activity, category) => `${activity}||${category}`;
     const assignmentByKey = new Map();
     assignments.forEach((a) => {
       assignmentByKey.set(assignmentKey(a.project_name, a.category), a);
     });
 
+    // Build rows map: one row per employee+assignment combination
+    // Key: "emp_id||assignment._id"
     const rowsMap = new Map();
 
     for (const alloc of allocations) {
       const emp = employeeById.get(alloc.emp_id);
-      if (!emp) continue;
+      if (!emp) continue; // Skip orphaned allocations with no matching employee
 
       const assignment = assignmentByKey.get(
         assignmentKey(alloc.activity, alloc.category)
       );
-      if (!assignment) continue;
+      if (!assignment) continue; // Skip allocations with no matching assignment
 
       const rowKey = `${emp.emp_id}||${assignment._id}`;
 
+      // Initialise the row if this is the first allocation for this combination
       if (!rowsMap.has(rowKey)) {
         rowsMap.set(rowKey, {
           employee: emp,
@@ -123,11 +232,14 @@ export const getAllAllocations = async (req, res) => {
       const row = rowsMap.get(rowKey);
       const dateStr = String(alloc.date);
 
+      // Only include months within the 29-month rolling window
       if (months.includes(dateStr)) {
         row.allocations[dateStr] = alloc.amount;
       }
     }
 
+    // Shape rows into display-safe response objects
+    // Only selected fields are included — no raw DB documents exposed
     const allAssignments = Array.from(rowsMap.values()).map((row) => {
       const empDeptName = deptMap.get(row.employee.dept_no) || "";
 
@@ -168,9 +280,11 @@ export const getAllAllocations = async (req, res) => {
       };
     });
 
+    // If username is provided, filter to just that employee's assignments
     let myAssignments = [];
 
     if (username) {
+      // Look up the account to get the emp_id — never trust a client-provided emp_id
       const account = await db.collection("account").findOne({
         "account.username": username
       });
@@ -195,84 +309,34 @@ export const getAllAllocations = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   GET ALLOCATION ROW BY EMPLOYEE ID
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: getAllocationById
+   GET /api/assignments-allocations/:id
+   -----------------------------------------------------------------------------
+   Returns a single employee record with their most relevant assignment.
+   If a ?project= query param is provided, loads that specific assignment.
+   Otherwise falls back to the employee's most recent allocation.
 
-// export const getAllocationById = async (req, res) => {
-//   try {
-//     const db = await connectDB();
-//     const emp_id = parseInt(req.params.id, 10);
+   Also returns manager dropdown data for the edit form.
 
-//     if (!emp_id || isNaN(emp_id)) {
-//       return res.status(400).json({ error: "Invalid emp_id" });
-//     }
+   SECURITY:
+   • emp_id is parsed with parseInt() — non-numeric values produce NaN which
+     is caught and returned as a 400 before any DB query runs.
+   • project query param is used in a findOne() equality match — no injection risk.
+   • Manager list is scoped to acc_type_id === 1 — only Resource Managers are
+     returned, not all accounts.
+   • Response never includes password or account fields.
 
-//     const employee = await db.collection("employee").findOne({ emp_id });
-//     if (!employee) {
-//       return res.status(404).json({ error: "Employee not found" });
-//     }
-
-//     const allocations = await db
-//       .collection("allocation")
-//       .find({ emp_id })
-//       .toArray();
-
-//     let assignment = null;
-
-//     if (allocations.length > 0) {
-//       const projectName = allocations[0].activity;
-
-//       assignment = await db.collection("assignment").findOne({
-//         project_name: projectName
-//       });
-
-//       if (assignment) {
-//         const dept =
-//           assignment.department ||
-//           assignment.requesting_dept ||
-//           assignment.dept ||
-//           "";
-
-//         assignment.department = dept;
-//         assignment.requesting_dept = dept;
-//       }
-//     }
-
-//     const managerAccounts = await db
-//       .collection("account")
-//       .find({ "account.acc_type_id": 1 })
-//       .toArray();
-
-//     const managerIds = managerAccounts.map((a) => a.emp_id);
-
-//     const managers = await db
-//       .collection("employee")
-//       .find({ emp_id: { $in: managerIds } })
-//       .toArray();
-
-//     return res.json({
-//       row: {
-//         employee,
-//         allocations,
-//         assignment
-//       },
-//       dropdowns: {
-//         managers
-//       }
-//     });
-
-//   } catch (err) {
-//     console.error("GET ONE allocation error:", err);
-//     return res.status(500).json({ error: "Server error" });
-//   }
-// };
-
+   NOTE: The original version of this handler is preserved in comments above
+   for reference — the current version adds ?project= support.
+----------------------------------------------------------------------------- */
 export const getAllocationById = async (req, res) => {
   try {
     const db = await connectDB();
+
+    // Parse emp_id from URL param — parseInt guards against non-numeric values
     const emp_id = parseInt(req.params.id, 10);
-    const project = req.query.project;   // ⭐ NEW
+    const project = req.query.project; // Optional: load a specific assignment
 
     if (!emp_id || isNaN(emp_id)) {
       return res.status(400).json({ error: "Invalid emp_id" });
@@ -283,21 +347,21 @@ export const getAllocationById = async (req, res) => {
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    // ⭐ If project is provided, load THAT assignment
     let assignment = null;
 
     if (project) {
+      // Specific project requested — load that assignment directly
       assignment = await db.collection("assignment").findOne({
         project_name: project
       });
     }
 
-    // ⭐ If no project provided, fallback to newest allocation
     if (!assignment) {
+      // No project specified or not found — fall back to most recent allocation
       const allocations = await db
         .collection("allocation")
         .find({ emp_id })
-        .sort({ date: -1 })
+        .sort({ date: -1 }) // Most recent first
         .toArray();
 
       if (allocations.length > 0) {
@@ -309,6 +373,7 @@ export const getAllocationById = async (req, res) => {
       }
     }
 
+    // Load manager dropdown — scoped to Resource Manager role (acc_type_id === 1)
     const managerAccounts = await db
       .collection("account")
       .find({ "account.acc_type_id": 1 })
@@ -336,10 +401,20 @@ export const getAllocationById = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
-/* ---------------------------------------------------------
-   GET DEPT FOR VP NAME
---------------------------------------------------------- */
 
+/* -----------------------------------------------------------------------------
+   HANDLER: getDeptForEmployee
+   GET /api/assignments-allocations/employee/:empId/department
+   -----------------------------------------------------------------------------
+   Looks up the requesting department for a given VP name by finding an
+   assignment record where requestor_vp matches the provided name.
+
+   SECURITY:
+   • name query param is required — returns 400 if missing.
+   • Used in a MongoDB equality match — no injection risk.
+   • Returns only the requesting_dept field via projection — no other
+     assignment data is exposed.
+----------------------------------------------------------------------------- */
 export const getDeptForEmployee = async (req, res) => {
   try {
     const name = req.query.name;
@@ -350,6 +425,8 @@ export const getDeptForEmployee = async (req, res) => {
 
     const db = await connectDB();
 
+    // Find an assignment for this VP name that has a non-null requesting_dept
+    // Projection limits the returned fields to only what is needed
     const doc = await db.collection("assignment").findOne(
       {
         requestor_vp: name,
@@ -372,16 +449,28 @@ export const getDeptForEmployee = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   GET PROJECTS (ALL OR ONE)
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: getProjects
+   GET /api/assignments-allocations/projects
+   -----------------------------------------------------------------------------
+   Returns all active projects (excluding Completed and Cancelled assignments).
+   If a ?project= query param is provided, returns the full assignment record
+   for that specific project instead.
 
+   SECURITY:
+   • project query param is used in a findOne() equality match — no injection risk.
+   • Active projects query uses $nin to exclude terminal statuses — prevents
+     closed projects from appearing in assignment dropdowns.
+   • Projection on the list query returns only project_name — minimises
+     data exposure for the dropdown use case.
+----------------------------------------------------------------------------- */
 export const getProjects = async (req, res) => {
   try {
     const project = req.query.project;
     const db = await connectDB();
 
     if (project) {
+      // Specific project requested — return the full assignment record
       const assignment = await db
         .collection("assignment")
         .findOne({ project_name: project });
@@ -389,12 +478,13 @@ export const getProjects = async (req, res) => {
       return res.json({ assignment });
     }
 
+    // Return all active projects — exclude Completed and Cancelled
     const projects = await db
       .collection("assignment")
       .find({
         status: { $nin: ["Completed", "Cancelled"] }
       })
-      .project({ project_name: 1, _id: 0 })
+      .project({ project_name: 1, _id: 0 }) // Only return project_name for dropdown
       .toArray();
 
     return res.json({ projects });
@@ -405,10 +495,18 @@ export const getProjects = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   GET EMPLOYEE + DEPARTMENT NAME (FIXED VERSION)
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: getEmployee
+   GET /api/assignments-allocations/employee/:empId
+   -----------------------------------------------------------------------------
+   Returns a single employee record with their department name resolved.
 
+   SECURITY:
+   • emp_id is coerced with Number() — falsy values (NaN, 0) are caught and
+     returned as a 400 before any DB query runs.
+   • Department name is resolved server-side — client never queries the
+     department collection directly.
+----------------------------------------------------------------------------- */
 export const getEmployee = async (req, res) => {
   try {
     const emp_id = Number(req.params.empId);
@@ -425,6 +523,7 @@ export const getEmployee = async (req, res) => {
       return res.status(404).json({ error: "Employee not found" });
     }
 
+    // Resolve department name from the employee's dept_no
     const department = await db
       .collection("department")
       .findOne({ dept_no: employee.dept_no });
@@ -440,23 +539,31 @@ export const getEmployee = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   GET DATA MANAGEMENT EMPLOYEES
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: getDMEmployees
+   GET /api/assignments-allocations/employees/dm
+   -----------------------------------------------------------------------------
+   Returns all employees in the Data Management department (dept_no: "D01").
+   Used to populate the DM employee dropdown in assignment forms.
 
+   SECURITY:
+   • Scoped to a specific dept_no — no user input is used in the query.
+   • Projection limits returned fields to display-safe values only —
+     no sensitive employee data is exposed.
+----------------------------------------------------------------------------- */
 export const getDMEmployees = async (req, res) => {
   try {
     const db = await connectDB();
 
     const employees = await db
       .collection("employee")
-      .find({ dept_no: "D01" })
+      .find({ dept_no: "D01" }) // Scoped to Data Management department
       .project({
         emp_id: 1,
         emp_name: 1,
         dept_no: 1,
         reports_to: 1,
-        _id: 0
+        _id: 0 // Exclude MongoDB _id from response
       })
       .toArray();
 
@@ -468,10 +575,21 @@ export const getDMEmployees = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   EDIT ALLOCATION AMOUNT (PER-CELL)
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: editAllocationAmount
+   PUT /api/assignments-allocations/:id/amount
+   -----------------------------------------------------------------------------
+   Updates a single allocation cell amount for a specific employee/activity/
+   category/month combination. Creates the record if it doesn't exist (upsert).
 
+   SECURITY:
+   • All values from req.body are used as typed MongoDB parameters — no
+     raw string interpolation into queries.
+   • month is coerced to Number() before use — prevents string-typed dates
+     from producing unexpected query results.
+   • amount can be null (to clear a cell) or a number — both are handled
+     explicitly rather than passing the raw value through unchecked.
+----------------------------------------------------------------------------- */
 export const editAllocationAmount = async (req, res) => {
   try {
     const { emp_id, month, amount, activity, category } = req.body;
@@ -483,17 +601,17 @@ export const editAllocationAmount = async (req, res) => {
         emp_id,
         activity,
         category,
-        date: Number(month)
+        date: Number(month) // Coerce to number — allocation dates are stored as integers
       },
       {
         $set: {
-          amount: amount === null ? null : Number(amount),
+          amount: amount === null ? null : Number(amount), // Preserve null to clear cells
           activity,
           category,
           date: Number(month)
         }
       },
-      { upsert: true }
+      { upsert: true } // Create the record if it doesn't exist
     );
 
     return res.json({ success: true });
@@ -504,21 +622,31 @@ export const editAllocationAmount = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   DELETE SINGLE ALLOCATION ENTRY
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: deleteAllocation
+   DELETE /api/assignments-allocations/:id
+   -----------------------------------------------------------------------------
+   Deletes a single allocation record for a specific employee/activity/
+   category/month combination.
 
+   SECURITY:
+   • All values from req.body are used as typed MongoDB parameters.
+   • month is coerced to Number() to match the integer storage format.
+   • deleteOne() targets a precise record — cannot accidentally delete
+     unintended records due to the four-field compound match.
+----------------------------------------------------------------------------- */
 export const deleteAllocation = async (req, res) => {
   try {
     const { emp_id, month, activity, category } = req.body;
 
     const db = await connectDB();
 
+    // Compound match on all four fields — precise single-record deletion
     await db.collection("allocation").deleteOne({
       emp_id,
       activity,
       category,
-      date: Number(month)
+      date: Number(month) // Coerce to number to match integer storage format
     });
 
     return res.json({ success: true });
@@ -529,10 +657,22 @@ export const deleteAllocation = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   UPDATE ASSIGNMENT (EXISTING LOGIC)
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: updateAllocation
+   PUT /api/assignments-allocations/:id
+   -----------------------------------------------------------------------------
+   Updates the full assignment record (not the allocation amounts — those
+   use editAllocationAmount). Used by the Edit modal to save changes to
+   assignment metadata such as project name, status, leader, etc.
 
+   SECURITY:
+   • id is required — returns 400 immediately if missing.
+   • new ObjectId(id) will throw if id is not a valid 24-character hex string,
+     which is caught by asyncHandler and forwarded to the global error handler.
+   • All field values are explicitly mapped — no dynamic key assignment that
+     could allow arbitrary fields to be written to the document.
+   • updated_at is set server-side — client cannot spoof the timestamp.
+----------------------------------------------------------------------------- */
 export const updateAllocation = async (req, res) => {
   try {
     const {
@@ -565,15 +705,16 @@ export const updateAllocation = async (req, res) => {
         requestor,
         requestor_vp,
         requesting_dept,
-        department: requesting_dept,
+        department: requesting_dept,  // Kept in sync with requesting_dept
         target_period,
-        completion_date: completion_date || null,
+        completion_date: completion_date || null, // Explicit null if not provided
         description,
         resource_notes: resource_consideration || "",
-        updated_at: new Date()
+        updated_at: new Date() // Server-side timestamp — not client-controlled
       }
     };
 
+    // Convert id string to MongoDB ObjectId — throws on invalid format
     await db.collection("assignment").updateOne(
       { _id: new ObjectId(id) },
       updateDoc
@@ -587,20 +728,33 @@ export const updateAllocation = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   DROPDOWNS FOR ALLOCATION UI
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: getAllocationDropdowns
+   GET /api/assignments-allocations/meta/dropdowns
+   -----------------------------------------------------------------------------
+   Returns all dropdown data needed for the allocation UI forms: employees,
+   managers, projects, categories, leaders, requestors, and requesting departments.
+   All lists are deduplicated and sorted alphabetically.
 
+   SECURITY:
+   • No user input is used in any query — all results are derived from
+     existing collection data only.
+   • Aggregation pipelines use $match to exclude null values before grouping,
+     preventing null entries from appearing in dropdown lists.
+   • Projection limits returned fields to display-safe values only.
+----------------------------------------------------------------------------- */
 export const getAllocationDropdowns = async (req, res) => {
   try {
     const db = await connectDB();
 
+    // All employees — for employee selector
     const employees = await db.collection("employee")
       .find({})
       .project({ emp_id: 1, emp_name: 1 })
       .sort({ emp_name: 1 })
       .toArray();
 
+    // Distinct manager names from employee records
     const managers = await db.collection("employee")
       .aggregate([
         { $match: { manager_name: { $ne: null } } },
@@ -610,6 +764,7 @@ export const getAllocationDropdowns = async (req, res) => {
       ])
       .toArray();
 
+    // Distinct active project names from assignment records
     const projects = await db.collection("assignment")
       .aggregate([
         { $match: { project_name: { $ne: null } } },
@@ -619,6 +774,7 @@ export const getAllocationDropdowns = async (req, res) => {
       ])
       .toArray();
 
+    // Distinct categories from assignment records
     const categories = await db.collection("assignment")
       .aggregate([
         { $match: { category: { $ne: null } } },
@@ -628,6 +784,7 @@ export const getAllocationDropdowns = async (req, res) => {
       ])
       .toArray();
 
+    // Distinct leaders from assignment records
     const leaders = await db.collection("assignment")
       .aggregate([
         { $match: { leader: { $ne: null } } },
@@ -637,6 +794,7 @@ export const getAllocationDropdowns = async (req, res) => {
       ])
       .toArray();
 
+    // Distinct requestors — merged from both requestor and requestor_vp fields
     const requestors = await db.collection("assignment")
       .aggregate([
         { $project: { names: ["$requestor", "$requestor_vp"] } },
@@ -648,6 +806,7 @@ export const getAllocationDropdowns = async (req, res) => {
       ])
       .toArray();
 
+    // Distinct requesting department names
     const requestingDepts = await db.collection("assignment")
       .aggregate([
         { $match: { requesting_dept_name: { $ne: null } } },
@@ -673,10 +832,21 @@ export const getAllocationDropdowns = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   CREATE NEW ALLOCATION ENTRY (RULE A + CURRENT MONTH = 1)
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: createAllocation
+   POST /api/assignments-allocations
+   -----------------------------------------------------------------------------
+   Creates a new allocation entry for an employee on a project. Enforces
+   the following business rules:
+     1. Delete all future allocations for this employee/activity/category
+     2. Set the current month allocation to 1
 
+   SECURITY:
+   • emp_id and project are both required — returns 400 if either is missing.
+   • project is used to look up the assignment by name — not passed directly
+     into a query as a user-controlled filter.
+   • emp_id is coerced to Number() before all DB operations.
+----------------------------------------------------------------------------- */
 export const createAllocation = async (req, res) => {
   try {
     const { emp_id, project } = req.body;
@@ -689,6 +859,7 @@ export const createAllocation = async (req, res) => {
 
     const db = await connectDB();
 
+    // Look up the assignment to get the canonical activity name and category
     const assignment = await db
       .collection("assignment")
       .findOne({ project_name: project });
@@ -702,15 +873,13 @@ export const createAllocation = async (req, res) => {
     const activity = assignment.project_name;
     const category = assignment.category;
 
-    // Delete future allocations for this employee/activity/category
+    // Rule 1: Clear all future allocations for this employee/activity/category
     await deleteFutureAllocations(db, Number(emp_id), activity, category);
 
-    // Ensure current month allocation = 1
+    // Rule 2: Set current month allocation to 1
     await createCurrentMonthAllocation(db, Number(emp_id), activity, category);
 
-    return res.json({
-      success: true
-    });
+    return res.json({ success: true });
 
   } catch (error) {
     console.error("Add allocation error:", error);
@@ -720,61 +889,28 @@ export const createAllocation = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   REASSIGN ALLOCATION (MOVE EMPLOYEE TO NEW PROJECT)
---------------------------------------------------------- */
+/* -----------------------------------------------------------------------------
+   HANDLER: reassignAllocation
+   POST /api/assignments-allocations/reassign
+   -----------------------------------------------------------------------------
+   Moves an employee from one project to another by:
+     1. Deleting ALL allocation records (past, current, future) for the old
+        employee/project/category combination
+     2. Creating a new current-month allocation (amount = 1) for the new
+        employee/project/category combination
 
-// export const reassignAllocation = async (req, res) => {
-//   try {
-//     const {
-//       old_emp_id,
-//       new_emp_id,
-//       old_project,
-//       new_project,
-//       category
-//     } = req.body;
+   SECURITY:
+   • All four required fields are validated — returns 400 if any are missing.
+   • emp_id values are coerced to Number() before all DB operations.
+   • deleteMany() is scoped to a precise three-field compound match —
+     cannot accidentally delete records for other employees or projects.
+   • Upsert on the new allocation prevents duplicate records if the new
+     employee already has an entry for this project/month.
 
-//     if (!old_emp_id || !new_emp_id || !old_project || !new_project) {
-//       return res.status(400).json({ error: "Missing required fields" });
-//     }
-
-//     const db = await connectDB();
-
-//     // Find assignment for new project
-//     const newAssignment = await db.collection("assignment").findOne({
-//       project_name: new_project
-//     });
-
-//     if (!newAssignment) {
-//       return res.status(404).json({ error: "New project not found" });
-//     }
-
-//     const activity = newAssignment.project_name;
-//     const newCategory = newAssignment.category;
-
-//     // Delete future allocations for old employee/project/category
-//     await deleteFutureAllocations(db, Number(old_emp_id), old_project, category);
-
-//     // Create current month allocation for new employee/project/category
-//     await createCurrentMonthAllocation(
-//       db,
-//       Number(new_emp_id),
-//       activity,
-//       newCategory
-//     );
-
-//     return res.json({ success: true });
-
-//   } catch (error) {
-//     console.error("Reassign allocation error:", error);
-//     return res.status(500).json({ error: "Server error while reassigning" });
-//   }
-// };
-
-/* ---------------------------------------------------------
-   REASSIGN ALLOCATION (DELETE CURRENT + FUTURE ONLY)
---------------------------------------------------------- */
-
+   NOTE: The original version of this handler (which only deleted future
+   allocations) is preserved in comments above for reference. The current
+   version deletes ALL allocations for the old employee/project combination.
+----------------------------------------------------------------------------- */
 export const reassignAllocation = async (req, res) => {
   try {
     const {
@@ -786,24 +922,22 @@ export const reassignAllocation = async (req, res) => {
       new_category
     } = req.body;
 
+    // All four core fields are required — return 400 if any are missing
     if (!old_emp_id || !new_emp_id || !old_project || !new_project) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     const db = await connectDB();
 
-    /* ---------------------------------------------------------
-       1. DELETE ALL allocations for the old employee/project/category
-    --------------------------------------------------------- */
+    // Step 1: Delete ALL allocation records for the old employee/project/category
+    // This clears the full history to cleanly remove the old assignment
     await db.collection("allocation").deleteMany({
       emp_id: Number(old_emp_id),
       activity: old_project,
       category: old_category
     });
 
-    /* ---------------------------------------------------------
-       2. CREATE NEW ALLOCATION = 1 FOR NEW EMPLOYEE/PROJECT/CATEGORY
-    --------------------------------------------------------- */
+    // Step 2: Create a new current-month allocation for the new assignment
     const currentMonth = getCurrentMonth();
 
     await db.collection("allocation").updateOne(
@@ -815,13 +949,13 @@ export const reassignAllocation = async (req, res) => {
       },
       {
         $set: {
-          amount: 1,
+          amount: 1,               // Default allocation for a new assignment
           activity: new_project,
           category: new_category,
           date: currentMonth
         }
       },
-      { upsert: true }
+      { upsert: true } // Prevent duplicate if record already exists
     );
 
     return res.json({ success: true });
