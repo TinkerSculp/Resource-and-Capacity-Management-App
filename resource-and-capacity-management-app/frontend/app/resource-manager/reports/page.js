@@ -1,4 +1,1606 @@
-//please work in this file folder
+// "use client";
 
-// here the api path for you
-// resource-and-capacity-management-app\backend\controllers\reportsController.js
+// /* =============================================================================
+//    Report.jsx
+//    -----------------------------------------------------------------------------
+//    PURPOSE:
+//      Displays the Report dashboard with three switchable view modes:
+//        • Allocation per Category — Summary table + utilisation breakdown
+//        • Allocation per Person   — Per-employee allocation with over-capacity
+//                                    highlighting (red when value > 1)
+//        • Allocation per Activity — Filterable breakdown by project/activity
+
+//      Also supports CSV export for all three view modes.
+
+//    HOW IT WORKS:
+//      1. On mount, reads and validates the user session from localStorage
+//      2. Generates the last 12 months locally for the start month dropdown
+//      3. When user + startMonth are set, fetches all three data sources in parallel
+//      4. Renders the appropriate table body based on the current viewMode
+//      5. CSV export reads from validated state arrays — no re-fetch needed
+
+//    SECURITY MODEL:
+//      • localStorage is accessed inside try/catch — malformed JSON is caught
+//        and the session is cleared to prevent a broken auth state persisting.
+//      • All API query parameters (startMonth, filters) are passed through
+//        encodeURIComponent() or URLSearchParams — prevents injection in URLs.
+//      • All state arrays default to [] — prevents Chart.js and table renders
+//        from receiving undefined datasets.
+//      • Filter values for the activity view come from the backend's filter
+//        endpoint — dropdowns are never populated from user-typed input.
+//      • CSV content is assembled from validated state arrays using fmt() —
+//        no raw user input is written into the exported file.
+//      • URL.createObjectURL / revokeObjectURL are called in sequence — the
+//        object URL is immediately revoked after the download is triggered to
+//        prevent memory leaks.
+//      • Table cell values all pass through fmt() — prevents NaN, null, or
+//        undefined from appearing in rendered cells.
+
+//    RESPONSIVENESS:
+//      • Header row uses flex-wrap — controls stack vertically on narrow screens.
+//      • Filters use flex-col md:flex-row flex-wrap — stack on mobile, row on md+.
+//      • Table wrapper uses overflow-x-auto — scrolls horizontally on mobile.
+//      • max-h-[70vh] on the table scroll container — prevents the table from
+//        growing beyond the viewport height on any screen size.
+//      • All text sizes and padding have sm: variants for comfortable mobile reading.
+
+//    DEPENDENCIES:
+//      • @/lib/api        — Axios instance with JWT Bearer token auto-injection
+//      • next/navigation  — useRouter for programmatic navigation
+//    ============================================================================= */
+
+// import { useState, useEffect } from "react";
+// import { useRouter } from "next/navigation";
+// import api from "@/lib/api";
+
+// /* -----------------------------------------------------------------------------
+//    STYLES
+//    Centralised style object for font-family — cannot be applied via Tailwind
+//    without a custom config entry.
+// ----------------------------------------------------------------------------- */
+// const styles = {
+//   outfitFont: { fontFamily: "Outfit, sans-serif" },
+// };
+
+// /* -----------------------------------------------------------------------------
+//    UTILITY: fmt
+//    Formats a numeric value to two decimal places. Guards against NaN, null,
+//    and undefined to prevent rendering anomalies in table cells.
+
+//    PARAM:  n {any}   — The value to format
+//    RETURN: {string}  — Two decimal place string e.g. "12.00", or "0.00" on invalid
+// ----------------------------------------------------------------------------- */
+// function fmt(n) {
+//   if (n === null || n === undefined || isNaN(n)) return "0.00";
+//   return Number(n).toFixed(2);
+// }
+
+// export default function CapacityReport() {
+//   const router = useRouter();
+
+//   /* ---------------------------------------------------------------------------
+//      STATE
+//      ---------------------------------------------------------------------------
+//      All array states default to [] — prevents table renders from receiving
+//      undefined before data has loaded, which would cause runtime errors.
+//   --------------------------------------------------------------------------- */
+
+//   // Session
+//   const [user, setUser] = useState(null);
+
+//   // View mode — controls which table body and CSV export logic is used
+//   const [viewMode, setViewMode] = useState("month"); // "month" | "person" | "activity"
+
+//   // Month selector
+//   const [selectableMonths, setSelectableMonths] = useState([]);
+//   const [startMonth, setStartMonth] = useState(null);
+
+//   // Category view data
+//   const [months, setMonths]                       = useState([]);
+//   const [categories, setCategories]               = useState([]);
+//   const [totals, setTotals]                       = useState([]);
+//   const [peopleCapacity, setPeopleCapacity]       = useState([]);
+//   const [remainingCapacity, setRemainingCapacity] = useState([]);
+
+//   // Person + activity view shared data
+//   const [reportMonths, setReportMonths] = useState([]); // Month headers for person/activity tables
+//   const [rows, setRows]                 = useState([]);  // Activity rows
+//   const [employees, setEmployees]       = useState([]);  // Person rows
+
+//   // Activity view filters — values come from backend filter endpoint, not user input
+//   const [activityCategory, setActivityCategory] = useState("all");
+//   const [leader, setLeader]                     = useState("all");
+//   const [requestingDept, setRequestingDept]     = useState("all");
+//   const [requestor, setRequestor]               = useState("all");
+//   const [requestorVP, setRequestorVP]           = useState("all");
+//   const [leaderList, setLeaderList]             = useState([]);
+//   const [deptList, setDeptList]                 = useState([]);
+//   const [requestorList, setRequestorList]       = useState([]);
+//   const [requestorVPList, setRequestorVPList]   = useState([]);
+
+//   // Loading states
+//   const [loadingMonths, setLoadingMonths]   = useState(true);
+//   const [loadingSummary, setLoadingSummary] = useState(true);
+
+//   /* ---------------------------------------------------------------------------
+//      HANDLER: handleExportCSV
+//      ---------------------------------------------------------------------------
+//      Assembles a CSV string from the current view's validated state arrays and
+//      triggers a browser download.
+
+//      SECURITY:
+//      • All values written to CSV pass through fmt() — prevents NaN or undefined
+//        from appearing in exported data.
+//      • Activity and employee names are wrapped in quotes in the CSV — prevents
+//        values containing commas from breaking the column structure.
+//      • URL.revokeObjectURL() is called immediately after click() — prevents the
+//        blob URL from persisting in memory after the download is triggered.
+//      • The filename uses startMonth and a date timestamp — never user-typed input.
+//   --------------------------------------------------------------------------- */
+//   const handleExportCSV = () => {
+//     let csvContent = "";
+//     let filename = "";
+//     const timestamp = new Date().toISOString().split("T")[0];
+
+//     if (viewMode === "activity") {
+//       filename = `Activity_Report_${startMonth}_${timestamp}.csv`;
+//       csvContent = `Activity Allocation Report\nGenerated: ${new Date().toLocaleString()}\nStart Month: ${startMonth}\n`;
+
+//       // Append active filter values to the report header for traceability
+//       if (activityCategory !== "all") csvContent += `Category Filter: ${activityCategory}\n`;
+//       if (leader !== "all")           csvContent += `Leader Filter: ${leader}\n`;
+//       if (requestingDept !== "all")   csvContent += `Department Filter: ${requestingDept}\n`;
+//       if (requestor !== "all")        csvContent += `Requestor Filter: ${requestor}\n`;
+
+//       csvContent += `\nActivity,${reportMonths.join(",")}\n`;
+//       rows.forEach((row) => {
+//         const values = reportMonths.map((m) => fmt(row.months?.[m] || 0));
+//         csvContent += `"${row.activity}",${values.join(",")}\n`;
+//       });
+
+//       const totalsRow = reportMonths.map((m) => {
+//         const total = rows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+//         return fmt(total);
+//       });
+//       csvContent += `\nGrand Total,${totalsRow.join(",")}\n`;
+
+//     } else if (viewMode === "person") {
+//       filename = `Person_Report_${startMonth}_${timestamp}.csv`;
+//       csvContent = `Employee Allocation Report\nGenerated: ${new Date().toLocaleString()}\nStart Month: ${startMonth}\nTotal Employees: ${employees.length}\n\n`;
+//       csvContent += `Employee,${reportMonths.join(",")},Average\n`;
+
+//       employees.forEach((emp) => {
+//         const values = reportMonths.map((m) => fmt(emp.months?.[m] || 0));
+//         const avg = reportMonths.reduce((sum, m) => sum + (emp.months?.[m] || 0), 0) / reportMonths.length;
+//         csvContent += `"${emp.emp_name}",${values.join(",")},${fmt(avg)}\n`;
+//       });
+
+//       const totalsRow = reportMonths.map((m) => {
+//         const total = employees.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+//         return fmt(total);
+//       });
+//       const grandAvg = totalsRow.reduce((sum, val) => sum + parseFloat(val), 0) / totalsRow.length;
+//       csvContent += `\nGrand Total,${totalsRow.join(",")},${fmt(grandAvg)}\n`;
+//       csvContent += `\n\nOver-Capacity Analysis\nEmployee,Months Over Capacity\n`;
+
+//       employees.forEach((emp) => {
+//         const overMonths = reportMonths.filter((m) => (emp.months?.[m] || 0) > 1);
+//         if (overMonths.length > 0) {
+//           csvContent += `"${emp.emp_name}","${overMonths.join(", ")}"\n`;
+//         }
+//       });
+
+//     } else {
+//       // Category view
+//       filename = `Category_Report_${startMonth}_${timestamp}.csv`;
+//       csvContent = `Capacity Summary by Category\nGenerated: ${new Date().toLocaleString()}\nStart Month: ${startMonth}\n\n`;
+//       csvContent += `Category,${months.join(",")}\n`;
+
+//       categories.forEach((cat) => {
+//         csvContent += `"${cat.label}",${cat.values.map((v) => fmt(v)).join(",")}\n`;
+//       });
+
+//       csvContent += `\nTotal Allocated,${totals.map((v) => fmt(v)).join(",")}\n`;
+//       csvContent += `Total People Capacity,${peopleCapacity.map((v) => fmt(v)).join(",")}\n`;
+//       csvContent += `Remaining Capacity,${remainingCapacity.map((v) => fmt(v)).join(",")}\n`;
+//       csvContent += `\nUtilization Analysis\nMonth,Utilization %\n`;
+
+//       months.forEach((month, idx) => {
+//         const utilization =
+//           peopleCapacity[idx] > 0
+//             ? ((totals[idx] / peopleCapacity[idx]) * 100).toFixed(1)
+//             : "0.0";
+//         csvContent += `${month},${utilization}%\n`;
+//       });
+//     }
+
+//     // Trigger download — blob URL is revoked immediately after click to prevent memory leaks
+//     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+//     const link = document.createElement("a");
+//     const url = URL.createObjectURL(blob);
+//     link.setAttribute("href", url);
+//     link.setAttribute("download", filename);
+//     link.style.visibility = "hidden";
+//     document.body.appendChild(link);
+//     link.click();
+//     document.body.removeChild(link);
+//     URL.revokeObjectURL(url); // Revoke immediately — prevents memory leak
+//   };
+
+//   /* ---------------------------------------------------------------------------
+//      EFFECT 1: LOAD USER SESSION ON MOUNT
+//      Client-side only — localStorage is a browser-only API.
+//      Malformed JSON is caught and the session is cleared.
+//   --------------------------------------------------------------------------- */
+//   useEffect(() => {
+//     try {
+//       const stored = localStorage.getItem("user");
+//       if (stored) setUser(JSON.parse(stored));
+//     } catch {
+//       localStorage.removeItem("user");
+//       localStorage.removeItem("token");
+//     }
+//   }, []);
+
+//   /* ---------------------------------------------------------------------------
+//      EFFECT 2: GENERATE SELECTABLE MONTHS (runs when user is set)
+//      ---------------------------------------------------------------------------
+//      Generates the last 12 months locally — no API call needed.
+//      Defaults startMonth to the current month.
+//   --------------------------------------------------------------------------- */
+//   useEffect(() => {
+//     if (!user) return;
+
+//     try {
+//       const monthsArray = [];
+//       const today = new Date();
+
+//       for (let i = -11; i <= 0; i++) {
+//         const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
+//         const label = date
+//           .toLocaleString("default", { month: "short", year: "2-digit" })
+//           .replace(" ", "-");
+//         const value = date.getFullYear() * 100 + (date.getMonth() + 1);
+//         monthsArray.push({ label, value });
+//       }
+
+//       setSelectableMonths(monthsArray);
+
+//       const currentYYYYMM = today.getFullYear() * 100 + (today.getMonth() + 1);
+//       const match = monthsArray.find((m) => m.value === currentYYYYMM);
+//       setStartMonth(match ? match.value : monthsArray[monthsArray.length - 1].value);
+
+//     } catch (error) {
+//       console.error("Error generating months:", error);
+//     } finally {
+//       setLoadingMonths(false);
+//     }
+//   }, [user]);
+
+//   /* ---------------------------------------------------------------------------
+//      EFFECT 3: LOAD CATEGORY SUMMARY (runs when user + startMonth change)
+//      ---------------------------------------------------------------------------
+//      Fetches the 6-month capacity summary for the category view.
+//      encodeURIComponent guards the URL parameter.
+//   --------------------------------------------------------------------------- */
+//   useEffect(() => {
+//     if (!user || !startMonth) return;
+
+//     async function loadSummary() {
+//       setLoadingSummary(true);
+//       try {
+//         const res = await api.get(
+//           `/capacity-summary?start=${encodeURIComponent(startMonth)}&months=6`
+//         );
+//         const data = res?.data || {};
+
+//         // All arrays default to [] — protects table renders from undefined
+//         setMonths(data.months               || []);
+//         setCategories(data.categories       || []);
+//         setTotals(data.totals               || []);
+//         setPeopleCapacity(data.peopleCapacity   || []);
+//         setRemainingCapacity(data.remainingCapacity || []);
+
+//       } catch (err) {
+//         console.error("Failed to load summary:", err);
+//       } finally {
+//         setLoadingSummary(false);
+//       }
+//     }
+
+//     loadSummary();
+//   }, [user, startMonth]);
+
+//   /* ---------------------------------------------------------------------------
+//      EFFECT 4: LOAD PERSON CAPACITY (runs when user + startMonth change)
+//      Fetches per-employee allocation data for the person view.
+//   --------------------------------------------------------------------------- */
+//   useEffect(() => {
+//     if (!user || !startMonth) return;
+
+//     async function loadCapacity() {
+//       try {
+//         const res = await api.get(
+//           `/reports/capacity?start=${encodeURIComponent(startMonth)}&months=6`
+//         );
+//         const data = res?.data || {};
+//         setReportMonths(data.months || []);
+//         setEmployees(data.data     || []);
+//       } catch (error) {
+//         console.error("Error fetching capacity:", error);
+//       }
+//     }
+
+//     loadCapacity();
+//   }, [user, startMonth]);
+
+//   /* ---------------------------------------------------------------------------
+//      EFFECT 5: LOAD ACTIVITY SUMMARY + FILTERS (runs when user, startMonth,
+//      or any activity filter changes)
+//      ---------------------------------------------------------------------------
+//      SECURITY:
+//      • All filter values are passed via URLSearchParams — values are
+//        automatically encoded, preventing injection in the query string.
+//      • Filter dropdown options come from the backend filter endpoint —
+//        never from user-typed input.
+//   --------------------------------------------------------------------------- */
+//   useEffect(() => {
+//     if (!user || !startMonth) return;
+
+//     async function loadActivitySummary() {
+//       // URLSearchParams encodes all values — prevents injection in query string
+//       const params = new URLSearchParams({
+//         start:        startMonth,
+//         months:       6,
+//         category:     activityCategory,
+//         leader:       leader,
+//         dept:         requestingDept,
+//         requestor:    requestor,
+//         requestor_vp: requestorVP,
+//       });
+
+//       try {
+//         const res = await api.get(`/reports?${params.toString()}`);
+//         setRows(res.data.data         || []);
+//         setReportMonths(res.data.months || []);
+//       } catch (err) {
+//         console.error("Failed to fetch activity report data:", err);
+//       }
+//     }
+
+//     async function loadFilters() {
+//       try {
+//         const res = await api.get("/reports/filters");
+//         const data = res?.data || {};
+//         // Filter lists come from the backend — never from user-typed input
+//         setLeaderList(data.leaders          || []);
+//         setRequestorList(data.requestors    || []);
+//         setRequestorVPList(data.requestor_vp  || []);
+//         setDeptList(data.requesting_dept    || []);
+//       } catch (err) {
+//         console.error("Failed to load filters:", err);
+//       }
+//     }
+
+//     loadActivitySummary();
+//     loadFilters();
+//   }, [user, startMonth, activityCategory, leader, requestingDept, requestor, requestorVP]);
+
+//   /* ---------------------------------------------------------------------------
+//      LOADING STATE
+//      Prevents table renders from running before data arrays are populated.
+//   --------------------------------------------------------------------------- */
+//   if (!user || loadingMonths || loadingSummary) {
+//     return (
+//       <div className="min-h-screen flex items-center justify-center bg-gray-50">
+//         <div
+//           className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]"
+//           role="status"
+//           aria-label="Loading capacity report"
+//         />
+//       </div>
+//     );
+//   }
+
+//   /* ---------------------------------------------------------------------------
+//      RENDER: renderTableBody
+//      ---------------------------------------------------------------------------
+//      Returns the appropriate <tbody> based on the current viewMode.
+//      All cell values pass through fmt() — prevents NaN or undefined in cells.
+//      text-black is applied to all data cells — ensures readable contrast on
+//      both the white and gray alternating row backgrounds.
+
+//      Person view highlights cells red when value > 1 (over capacity).
+//   --------------------------------------------------------------------------- */
+//   function renderTableBody() {
+
+//     // -----------------------------------------------------------------------
+//     // ACTIVITY VIEW
+//     // -----------------------------------------------------------------------
+//     if (viewMode === "activity") {
+//       // Active month headers for person/activity tables — from reportMonths state
+//       const activeMonths = reportMonths;
+
+//       return (
+//         <tbody>
+//           {rows.map((row, idx) => (
+//             <tr key={row.activity} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
+//               <td className="px-4 sm:px-6 py-3 font-medium border border-black text-black" style={styles.outfitFont}>
+//                 {row.activity}
+//               </td>
+//               {activeMonths.map((m) => (
+//                 <td key={m} className="px-4 sm:px-6 py-3 text-center text-black border border-black" style={styles.outfitFont}>
+//                   {fmt(row.months?.[m])}
+//                 </td>
+//               ))}
+//             </tr>
+//           ))}
+
+//           {/* Grand Total row */}
+//           <tr className="bg-[#017ACB] font-semibold">
+//             <td className="px-4 sm:px-6 py-3 border border-black text-white" style={styles.outfitFont}>
+//               Grand Total
+//             </td>
+//             {activeMonths.map((m) => {
+//               const monthTotal = rows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+//               return (
+//                 <td key={m} className="px-4 sm:px-6 py-3 text-center text-white border border-black" style={styles.outfitFont}>
+//                   {fmt(monthTotal)}
+//                 </td>
+//               );
+//             })}
+//           </tr>
+//         </tbody>
+//       );
+//     }
+
+//     // -----------------------------------------------------------------------
+//     // PERSON VIEW
+//     // -----------------------------------------------------------------------
+//     if (viewMode === "person") {
+//       const activeMonths = reportMonths;
+
+//       return (
+//         <tbody>
+//           {employees.map((emp, idx) => (
+//             <tr key={emp.emp_name} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
+//               <td className="px-4 sm:px-6 py-3 font-medium border border-black text-black" style={styles.outfitFont}>
+//                 {emp.emp_name}
+//               </td>
+//               {activeMonths.map((m) => {
+//                 const value = emp.months?.[m] || 0;
+//                 const isOverCapacity = value > 1; // Red highlight when allocation exceeds 1
+
+//                 return (
+//                   <td
+//                     key={m}
+//                     className={`px-4 sm:px-6 py-3 text-center border border-black ${
+//                       isOverCapacity
+//                         ? "bg-red-400 text-white font-bold"  // Over capacity — red bg, white text
+//                         : "text-black"                        // Normal — black text on row bg
+//                     }`}
+//                     style={styles.outfitFont}
+//                   >
+//                     {fmt(value)}
+//                   </td>
+//                 );
+//               })}
+//             </tr>
+//           ))}
+
+//           {/* Grand Total row */}
+//           <tr className="bg-[#017ACB] font-semibold">
+//             <td className="px-4 sm:px-6 py-3 border border-black text-white" style={styles.outfitFont}>
+//               Grand Total
+//             </td>
+//             {activeMonths.map((m) => {
+//               const monthTotal = employees.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+//               return (
+//                 <td key={m} className="px-4 sm:px-6 py-3 text-center text-white border border-black" style={styles.outfitFont}>
+//                   {fmt(monthTotal)}
+//                 </td>
+//               );
+//             })}
+//           </tr>
+//         </tbody>
+//       );
+//     }
+
+//     // -----------------------------------------------------------------------
+//     // CATEGORY VIEW (default)
+//     // -----------------------------------------------------------------------
+//     return (
+//       <tbody>
+//         {categories.map((cat, idx) => (
+//           <tr key={cat.label} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
+//             <td className="px-4 sm:px-6 py-3 border border-black font-medium text-black" style={styles.outfitFont}>
+//               {cat.label}
+//             </td>
+//             {cat.values.map((val, i) => (
+//               <td key={i} className="px-4 sm:px-6 py-3 text-center border border-black text-black" style={styles.outfitFont}>
+//                 {fmt(val)}
+//               </td>
+//             ))}
+//           </tr>
+//         ))}
+
+//         {/* Total Allocated row */}
+//         <tr className="bg-[#017ACB] font-semibold">
+//           <td className="px-4 sm:px-6 py-3 border border-black text-white" style={styles.outfitFont}>
+//             Total Allocated
+//           </td>
+//           {totals.map((val, idx) => (
+//             <td key={idx} className="px-4 sm:px-6 py-3 text-center border border-black text-white" style={styles.outfitFont}>
+//               {fmt(val)}
+//             </td>
+//           ))}
+//         </tr>
+
+//         {/* Total People Capacity row */}
+//         <tr className="bg-white">
+//           <td className="px-4 sm:px-6 py-3 border border-black font-semibold text-black" style={styles.outfitFont}>
+//             Total People Capacity
+//           </td>
+//           {peopleCapacity.map((val, idx) => (
+//             <td key={idx} className="px-4 sm:px-6 py-3 text-center border border-black text-black" style={styles.outfitFont}>
+//               {fmt(val)}
+//             </td>
+//           ))}
+//         </tr>
+
+//         {/* Remaining Capacity row */}
+//         <tr className="bg-gray-200">
+//           <td className="px-4 sm:px-6 py-3 border border-black font-semibold text-black" style={styles.outfitFont}>
+//             Remaining Capacity
+//           </td>
+//           {remainingCapacity.map((val, idx) => (
+//             <td key={idx} className="px-4 sm:px-6 py-3 text-center border border-black text-black" style={styles.outfitFont}>
+//               {fmt(val)}
+//             </td>
+//           ))}
+//         </tr>
+//       </tbody>
+//     );
+//   }
+
+//   /* ---------------------------------------------------------------------------
+//      RENDER
+//      ---------------------------------------------------------------------------
+//      RESPONSIVENESS:
+//      • Header: flex-wrap — controls stack vertically on narrow screens.
+//      • Filters: flex-col md:flex-row — stack on mobile, row on md+.
+//      • Table wrapper: overflow-x-auto — horizontal scroll on mobile.
+//      • max-h-[70vh] — prevents table from overflowing viewport height.
+//      • px-3 sm:px-6 — tighter cell padding on mobile.
+//      • text-sm throughout — consistent readable size at all breakpoints.
+//   --------------------------------------------------------------------------- */
+//   return (
+//     <div className="min-h-screen bg-white">
+//       <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+
+//         {/* ----------------------------------------------------------------- */}
+//         {/* HEADER: Title + Back button + View selector + Month selector      */}
+//         {/* flex-wrap allows controls to stack on narrow screens              */}
+//         {/* ----------------------------------------------------------------- */}
+//         <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+
+//           {/* LEFT: Title + Back button */}
+//           <div className="flex flex-wrap items-center gap-3">
+//             <h2
+//               className="text-2xl sm:text-4xl font-bold text-gray-900"
+//               style={styles.outfitFont}
+//             >
+//               Capacity Report
+//             </h2>
+
+//             <button
+//               onClick={() => router.push("/resource-manager/dashboard")}
+//               aria-label="Go back to dashboard"
+//               className="
+//                 px-3 sm:px-4 py-2 rounded text-sm
+//                 bg-gray-200 text-gray-700 border
+//                 hover:bg-[#017ACB]/20 transition-colors
+//                 shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+//               "
+//               style={styles.outfitFont}
+//             >
+//               ← Back to Dashboard
+//             </button>
+//           </div>
+
+//           {/* RIGHT: View mode + Month selector + Export */}
+//           <div className="flex flex-wrap items-center gap-3">
+
+//             {/* View mode selector */}
+//             <div className="flex items-center gap-2">
+//               <label className="text-sm font-medium text-gray-700" style={styles.outfitFont}>
+//                 View:
+//               </label>
+//               <select
+//                 value={viewMode}
+//                 onChange={(e) => setViewMode(e.target.value)}
+//                 className="px-3 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+//                 style={styles.outfitFont}
+//               >
+//                 <option value="month">Allocation per Category</option>
+//                 <option value="person">Allocation per Person</option>
+//                 <option value="activity">Allocation per Activity</option>
+//               </select>
+//             </div>
+
+//             {/* Start month selector — Number() coercion prevents string-typed YYYYMM */}
+//             <div className="flex items-center gap-2">
+//               <label className="text-sm font-medium text-gray-700" style={styles.outfitFont}>
+//                 Start Month:
+//               </label>
+//               <select
+//                 value={startMonth}
+//                 onChange={(e) => setStartMonth(Number(e.target.value))}
+//                 className="px-3 py-2 rounded text-sm bg-white text-gray-700 border hover:bg-gray-100 transition"
+//                 style={styles.outfitFont}
+//               >
+//                 {selectableMonths.map((m) => (
+//                   <option key={m.value} value={m.value}>
+//                     {m.label}
+//                   </option>
+//                 ))}
+//               </select>
+//             </div>
+
+//             {/* Export CSV button */}
+//             <button
+//               onClick={handleExportCSV}
+//               aria-label="Export current report as CSV"
+//               className="
+//                 px-3 sm:px-4 py-2 rounded text-sm
+//                 bg-gray-200 text-gray-700 border
+//                 hover:bg-[#017ACB]/20 transition-colors
+//                 shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+//               "
+//               style={styles.outfitFont}
+//             >
+//               Export CSV
+//             </button>
+//           </div>
+//         </div>
+
+//         {/* ----------------------------------------------------------------- */}
+//         {/* ACTIVITY FILTERS                                                   */}
+//         {/* Only shown when viewMode === "activity"                           */}
+//         {/* All filter options come from the backend — never user-typed input */}
+//         {/* flex-col md:flex-row — stacks on mobile, row on md+               */}
+//         {/* ----------------------------------------------------------------- */}
+//         {viewMode === "activity" && (
+//           <div className="flex flex-col md:flex-row flex-wrap gap-3 sm:gap-4 mb-6">
+
+//             {/* Activity Category */}
+//             <div className="flex-1 min-w-[160px]">
+//               <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
+//                 Activity Category:
+//               </label>
+//               <select
+//                 value={activityCategory}
+//                 onChange={(e) => setActivityCategory(e.target.value)}
+//                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+//                 style={styles.outfitFont}
+//               >
+//                 <option value="all">All</option>
+//                 <option value="Vacation">Vacation</option>
+//                 <option value="Baseline">Baseline</option>
+//                 <option value="Strategic">Strategic</option>
+//                 <option value="Discretionary Project / Enhancement">Discretionary Project / Enhancement</option>
+//               </select>
+//             </div>
+
+//             {/* Leader */}
+//             <div className="flex-1 min-w-[160px]">
+//               <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
+//                 Leader:
+//               </label>
+//               <select
+//                 value={leader}
+//                 onChange={(e) => setLeader(e.target.value)}
+//                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+//                 style={styles.outfitFont}
+//               >
+//                 <option value="all">All</option>
+//                 {leaderList.map((m) => <option key={m} value={m}>{m}</option>)}
+//               </select>
+//             </div>
+
+//             {/* Requesting Dept */}
+//             <div className="flex-1 min-w-[160px]">
+//               <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
+//                 Requesting Dept:
+//               </label>
+//               <select
+//                 value={requestingDept}
+//                 onChange={(e) => setRequestingDept(e.target.value)}
+//                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+//                 style={styles.outfitFont}
+//               >
+//                 <option value="all">All</option>
+//                 {deptList.map((m) => <option key={m} value={m}>{m}</option>)}
+//               </select>
+//             </div>
+
+//             {/* Requestor */}
+//             <div className="flex-1 min-w-[160px]">
+//               <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
+//                 Requestor:
+//               </label>
+//               <select
+//                 value={requestor}
+//                 onChange={(e) => setRequestor(e.target.value)}
+//                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+//                 style={styles.outfitFont}
+//               >
+//                 <option value="all">All</option>
+//                 {requestorList.map((m) => <option key={m} value={m}>{m}</option>)}
+//               </select>
+//             </div>
+
+//             {/* Requestor VP */}
+//             <div className="flex-1 min-w-[160px]">
+//               <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
+//                 Requestor VP:
+//               </label>
+//               <select
+//                 value={requestorVP}
+//                 onChange={(e) => setRequestorVP(e.target.value)}
+//                 className="border rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50 w-full transition"
+//                 style={styles.outfitFont}
+//               >
+//                 <option value="all">All</option>
+//                 {requestorVPList.map((m) => <option key={m} value={m}>{m}</option>)}
+//               </select>
+//             </div>
+//           </div>
+//         )}
+
+//         {/* ----------------------------------------------------------------- */}
+//         {/* MAIN TABLE                                                          */}
+//         {/* overflow-x-auto — horizontal scroll on mobile                     */}
+//         {/* max-h-[70vh] — vertical scroll caps table at viewport height       */}
+//         {/* sticky thead — header row stays visible while scrolling            */}
+//         {/* text-black on all data cells — readable on both row bg colours     */}
+//         {/* ----------------------------------------------------------------- */}
+//         <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+//           <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+//             <table className="min-w-full text-sm border-collapse border border-black">
+
+//               {/* Sticky header — stays visible while vertically scrolling */}
+//               <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
+//                 <tr>
+//                   <th
+//                     className="px-4 sm:px-6 py-3 text-left font-semibold border border-black"
+//                     style={styles.outfitFont}
+//                   >
+//                     Row Labels
+//                   </th>
+//                   {/* Use reportMonths for person/activity views, months for category */}
+//                   {(viewMode === "month" ? months : reportMonths).map((month) => (
+//                     <th
+//                       key={month}
+//                       className="px-4 sm:px-6 py-3 text-center font-semibold border border-black whitespace-nowrap"
+//                       style={styles.outfitFont}
+//                     >
+//                       {month}
+//                     </th>
+//                   ))}
+//                 </tr>
+//               </thead>
+
+//               {renderTableBody()}
+
+//             </table>
+//           </div>
+//         </div>
+
+//       </main>
+//     </div>
+//   );
+// }
+
+
+"use client";
+
+/* =============================================================================
+   Report.jsx
+   -----------------------------------------------------------------------------
+   PURPOSE:
+     Displays the Capacity Report with three switchable view modes:
+       • Allocation per Category — 6-month capacity summary table
+       • Allocation per Person   — Per-employee allocation, red when value > 1
+       • Allocation per Activity — Filterable breakdown by project/activity
+
+     Also supports CSV export for all three view modes.
+
+   HOW IT WORKS:
+     1. On mount, reads and validates the user session from localStorage
+     2. Generates the last 12 months locally for the start month dropdown
+     3. When user + startMonth are set, fetches all three data sources
+     4. Renders the appropriate table body based on the current viewMode
+     5. CSV export reads from validated state arrays — no re-fetch needed
+
+   SECURITY MODEL:
+     • localStorage accessed inside try/catch — malformed JSON clears session
+       and prevents a broken auth state from persisting.
+     • All API query params are passed through encodeURIComponent() or
+       URLSearchParams — prevents injection in URL query strings.
+     • All state arrays default to [] — prevents table renders from receiving
+       undefined before data has loaded.
+     • Activity filter dropdown options come from the backend filter endpoint —
+       never populated from user-typed input.
+     • CSV content is assembled from validated state arrays via fmt() —
+       no raw user input is written into the exported file.
+     • URL.revokeObjectURL() is called immediately after download trigger —
+       prevents the blob URL from persisting in memory.
+     • All table cell values pass through fmt() — prevents NaN, null, or
+       undefined from appearing in rendered cells.
+
+   RESPONSIVENESS:
+     • Header uses flex-wrap — controls stack vertically on narrow screens.
+     • Filter row uses flex-col md:flex-row — stacks on mobile, row on md+.
+     • Table wrapper uses overflow-x-auto — scrolls horizontally on mobile.
+     • max-h-[70vh] on the scroll container — table never exceeds viewport.
+     • All padding and font sizes have sm: variants for comfortable reading
+       across all screen sizes.
+     • Controls on mobile stack to full width for easy tapping.
+
+   DEPENDENCIES:
+     • @/lib/api        — Axios instance with JWT Bearer token auto-injection
+     • next/navigation  — useRouter for programmatic navigation
+   ============================================================================= */
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import api from "@/lib/api";
+
+/* -----------------------------------------------------------------------------
+   STYLES — centralised font-family object
+----------------------------------------------------------------------------- */
+const styles = {
+  outfitFont: { fontFamily: "Outfit, sans-serif" },
+};
+
+/* -----------------------------------------------------------------------------
+   SHARED BUTTON CLASS
+   Matches the neumorphic button style used across all other pages in the app.
+   Applied to Back to Dashboard and Export CSV buttons.
+----------------------------------------------------------------------------- */
+const btnClass = `
+  px-4 py-2 rounded text-sm
+  bg-[#017ACB] text-white border border-black
+  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+`;
+
+/* -----------------------------------------------------------------------------
+   UTILITY: fmt
+   Safe number formatter — returns "0.00" for any invalid/null/NaN value.
+   Applied to every table cell and CSV value to prevent rendering anomalies.
+----------------------------------------------------------------------------- */
+function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return "0.00";
+  return Number(n).toFixed(2);
+}
+
+export default function Report() {
+  const router = useRouter();
+
+  /* ---------------------------------------------------------------------------
+     STATE
+     ---------------------------------------------------------------------------
+     All array states default to [] so table renders never receive undefined
+     before data loads. Loading flags prevent renders before data is ready.
+  --------------------------------------------------------------------------- */
+
+  // Session — read from localStorage on mount
+  const [user, setUser] = useState(null);
+
+  // View mode — determines which table body and CSV logic is active
+  const [viewMode, setViewMode] = useState("month"); // "month" | "person" | "activity"
+
+  // Month selector — generated locally, no API needed
+  const [selectableMonths, setSelectableMonths] = useState([]);
+  const [startMonth, setStartMonth]             = useState(null);
+
+  // Category view data (Effect 3)
+  const [months, setMonths]                       = useState([]);
+  const [categories, setCategories]               = useState([]);
+  const [totals, setTotals]                       = useState([]);
+  const [peopleCapacity, setPeopleCapacity]       = useState([]);
+  const [remainingCapacity, setRemainingCapacity] = useState([]);
+
+  // Person + activity view data — reportMonths is the shared month header
+  const [reportMonths, setReportMonths] = useState([]);
+  const [rows, setRows]                 = useState([]);       // Activity rows
+  const [employees, setEmployees]       = useState([]);       // Person rows
+
+  // Activity view filters — option lists always come from backend, never user input
+  const [activityCategory, setActivityCategory] = useState("all");
+  const [leader, setLeader]                     = useState("all");
+  const [requestingDept, setRequestingDept]     = useState("all");
+  const [requestor, setRequestor]               = useState("all");
+  const [requestorVP, setRequestorVP]           = useState("all");
+  const [leaderList, setLeaderList]             = useState([]);
+  const [deptList, setDeptList]                 = useState([]);
+  const [requestorList, setRequestorList]       = useState([]);
+  const [requestorVPList, setRequestorVPList]   = useState([]);
+
+  // Loading flags — used to show spinner and prevent premature renders
+  const [loadingMonths, setLoadingMonths]   = useState(true);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+
+  /* ---------------------------------------------------------------------------
+     HANDLER: handleExportCSV
+     ---------------------------------------------------------------------------
+     Assembles a CSV string from the current view's validated state arrays
+     and triggers a browser file download.
+
+     SECURITY:
+     • All values written to CSV pass through fmt() — no NaN/undefined in output.
+     • Activity and employee names are wrapped in double quotes — prevents
+       commas in names from breaking CSV column alignment.
+     • Filename uses startMonth + ISO date — never any user-typed input.
+     • URL.revokeObjectURL() called immediately after click() — no memory leak.
+  --------------------------------------------------------------------------- */
+  const handleExportCSV = () => {
+    let csvContent = "";
+    let filename   = "";
+    const timestamp = new Date().toISOString().split("T")[0];
+
+    if (viewMode === "activity") {
+      filename = `Activity_Report_${startMonth}_${timestamp}.csv`;
+      csvContent  = `Activity Allocation Report\n`;
+      csvContent += `Generated: ${new Date().toLocaleString()}\nStart Month: ${startMonth}\n`;
+
+      // Append active filters to header so exported file is self-documenting
+      if (activityCategory !== "all") csvContent += `Category Filter: ${activityCategory}\n`;
+      if (leader           !== "all") csvContent += `Leader Filter: ${leader}\n`;
+      if (requestingDept   !== "all") csvContent += `Department Filter: ${requestingDept}\n`;
+      if (requestor        !== "all") csvContent += `Requestor Filter: ${requestor}\n`;
+
+      csvContent += `\nActivity,${reportMonths.join(",")}\n`;
+      rows.forEach((row) => {
+        const values = reportMonths.map((m) => fmt(row.months?.[m] || 0));
+        csvContent += `"${row.activity}",${values.join(",")}\n`;
+      });
+      const totalsRow = reportMonths.map((m) =>
+        fmt(rows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0))
+      );
+      csvContent += `\nGrand Total,${totalsRow.join(",")}\n`;
+
+    } else if (viewMode === "person") {
+      filename = `Person_Report_${startMonth}_${timestamp}.csv`;
+      csvContent  = `Employee Allocation Report\n`;
+      csvContent += `Generated: ${new Date().toLocaleString()}\nStart Month: ${startMonth}\n`;
+      csvContent += `Total Employees: ${employees.length}\n\n`;
+      csvContent += `Employee,${reportMonths.join(",")},Average\n`;
+
+      employees.forEach((emp) => {
+        const values = reportMonths.map((m) => fmt(emp.months?.[m] || 0));
+        const avg = reportMonths.reduce((sum, m) => sum + (emp.months?.[m] || 0), 0) / reportMonths.length;
+        csvContent += `"${emp.emp_name}",${values.join(",")},${fmt(avg)}\n`;
+      });
+
+      const totalsRow = reportMonths.map((m) =>
+        fmt(employees.reduce((sum, r) => sum + (r.months?.[m] || 0), 0))
+      );
+      const grandAvg = totalsRow.reduce((sum, v) => sum + parseFloat(v), 0) / totalsRow.length;
+      csvContent += `\nGrand Total,${totalsRow.join(",")},${fmt(grandAvg)}\n`;
+      csvContent += `\n\nOver-Capacity Analysis\nEmployee,Months Over Capacity\n`;
+      employees.forEach((emp) => {
+        const overMonths = reportMonths.filter((m) => (emp.months?.[m] || 0) > 1);
+        if (overMonths.length > 0) {
+          csvContent += `"${emp.emp_name}","${overMonths.join(", ")}"\n`;
+        }
+      });
+
+    } else {
+      // Category view
+      filename = `Category_Report_${startMonth}_${timestamp}.csv`;
+      csvContent  = `Capacity Summary by Category\n`;
+      csvContent += `Generated: ${new Date().toLocaleString()}\nStart Month: ${startMonth}\n\n`;
+      csvContent += `Category,${months.join(",")}\n`;
+      categories.forEach((cat) => {
+        csvContent += `"${cat.label}",${cat.values.map((v) => fmt(v)).join(",")}\n`;
+      });
+      csvContent += `\nTotal Allocated,${totals.map((v) => fmt(v)).join(",")}\n`;
+      csvContent += `Total People Capacity,${peopleCapacity.map((v) => fmt(v)).join(",")}\n`;
+      csvContent += `Remaining Capacity,${remainingCapacity.map((v) => fmt(v)).join(",")}\n`;
+      csvContent += `\nUtilization Analysis\nMonth,Utilization %\n`;
+      months.forEach((month, idx) => {
+        const util = peopleCapacity[idx] > 0
+          ? ((totals[idx] / peopleCapacity[idx]) * 100).toFixed(1)
+          : "0.0";
+        csvContent += `${month},${util}%\n`;
+      });
+    }
+
+    // Trigger download — revokeObjectURL immediately after to prevent memory leak
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url  = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  /* ---------------------------------------------------------------------------
+     EFFECT 1: LOAD USER SESSION
+     ---------------------------------------------------------------------------
+     Runs once on mount. Reads the user object from localStorage.
+     Wrapped in try/catch — malformed JSON clears both token and user to prevent
+     a broken session from persisting across page loads.
+  --------------------------------------------------------------------------- */
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) setUser(JSON.parse(stored));
+    } catch {
+      // Corrupted localStorage value — clear the session entirely
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+    }
+  }, []);
+
+  /* ---------------------------------------------------------------------------
+     EFFECT 2: GENERATE SELECTABLE MONTHS
+     ---------------------------------------------------------------------------
+     Runs when user is set. Generates the last 12 months locally — no API call.
+     Defaults startMonth to the current calendar month.
+  --------------------------------------------------------------------------- */
+  useEffect(() => {
+    if (!user) return;
+
+    try {
+      const monthsArray = [];
+      const today = new Date();
+
+      for (let i = -11; i <= 0; i++) {
+        const date  = new Date(today.getFullYear(), today.getMonth() + i, 1);
+        const label = date
+          .toLocaleString("default", { month: "short", year: "2-digit" })
+          .replace(" ", "-");
+        const value = date.getFullYear() * 100 + (date.getMonth() + 1);
+        monthsArray.push({ label, value });
+      }
+
+      setSelectableMonths(monthsArray);
+
+      // Default to current month — fall back to most recent if not found
+      const currentYYYYMM = today.getFullYear() * 100 + (today.getMonth() + 1);
+      const match = monthsArray.find((m) => m.value === currentYYYYMM);
+      setStartMonth(match ? match.value : monthsArray[monthsArray.length - 1].value);
+
+    } catch (error) {
+      console.error("Error generating months:", error);
+    } finally {
+      setLoadingMonths(false);
+    }
+  }, [user]);
+
+  /* ---------------------------------------------------------------------------
+     EFFECT 3: LOAD CATEGORY SUMMARY
+     ---------------------------------------------------------------------------
+     Fetches the 6-month capacity summary for the Category view.
+     encodeURIComponent() applied to startMonth before appending to URL.
+     All response arrays default to [] — protects table renders from undefined.
+  --------------------------------------------------------------------------- */
+  useEffect(() => {
+    if (!user || !startMonth) return;
+
+    async function loadSummary() {
+      setLoadingSummary(true);
+      try {
+        const res  = await api.get(`/capacity-summary?start=${encodeURIComponent(startMonth)}&months=6`);
+        const data = res?.data || {};
+        setMonths(data.months                       || []);
+        setCategories(data.categories               || []);
+        setTotals(data.totals                       || []);
+        setPeopleCapacity(data.peopleCapacity       || []);
+        setRemainingCapacity(data.remainingCapacity || []);
+      } catch (err) {
+        console.error("Failed to load summary:", err);
+      } finally {
+        setLoadingSummary(false);
+      }
+    }
+
+    loadSummary();
+  }, [user, startMonth]);
+
+  /* ---------------------------------------------------------------------------
+     EFFECT 4: LOAD PERSON CAPACITY
+     ---------------------------------------------------------------------------
+     Fetches per-employee allocation totals for the Person view.
+     Runs when user or startMonth changes.
+  --------------------------------------------------------------------------- */
+  useEffect(() => {
+    if (!user || !startMonth) return;
+
+    async function loadCapacity() {
+      try {
+        const res  = await api.get(`/reports/capacity?start=${encodeURIComponent(startMonth)}&months=6`);
+        const data = res?.data || {};
+        setReportMonths(data.months || []);
+        setEmployees(data.data     || []);
+      } catch (error) {
+        console.error("Error fetching person capacity:", error);
+      }
+    }
+
+    loadCapacity();
+  }, [user, startMonth]);
+
+  /* ---------------------------------------------------------------------------
+     EFFECT 5: LOAD ACTIVITY SUMMARY + FILTER OPTIONS
+     ---------------------------------------------------------------------------
+     Fetches activity allocation data and filter dropdown lists.
+     Runs when user, startMonth, or any active filter changes.
+
+     SECURITY:
+     • URLSearchParams encodes all filter values automatically — prevents
+       any special characters in filter values from injecting into the URL.
+     • Filter option lists come from the backend — never user-typed input.
+       This means dropdown values are always validated server-side data.
+  --------------------------------------------------------------------------- */
+  useEffect(() => {
+    if (!user || !startMonth) return;
+
+    async function loadActivitySummary() {
+      // URLSearchParams auto-encodes all values — safe even if they contain special chars
+      const params = new URLSearchParams({
+        start:        startMonth,
+        months:       6,
+        category:     activityCategory,
+        leader:       leader,
+        dept:         requestingDept,
+        requestor:    requestor,
+        requestor_vp: requestorVP,
+      });
+
+      try {
+        const res = await api.get(`/reports?${params.toString()}`);
+        setRows(res.data.data           || []);
+        setReportMonths(res.data.months || []);
+      } catch (err) {
+        console.error("Failed to fetch activity report:", err);
+      }
+    }
+
+    async function loadFilters() {
+      try {
+        const res  = await api.get("/reports/filters");
+        const data = res?.data || {};
+        // Option lists come from backend — never user-typed input
+        setLeaderList(data.leaders            || []);
+        setRequestorList(data.requestors      || []);
+        setRequestorVPList(data.requestor_vp  || []);
+        setDeptList(data.requesting_dept      || []);
+      } catch (err) {
+        console.error("Failed to load activity filters:", err);
+      }
+    }
+
+    loadActivitySummary();
+    loadFilters();
+  }, [user, startMonth, activityCategory, leader, requestingDept, requestor, requestorVP]);
+
+  /* ---------------------------------------------------------------------------
+     LOADING STATE
+     Shown while session validation and initial data fetch are in progress.
+     Prevents table headers from rendering with empty month arrays.
+  --------------------------------------------------------------------------- */
+  if (!user || loadingMonths || loadingSummary) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]"
+          role="status"
+          aria-label="Loading capacity report"
+        />
+      </div>
+    );
+  }
+
+  /* ---------------------------------------------------------------------------
+     RENDER: renderTableBody
+     ---------------------------------------------------------------------------
+     Returns the correct <tbody> for the current viewMode.
+
+     SHARED RULES:
+     • All cell values pass through fmt() — no NaN/undefined in cells.
+     • text-black on all data cells — readable on both alternating row colours.
+     • Grand Total / summary rows use bg-[#017ACB] with text-white.
+     • Person view: cells with value > 1 get bg-red-400 text-white (over capacity).
+  --------------------------------------------------------------------------- */
+  function renderTableBody() {
+
+    // -----------------------------------------------------------------------
+    // ACTIVITY VIEW
+    // -----------------------------------------------------------------------
+    if (viewMode === "activity") {
+      const activeMonths = reportMonths; // Month headers for this view
+
+      if (activeMonths.length === 0) {
+        return (
+          <tbody>
+            <tr>
+              <td colSpan={99} className="text-center py-10 text-gray-500" style={styles.outfitFont}>
+                No activity data found for the selected filters and month range.
+              </td>
+            </tr>
+          </tbody>
+        );
+      }
+
+      return (
+        <tbody>
+          {rows.map((row, idx) => (
+            <tr key={row.activity} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
+              <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium border border-black text-black" style={styles.outfitFont}>
+                {row.activity}
+              </td>
+              {activeMonths.map((m) => (
+                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-black border border-black" style={styles.outfitFont}>
+                  {fmt(row.months?.[m])}
+                </td>
+              ))}
+            </tr>
+          ))}
+
+          {/* Grand Total row — blue background to match header */}
+          <tr className="bg-[#017ACB] font-semibold">
+            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black text-white" style={styles.outfitFont}>
+              Grand Total
+            </td>
+            {activeMonths.map((m) => {
+              const total = rows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+              return (
+                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-white border border-black" style={styles.outfitFont}>
+                  {fmt(total)}
+                </td>
+              );
+            })}
+          </tr>
+        </tbody>
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // PERSON VIEW
+    // -----------------------------------------------------------------------
+    if (viewMode === "person") {
+      const activeMonths = reportMonths;
+
+      if (activeMonths.length === 0) {
+        return (
+          <tbody>
+            <tr>
+              <td colSpan={99} className="text-center py-10 text-gray-500" style={styles.outfitFont}>
+                No employee data found for the selected month range.
+              </td>
+            </tr>
+          </tbody>
+        );
+      }
+
+      return (
+        <tbody>
+          {employees.map((emp, idx) => (
+            <tr key={emp.emp_name} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
+              <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium border border-black text-black" style={styles.outfitFont}>
+                {emp.emp_name}
+              </td>
+              {activeMonths.map((m) => {
+                const value = emp.months?.[m] || 0;
+                const isOver = value > 1; // Over capacity — allocation exceeds 1 FTE
+
+                return (
+                  <td
+                    key={m}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-center border border-black ${
+                      isOver ? "bg-red-400 text-white font-bold" : "text-black"
+                    }`}
+                    style={styles.outfitFont}
+                  >
+                    {fmt(value)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+
+          {/* Grand Total row */}
+          <tr className="bg-[#017ACB] font-semibold">
+            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black text-white" style={styles.outfitFont}>
+              Grand Total
+            </td>
+            {activeMonths.map((m) => {
+              const total = employees.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+              return (
+                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-white border border-black" style={styles.outfitFont}>
+                  {fmt(total)}
+                </td>
+              );
+            })}
+          </tr>
+        </tbody>
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // CATEGORY VIEW (default)
+    // -----------------------------------------------------------------------
+    return (
+      <tbody>
+        {categories.map((cat, idx) => (
+          <tr key={cat.label} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
+            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black font-medium text-black" style={styles.outfitFont}>
+              {cat.label}
+            </td>
+            {cat.values.map((val, i) => (
+              <td key={i} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black text-black" style={styles.outfitFont}>
+                {fmt(val)}
+              </td>
+            ))}
+          </tr>
+        ))}
+
+        {/* Total Allocated — blue summary row */}
+        <tr className="bg-[#017ACB] font-semibold">
+          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black text-white" style={styles.outfitFont}>
+            Total Allocated
+          </td>
+          {totals.map((val, idx) => (
+            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black text-white" style={styles.outfitFont}>
+              {fmt(val)}
+            </td>
+          ))}
+        </tr>
+
+        {/* Total People Capacity */}
+        <tr className="bg-white">
+          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black font-semibold text-black" style={styles.outfitFont}>
+            Total People Capacity
+          </td>
+          {peopleCapacity.map((val, idx) => (
+            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black text-black" style={styles.outfitFont}>
+              {fmt(val)}
+            </td>
+          ))}
+        </tr>
+
+        {/* Remaining Capacity */}
+        <tr className="bg-gray-200">
+          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black font-semibold text-black" style={styles.outfitFont}>
+            Remaining Capacity
+          </td>
+          {remainingCapacity.map((val, idx) => (
+            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black text-black" style={styles.outfitFont}>
+              {fmt(val)}
+            </td>
+          ))}
+        </tr>
+      </tbody>
+    );
+  }
+
+  /* ---------------------------------------------------------------------------
+     RENDER: MAIN PAGE
+     ---------------------------------------------------------------------------
+     RESPONSIVENESS STRATEGY:
+     • Header row: flex-wrap — title and controls wrap to next line on mobile.
+     • Left group (title + back): flex-wrap + gap-3 — stack on very narrow screens.
+     • Right group (selectors + export): flex-wrap — wrap to next line on mobile.
+     • Select dropdowns: w-full sm:w-auto — full width on mobile for easy tapping.
+     • Filter row: flex-col md:flex-row flex-wrap — single column on mobile.
+     • Table: overflow-x-auto + overflow-y-auto + max-h-[70vh] — scroll both axes.
+     • Cell padding: px-3 sm:px-6 py-2 sm:py-3 — compact on mobile, comfortable on desktop.
+     • Heading: text-xl sm:text-3xl — scales fluidly with viewport.
+  --------------------------------------------------------------------------- */
+  return (
+    <div className="min-h-screen bg-white">
+      <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+
+        {/* ----------------------------------------------------------------- */}
+        {/* PAGE HEADER                                                         */}
+        {/* flex-wrap allows the right-side controls to wrap below the title   */}
+        {/* on narrow viewports without overflowing or overlapping             */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="flex flex-wrap justify-between items-center gap-3 mb-4 sm:mb-6">
+
+          {/* LEFT: Page title + Back button */}
+          <div className="flex flex-wrap items-center gap-3">
+            <h2
+              className="text-xl sm:text-3xl font-bold text-gray-900"
+              style={styles.outfitFont}
+            >
+              Capacity Report
+            </h2>
+
+            {/* Back to Dashboard — neumorphic style matches all other pages */}
+            <button
+              onClick={() => router.push("/resource-manager/dashboard")}
+              aria-label="Go back to dashboard"
+              className={btnClass}
+              style={styles.outfitFont}
+            >
+              Back to Dashboard
+            </button>
+          </div>
+
+          {/* RIGHT: View selector + Month selector + Export button */}
+          {/* flex-wrap — wraps to a second line on narrow screens */}
+          <div className="flex flex-wrap items-center gap-3">
+
+            {/* View mode selector */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap" style={styles.outfitFont}>
+                View:
+              </label>
+              <select
+                value={viewMode}
+                onChange={(e) => setViewMode(e.target.value)}
+                className="w-full sm:w-auto border border-black rounded px-2 py-1 text-sm bg-white text-black focus:outline-none hover:bg-[#017ACB]/20 transition"
+                style={styles.outfitFont}
+              >
+                <option value="month">Allocation per Category</option>
+                <option value="person">Allocation per Person</option>
+                <option value="activity">Allocation per Activity</option>
+              </select>
+            </div>
+
+            {/* Start month selector
+                Number() coercion on onChange — prevents string-typed YYYYMM
+                from reaching API calls that expect a number */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap" style={styles.outfitFont}>
+                Start Month:
+              </label>
+              <select
+                value={startMonth}
+                onChange={(e) => setStartMonth(Number(e.target.value))}
+                className="w-full sm:w-auto border border-black rounded px-2 py-1 text-sm bg-white text-black focus:outline-none hover:bg-[#017ACB]/20 transition"
+                style={styles.outfitFont}
+              >
+                {selectableMonths.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Export CSV — same neumorphic style as Back to Dashboard */}
+            <button
+              onClick={handleExportCSV}
+              aria-label="Export current view as CSV file"
+              className={btnClass}
+              style={styles.outfitFont}
+            >
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* ACTIVITY FILTERS                                                    */}
+        {/* Only rendered when viewMode === "activity"                         */}
+        {/* Option lists come from the backend — never from user-typed input   */}
+        {/* flex-col on mobile → md:flex-row on desktop                        */}
+        {/* ----------------------------------------------------------------- */}
+        {viewMode === "activity" && (
+          <div className="flex flex-col md:flex-row flex-wrap gap-3 mb-4 sm:mb-6">
+
+            {[
+              {
+                label: "Activity Category:",
+                value: activityCategory,
+                onChange: setActivityCategory,
+                options: [
+                  { value: "all", label: "All" },
+                  { value: "Vacation", label: "Vacation" },
+                  { value: "Baseline", label: "Baseline" },
+                  { value: "Strategic", label: "Strategic" },
+                  { value: "Discretionary Project / Enhancement", label: "Discretionary Project / Enhancement" },
+                ],
+              },
+              {
+                label: "Leader:",
+                value: leader,
+                onChange: setLeader,
+                options: [{ value: "all", label: "All" }, ...leaderList.map((m) => ({ value: m, label: m }))],
+              },
+              {
+                label: "Requesting Dept:",
+                value: requestingDept,
+                onChange: setRequestingDept,
+                options: [{ value: "all", label: "All" }, ...deptList.map((m) => ({ value: m, label: m }))],
+              },
+              {
+                label: "Requestor:",
+                value: requestor,
+                onChange: setRequestor,
+                options: [{ value: "all", label: "All" }, ...requestorList.map((m) => ({ value: m, label: m }))],
+              },
+              {
+                label: "Requestor VP:",
+                value: requestorVP,
+                onChange: setRequestorVP,
+                options: [{ value: "all", label: "All" }, ...requestorVPList.map((m) => ({ value: m, label: m }))],
+              },
+            ].map((filter) => (
+              <div key={filter.label} className="flex-1 min-w-[150px]">
+                <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
+                  {filter.label}
+                </label>
+                <select
+                  value={filter.value}
+                  onChange={(e) => filter.onChange(e.target.value)}
+                  className="border border-black rounded px-3 py-2 text-sm bg-white text-black hover:bg-[#017ACB]/20 w-full transition focus:outline-none"
+                  style={styles.outfitFont}
+                >
+                  {filter.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ----------------------------------------------------------------- */}
+        {/* MAIN TABLE                                                          */}
+        {/* overflow-x-auto — horizontal scroll on mobile                      */}
+        {/* overflow-y-auto + max-h-[70vh] — vertical scroll within viewport   */}
+        {/* sticky thead — header row stays visible while scrolling            */}
+        {/* whitespace-nowrap on header cells — month labels never wrap        */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+          <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+            <table className="min-w-full text-sm border-collapse border border-black">
+
+              <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
+                <tr>
+                  <th
+                    className="px-3 sm:px-6 py-2 sm:py-3 text-left font-semibold border border-black whitespace-nowrap"
+                    style={styles.outfitFont}
+                  >
+                    Row Labels
+                  </th>
+                  {/* Category view uses months; person + activity use reportMonths */}
+                  {(viewMode === "month" ? months : reportMonths).map((month) => (
+                    <th
+                      key={month}
+                      className="px-3 sm:px-6 py-2 sm:py-3 text-center font-semibold border border-black whitespace-nowrap"
+                      style={styles.outfitFont}
+                    >
+                      {month}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              {renderTableBody()}
+
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  );
+}
