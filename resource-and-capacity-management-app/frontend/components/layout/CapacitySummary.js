@@ -85,6 +85,46 @@ const styles = {
 };
 
 /* -----------------------------------------------------------------------------
+   SHARED BUTTON CLASS
+   Neumorphic style — matches all other pages in the app.
+----------------------------------------------------------------------------- */
+const btnClass = `
+  w-full sm:w-auto
+  px-4 py-2 rounded text-sm
+  bg-[#017ACB] text-white border border-black/50
+  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+`;
+
+/* -----------------------------------------------------------------------------
+   SHARED DROPDOWN CLASS
+   Matches the dropdown style in Report.jsx — same border, shadow, and hover
+   tint so all dropdowns across the app feel consistent.
+     • border-black/50  — semi-transparent black border, same weight as buttons
+     • shadow           — subtle lift in the same shadow family as buttons
+     • hover tint       — #017ACB/20 brand tint used on buttons and tiles
+     • focus:ring       — visible keyboard focus ring for accessibility
+----------------------------------------------------------------------------- */
+const dropClass = `
+  border border-black/50 rounded px-2 py-1.5 text-sm
+  bg-white text-black
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  hover:bg-[#017ACB]/20 transition
+  focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40
+  w-full sm:w-auto
+`;
+
+/* -----------------------------------------------------------------------------
    UTILITY: fmt
    Formats a numeric value to two decimal places. Guards against NaN, null,
    and undefined to prevent rendering anomalies in table cells or chart tooltips.
@@ -178,10 +218,10 @@ export default function CapacitySummary() {
         );
         const data = res?.data || {};
 
-        setMonths(data.months                     || []);
-        setCategories(data.categories             || []);
-        setTotals(data.totals                     || []);
-        setPeopleCapacity(data.peopleCapacity     || []);
+        setMonths(data.months                       || []);
+        setCategories(data.categories               || []);
+        setTotals(data.totals                       || []);
+        setPeopleCapacity(data.peopleCapacity       || []);
         setRemainingCapacity(data.remainingCapacity || []);
       } catch (err) {
         console.error('Failed to load summary:', err);
@@ -259,7 +299,7 @@ export default function CapacitySummary() {
      • Header: flex-col on mobile (stacks title, button, selector vertically),
        sm:flex-row on larger screens (single horizontal row).
      • Title + back button: flex-col on mobile, sm:flex-row on larger screens.
-     • Month selector: full-width on mobile (w-full), auto on sm+.
+     • Month selector: full-width on mobile (w-full via dropClass), auto on sm+.
      • Table: overflow-x-auto — scrolls horizontally on mobile.
      • Chart: w-full, responsive:true — scales to container at all sizes.
      • All font sizes and padding have sm: variants for comfortable mobile reading.
@@ -284,66 +324,51 @@ export default function CapacitySummary() {
               Capacity Summary
             </h2>
 
-            <button
-              onClick={() => router.back()}
-              aria-label="Go back to dashboard"
-              className="
-                w-full sm:w-auto
-                px-4 py-2 rounded text-sm
-                bg-[#017ACB] text-white border border-black/50
-                hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
-                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-                relative
-                before:content-[''] before:absolute before:inset-0 before:rounded
-                before:pointer-events-none
-                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-              "
-              style={styles.outfitFont}
-            >
-              Back to Dashboard
-            </button>
+            {/* Back to Dashboard — neumorphic style via btnClass */}
+                    <button
+          onClick={() => router.push('/resource-manager/dashboard')}
+          className="
+            px-4 py-2 rounded text-sm
+            bg-[#003A5C] text-white border border-black/50
+            hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+          "
+          style={styles.outfitFont}
+        >
+          Back to Dashboard
+        </button>
           </div>
 
-          {/* RIGHT: Month selector — full width on mobile, auto on sm+ */}
+          {/* RIGHT: Month selector — uses dropClass, same as Report.jsx dropdowns */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label
               htmlFor="start-month-select"
-              className="text-sm font-medium text-gray-700"
+              className="text-sm font-medium text-gray-700 whitespace-nowrap"
               style={styles.outfitFont}
             >
               Start Month:
             </label>
 
-            <div
-              className="
-                rounded bg-white p-[0px]
-                focus-within:ring-[#017ACB]/20 transition
-                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                relative
-                before:content-[''] before:absolute before:inset-0 before:rounded
-                before:pointer-events-none
-                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-              "
+            {/* dropClass gives the same border-black/50 + shadow as Report.jsx.
+                No extra wrapper div needed — the shadow lives on the select itself. */}
+            <select
+              id="start-month-select"
+              className={dropClass}
+              value={startMonth}
+              onChange={(e) => setStartMonth(Number(e.target.value))}
+              style={styles.outfitFont}
             >
-              <select
-                id="start-month-select"
-                className="
-                  border border-black/50 rounded px-2 py-1 text-sm bg-white text-black
-                  focus:outline-none hover:bg-[#017ACB]/20 transition
-                  w-full sm:w-auto
-                "
-                value={startMonth}
-                onChange={(e) => setStartMonth(Number(e.target.value))}
-                style={styles.outfitFont}
-              >
-                {selectableMonths.map((m) => (
-                  <option key={m.value} value={m.value} className="bg-white text-black">
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+              {selectableMonths.map((m) => (
+                <option key={m.value} value={m.value} className="bg-white text-black">
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
