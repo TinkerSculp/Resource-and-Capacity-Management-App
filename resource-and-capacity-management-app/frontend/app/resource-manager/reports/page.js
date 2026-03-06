@@ -1454,7 +1454,7 @@ export default function Report() {
               <select
                 value={viewMode}
                 onChange={(e) => setViewMode(e.target.value)}
-                className="w-full sm:w-auto border border-black rounded px-2 py-1 text-sm bg-white text-black focus:outline-none hover:bg-[#017ACB]/20 transition"
+                className="w-full sm:w-auto border border-black/50 rounded px-2 py-1 text-sm bg-white text-black focus:outline-none hover:bg-[#017ACB]/20 transition"
                 style={styles.outfitFont}
               >
                 <option value="month">Allocation per Category</option>
@@ -1473,7 +1473,7 @@ export default function Report() {
               <select
                 value={startMonth}
                 onChange={(e) => setStartMonth(Number(e.target.value))}
-                className="w-full sm:w-auto border border-black rounded px-2 py-1 text-sm bg-white text-black focus:outline-none hover:bg-[#017ACB]/20 transition"
+                className="w-full sm:w-auto border border-black/50 rounded px-2 py-1 text-sm bg-white text-black focus:outline-none hover:bg-[#017ACB]/20 transition"
                 style={styles.outfitFont}
               >
                 {selectableMonths.map((m) => (
