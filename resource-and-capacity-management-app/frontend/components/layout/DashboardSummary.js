@@ -204,7 +204,7 @@ export default function DashboardSummary() {
             px-[clamp(0.4rem,0.6vw,0.8rem)]
             py-[clamp(0.2rem,0.4vw,0.6rem)]
             w-[clamp(3.5rem,4.5vw,5.5rem)]
-            border border-[#00263F]
+            border border-[#00263F]/50
             text-center cursor-pointer rounded
             text-[clamp(0.9rem,1vw,1.1rem)]
             transition
@@ -233,7 +233,7 @@ export default function DashboardSummary() {
             px-[clamp(0.4rem,0.6vw,0.8rem)]
             py-[clamp(0.2rem,0.4vw,0.6rem)]
             w-[clamp(3.5rem,4.5vw,5.5rem)]
-            border border-[#00263F]
+            border border-[#00263F]/50
             text-center cursor-pointer rounded
             text-[clamp(0.9rem,1vw,1.1rem)]
             transition

@@ -244,14 +244,13 @@ export default function ProfileCard() {
           className="
             px-5 py-2 text-sm sm:px-8 sm:py-3 sm:text-lg bg-[#017ACB] text-white rounded
             hover:bg-[#017ACB]/20 hover:text-gray-700 transition
-            border border-black
+            border border-black/50
             shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
             active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
             relative
             before:content-[''] before:absolute before:inset-0 before:rounded
             before:pointer-events-none
             before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-            focus:outline-none focus:ring-0
           "
           style={styles.outfitFont}
         >

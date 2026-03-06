@@ -534,10 +534,14 @@ export default function AssignmentsAllocationsPage() {
               onClick={() => router.push('/resource-manager/dashboard')}
               className="
             px-4 py-2 rounded text-sm
-            bg-gray-200 text-gray-700 border
-            hover:bg-[#017ACB]/20 transition-colors
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+            bg-[#017ACB] text-white border border-black/50 
+            hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                relative
+                before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
               "
               style={styles.outfitFont}
             >
@@ -550,14 +554,18 @@ export default function AssignmentsAllocationsPage() {
             <button
               onClick={handleAllAssignments}
               className={`
-                px-4 py-2 rounded text-sm
+                px-4 py-2 rounded text-sm border border-black/50
                 ${
                   activeTab === 'all'
                 ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
                 : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
             }
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                relative
+                before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
               `}
               style={styles.outfitFont}
             >
@@ -567,14 +575,18 @@ export default function AssignmentsAllocationsPage() {
             <button
               onClick={handleMyAssignments}
               className={`
-                px-4 py-2 rounded text-sm
+                px-4 py-2 rounded text-sm border border-black/50
                 ${
                   activeTab === 'mine'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
+                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700' 
+                : 'bg-gray-200 text-gray-700  hover:bg-[#017ACB]/20'
             }
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                relative
+                before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
               `}
               style={styles.outfitFont}
             >
@@ -587,10 +599,14 @@ export default function AssignmentsAllocationsPage() {
               }
               className="
             px-4 py-2 rounded text-sm
-            bg-gray-200 text-gray-700 border
-            hover:bg-[#017ACB]/20 transition-colors
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
+            bg-[#017ACB] text-white border border-black/50
+            hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                relative
+                before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
               "
               style={styles.outfitFont}
             >

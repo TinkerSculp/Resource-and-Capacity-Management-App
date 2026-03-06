@@ -290,7 +290,7 @@ export default function CapacitySummary() {
               className="
                 w-full sm:w-auto
                 px-4 py-2 rounded text-sm
-                bg-[#017ACB] text-white border border-black
+                bg-[#017ACB] text-white border border-black/50
                 hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
                 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
                 active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
@@ -317,7 +317,7 @@ export default function CapacitySummary() {
 
             <div
               className="
-                rounded bg-white p-[2px]
+                rounded bg-white p-[0px]
                 focus-within:ring-[#017ACB]/20 transition
                 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
                 relative
@@ -329,7 +329,7 @@ export default function CapacitySummary() {
               <select
                 id="start-month-select"
                 className="
-                  border border-black rounded px-2 py-1 text-sm bg-white text-black
+                  border border-black/50 rounded px-2 py-1 text-sm bg-white text-black
                   focus:outline-none hover:bg-[#017ACB]/20 transition
                   w-full sm:w-auto
                 "

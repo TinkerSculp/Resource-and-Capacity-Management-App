@@ -480,7 +480,7 @@ export default function CalendarView() {
               onClick={() => router.back()}
               className="
                 px-4 py-2 rounded text-sm
-                bg-[#017ACB] text-white border border-black
+                bg-[#017ACB] text-white border border-black/50
                 hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
                 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
                 active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
@@ -760,7 +760,7 @@ export default function CalendarView() {
                         <button
                           aria-pressed={filterMode === 'all'}
                           className={`
-                            px-4 py-2 rounded text-sm transition-colors border border-[#00263F]
+                            px-4 py-2 rounded text-sm transition-colors border border-[#00263F]/50
                             ${filterMode === 'all'
                               ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
                               : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
@@ -782,7 +782,7 @@ export default function CalendarView() {
                         <button
                           aria-pressed={filterMode === 'mine'}
                           className={`
-                            px-4 py-2 rounded text-sm transition-colors border border-[#00263F]
+                            px-4 py-2 rounded text-sm transition-colors border border-[#00263F]/50
                             ${filterMode === 'mine'
                               ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
                               : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
@@ -808,7 +808,7 @@ export default function CalendarView() {
                       className="
                         w-full px-4 py-2 rounded text-sm font-semibold transition-colors
                         bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700
-                        border border-black
+                        border border-black/50
                         shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
                         active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
                         relative

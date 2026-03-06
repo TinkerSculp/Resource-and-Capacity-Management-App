@@ -291,7 +291,7 @@ export default function LoginPage() {
               type="submit" // Explicit type — prevents ambiguous button behaviour
               className="
                 w-full sm:w-2/3 sm:mx-auto
-                px-5 py-3 sm:py-3 border border-black
+                px-5 py-3 sm:py-3 border border-black/50
                 bg-[#017ACB] text-white
                 rounded-lg text-sm sm:text-lg
                 transition-all

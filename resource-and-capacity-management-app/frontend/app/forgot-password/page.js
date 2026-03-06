@@ -246,7 +246,7 @@ export default function ForgotPasswordPage() {
                 <Link
                   href="/login"
                   className="
-                    flex-1 px-5 py-3 text-center text-white border border-black
+                    flex-1 px-5 py-3 text-center text-white border border-black/50
                     bg-[#003A5C] rounded-lg text-base
                     hover:bg-[#017ACB]/20 hover:text-gray-700 transition
                     shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -264,7 +264,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   className="
-                    flex-1 px-5 py-3 border border-black
+                    flex-1 px-5 py-3 border border-black/50
                     bg-[#017ACB] text-white rounded-lg text-base
                     hover:bg-[#017ACB]/20 hover:text-gray-700 transition
                     shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -321,7 +321,7 @@ export default function ForgotPasswordPage() {
             <Link
               href="/login"
               className="
-                inline-block px-5 py-3 border border-black
+                inline-block px-5 py-3 border border-black/50
                 bg-[#017ACB] text-white rounded-lg text-base
                 hover:bg-[#017ACB]/20 hover:text-gray-700 transition
                 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
