@@ -1,14 +1,132 @@
 'use client';
 
+/* =============================================================================
+   InitiativesPage.jsx
+   -----------------------------------------------------------------------------
+   PURPOSE:
+     Displays all initiatives in a filterable, scrollable table. Supports:
+       • "All Initiatives", "My Initiatives", "Completed", "Cancelled" tabs
+       • Column-level filter menus (project, category, leader, status,
+         requestor, requestor VP, requesting dept)
+       • Project sort (A→Z / Z→A)
+       • Inline Edit button per row — navigates to edit page
+
+   SECURITY MODEL:
+     • localStorage is accessed inside try/catch — malformed JSON redirects to
+       login rather than crashing or persisting a broken auth state.
+     • user.username is validated via isValidUser() before any API call.
+     • All initiative fields are passed through sanitizeText() before being
+       stored in state — strips control characters, HTML tags, and common
+       injection keywords so no raw backend values are ever rendered.
+     • encodeURIComponent() is applied to initiative IDs in all URL
+       constructions — prevents path injection.
+     • Filter menus are built from sanitized server response data only —
+       no user-typed values ever populate the dropdown option lists.
+     • No dangerouslySetInnerHTML is used anywhere.
+     • Fetch is aborted on unmount via the aborted flag — prevents setState
+       after unmount and avoids stale data from slow responses.
+
+   RESPONSIVENESS:
+     • Header uses flex-wrap — title and tab buttons wrap on narrow screens.
+     • Table wrapper uses overflow-x-auto + overflow-y-auto + max-h-[70vh] —
+       scrolls both axes; never breaks layout on narrow screens.
+     • Sticky left-0 on Edit column — always visible while scrolling right.
+
+   DEPENDENCIES:
+     • next/navigation   — useRouter, useSearchParams
+     • @/lib/api         — axios instance with base URL + auth headers
+   ============================================================================= */
+
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 
+/* -----------------------------------------------------------------------------
+   STYLES
+----------------------------------------------------------------------------- */
 const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
 };
 
-// Strict sanitization
+/* -----------------------------------------------------------------------------
+   SHARED BUTTON CLASS — neumorphic, matches all other pages in the app.
+----------------------------------------------------------------------------- */
+const btnClass = `
+  px-4 py-2 rounded text-sm
+  bg-[#017ACB] text-white border border-black/50
+  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+`;
+
+const btnDarkClass = `
+  px-4 py-2 rounded text-sm
+  bg-[#003A5C] text-white border border-black/50
+  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+`;
+
+/* -----------------------------------------------------------------------------
+   TAB BUTTON CLASS BUILDER
+   Active tab gets blue fill; inactive gets gray surface.
+   Both share the same neumorphic shadow and border-black/50.
+----------------------------------------------------------------------------- */
+const tabClass = (isActive) => `
+  px-4 py-2 rounded text-sm border border-black/50
+  ${isActive
+    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
+    : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+  }
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  transition whitespace-nowrap
+`;
+
+/* -----------------------------------------------------------------------------
+   COLUMN FILTER BUTTON CLASS (▼ buttons inside table header cells)
+----------------------------------------------------------------------------- */
+const colBtnClass = `
+  ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
+  border border-black/50
+  hover:bg-[#CDE6F7] transition
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.14)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.14)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.10),inset_0_-1px_2px_rgba(0,0,0,0.10)]
+`;
+
+/* -----------------------------------------------------------------------------
+   DROPDOWN MENU CLASS
+   Fixed-position overlay. z-[30000] — above sticky headers.
+   max-h + overflow-y-auto — never grows taller than the viewport.
+----------------------------------------------------------------------------- */
+const menuClass = `
+  dropdown-menu
+  fixed bg-white text-black shadow-lg rounded
+  min-w-[12rem] w-max max-w-xs max-h-[min(60vh,420px)] overflow-y-auto
+  z-[30000] border border-gray-300 pointer-events-auto
+`;
+
+/* -----------------------------------------------------------------------------
+   SECURITY HELPERS
+----------------------------------------------------------------------------- */
+
+// Strip control characters, HTML tags, and common injection keywords
 function sanitizeText(value) {
   if (typeof value !== 'string') return '';
   return value
@@ -18,136 +136,200 @@ function sanitizeText(value) {
     .trim();
 }
 
-// Validate user object
+// Validate that the stored user object has a usable username
 function isValidUser(user) {
   return user && typeof user.username === 'string' && user.username.trim();
 }
 
-// Validate initiative object
+// Validate that an initiative has a usable ID
 function isValidInitiative(item) {
   return item && item._id;
 }
 
-export default function InitiativesPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const refresh = searchParams.get('refresh');
+/* -----------------------------------------------------------------------------
+   COMPONENT: Checkbox
+   Reusable visual checkbox — used inside all dropdown filter menus.
+----------------------------------------------------------------------------- */
+const Checkbox = ({ checked }) => (
+  <span className="w-4 h-4 border border-black rounded-sm flex items-center justify-center transition relative overflow-hidden flex-shrink-0">
+    <input type="checkbox" checked={checked} readOnly className="opacity-0 absolute w-4 h-4 cursor-pointer" />
+    {checked && (
+      <>
+        <span className="absolute inset-0" style={{ backgroundColor: '#003A5C' }} />
+        <svg className="absolute w-3 h-3 text-white" viewBox="0 0 20 20" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="4 11 8 15 16 6" />
+        </svg>
+      </>
+    )}
+  </span>
+);
 
-  // User + view state
-  const [user, setUser] = useState(null);
+/* =============================================================================
+   MAIN COMPONENT
+   ============================================================================= */
+export default function InitiativesPage() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const refresh      = searchParams.get('refresh');
+
+  /* ---------------------------------------------------------------------------
+     STATE
+  --------------------------------------------------------------------------- */
+  const [user, setUser]         = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  // Initiatives
-  const [initiatives, setInitiatives] = useState([]);
-  const [mine, setMine] = useState([]);
+  // Data arrays
+  const [initiatives, setInitiatives]               = useState([]);
+  const [mine, setMine]                             = useState([]);
   const [filteredInitiatives, setFilteredInitiatives] = useState([]);
 
-  // Filters
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [selectedStatuses, setSelectedStatuses] = useState([]);
-  const [selectedVPs, setSelectedVPs] = useState([]);
-  const [selectedDepts, setSelectedDepts] = useState([]);
-  const [selectedLeads, setSelectedLeads] = useState([]);
-  const [selectedRequestors, setSelectedRequestors] = useState([]);
-  const [selectedProjects, setSelectedProjects] = useState([]);
+  // Filter selections — all default to [] meaning "show all"
+  const [selectedCategories, setSelectedCategories]   = useState([]);
+  const [selectedStatuses, setSelectedStatuses]       = useState([]);
+  const [selectedVPs, setSelectedVPs]                 = useState([]);
+  const [selectedDepts, setSelectedDepts]             = useState([]);
+  const [selectedLeads, setSelectedLeads]             = useState([]);
+  const [selectedRequestors, setSelectedRequestors]   = useState([]);
+  const [selectedProjects, setSelectedProjects]       = useState([]);
 
-  // Sorting
+  // Sort
   const [projectSort, setProjectSort] = useState('');
-  const [showProjectSortMenu, setShowProjectSortMenu] = useState(false);
 
-  // Dropdown visibility
-  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
-  const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const [showVPMenu, setShowVPMenu] = useState(false);
-  const [showDeptMenu, setShowDeptMenu] = useState(false);
-  const [showLeadMenu, setShowLeadMenu] = useState(false);
-  const [showRequestorMenu, setShowRequestorMenu] = useState(false);
+  // Row highlight — click a row to highlight it, click again to deselect
+  const [highlightedId, setHighlightedId] = useState(null);
+  const toggleHighlight = (id) => setHighlightedId((prev) => (prev === id ? null : id));
 
-  // Dropdown positioning
+  // Dropdown visibility flags
+  const [showProjectSortMenu, setShowProjectSortMenu]   = useState(false);
+  const [showCategoryMenu, setShowCategoryMenu]         = useState(false);
+  const [showStatusMenu, setShowStatusMenu]             = useState(false);
+  const [showVPMenu, setShowVPMenu]                     = useState(false);
+  const [showDeptMenu, setShowDeptMenu]                 = useState(false);
+  const [showLeadMenu, setShowLeadMenu]                 = useState(false);
+  const [showRequestorMenu, setShowRequestorMenu]       = useState(false);
+
+  // Dropdown position — computed from button bounding rect on open
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
-  // Available filter values
-  const [availableCategories, setAvailableCategories] = useState([]);
-  const [availableStatuses, setAvailableStatuses] = useState([]);
-  const [availableVPs, setAvailableVPs] = useState([]);
-  const [availableDepts, setAvailableDepts] = useState([]);
-  const [availableLeads, setAvailableLeads] = useState([]);
-  const [availableRequestors, setAvailableRequestors] = useState([]);
-  const [availableProjects, setAvailableProjects] = useState([]);
+  // Available filter option lists — built from sanitized server data only
+  const [availableCategories, setAvailableCategories]   = useState([]);
+  const [availableStatuses, setAvailableStatuses]       = useState([]);
+  const [availableVPs, setAvailableVPs]                 = useState([]);
+  const [availableDepts, setAvailableDepts]             = useState([]);
+  const [availableLeads, setAvailableLeads]             = useState([]);
+  const [availableRequestors, setAvailableRequestors]   = useState([]);
+  const [availableProjects, setAvailableProjects]       = useState([]);
 
+  /* ---------------------------------------------------------------------------
+     DERIVED: visibleStatuses
+     Completed/Cancelled tabs only show their own status in the filter menu —
+     prevents confusion from showing irrelevant statuses.
+  --------------------------------------------------------------------------- */
   const visibleStatuses =
-    activeTab === "completed"
-      ? ["Completed"]
-      : activeTab === "cancelled"
-      ? ["Cancelled"]
-      : availableStatuses.filter(
-          (s) => s !== "Completed" && s !== "Cancelled"
-        );
+    activeTab === 'completed' ? ['Completed'] :
+    activeTab === 'cancelled' ? ['Cancelled'] :
+    availableStatuses.filter((s) => s !== 'Completed' && s !== 'Cancelled');
 
-  // Load user
+  /* ---------------------------------------------------------------------------
+     HELPER: toggleSelection
+     Adds a value to a filter array if not present, removes it if present.
+  --------------------------------------------------------------------------- */
+  const toggleSelection = (value, setFn, current) => {
+    if (!value) return;
+    setFn(current.includes(value) ? current.filter((v) => v !== value) : [...current, value]);
+  };
+
+  /* ---------------------------------------------------------------------------
+     HELPER: closeAllMenus
+     Closes every dropdown — called before opening a new one.
+  --------------------------------------------------------------------------- */
+  const closeAllMenus = () => {
+    setShowProjectSortMenu(false);
+    setShowCategoryMenu(false);
+    setShowStatusMenu(false);
+    setShowVPMenu(false);
+    setShowDeptMenu(false);
+    setShowLeadMenu(false);
+    setShowRequestorMenu(false);
+  };
+
+  /* ---------------------------------------------------------------------------
+     HELPER: openMenu
+     Positions the dropdown from the clicked button's bounding rect,
+     clamps to viewport edge, closes other menus, opens target.
+  --------------------------------------------------------------------------- */
+  const openMenu = (e, setFn, currentlyOpen) => {
+    e.stopPropagation();
+    if (currentlyOpen) { closeAllMenus(); return; }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    let x = rect.left;
+    let y = rect.bottom + 4;
+    if (x + 320 > window.innerWidth) x = window.innerWidth - 320 - 10;
+
+    setMenuPosition({ x, y });
+    closeAllMenus();
+    setFn(true);
+  };
+
+  /* ---------------------------------------------------------------------------
+     EFFECT 1: LOAD USER SESSION
+     Wrapped in try/catch — malformed JSON redirects to login.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
       const raw = localStorage.getItem('user');
       if (!raw) return router.push('/resource-and-capacity-management-app/frontend/app/login');
-
       const parsed = JSON.parse(raw);
       if (!isValidUser(parsed)) return router.push('/resource-and-capacity-management-app/frontend/app/login');
-
       setUser(parsed);
     } catch {
       router.push('/resource-and-capacity-management-app/frontend/app/login');
     }
   }, [router]);
 
-  // SECURE INITIATIVES FETCH (ONLY THIS SECTION WAS MODIFIED)
+  /* ---------------------------------------------------------------------------
+     EFFECT 2: FETCH INITIATIVES
+     Aborted on unmount — prevents setState after unmount and stale responses.
+     All returned data is passed through sanitizeText before storing.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
     let aborted = false;
 
-    async function fetchInitiatives() {
+    const fetchInitiatives = async () => {
       try {
-        const params = {};
-
+        const params = { username: user.username };
         if (activeTab === 'completed') params.status = 'Completed';
         else if (activeTab === 'cancelled') params.status = 'Cancelled';
 
-        
-        const res = await api.get('/initiatives', { 
-          params: { 
-            ...params,
-            username: user.username  
-          }
-        });
-
+        const res = await api.get('/initiatives', { params });
         if (!res?.data || aborted) return;
 
         const data = res.data;
 
+        // Map and sanitize all initiative fields — no raw backend values stored
         const safeMap = (items) =>
           Array.isArray(items)
-            ? items
-                .filter(isValidInitiative)
-                .map((item) => ({
-                  id: sanitizeText(String(item._id)),
-                  project: sanitizeText(item.project_name),
-                  category: sanitizeText(item.category),
-                  lead: sanitizeText(item.leader),
-                  status: sanitizeText(item.status),
-                  requestor: sanitizeText(item.requestor),
-                  requestor_vp: sanitizeText(item.requestor_vp),
-                  requesting_dept: sanitizeText(item.requesting_dept),
-                  completion_date: item.completion_date || null,
-                  target_period: sanitizeText(item.target_period),
-                  description: sanitizeText(item.description),
-                  resource_consideration: sanitizeText(item.resource_notes)
-                }))
+            ? items.filter(isValidInitiative).map((item) => ({
+                id:                    sanitizeText(String(item._id)),
+                project:               sanitizeText(item.project_name),
+                category:              sanitizeText(item.category),
+                lead:                  sanitizeText(item.leader),
+                status:                sanitizeText(item.status),
+                requestor:             sanitizeText(item.requestor),
+                requestor_vp:          sanitizeText(item.requestor_vp),
+                requesting_dept:       sanitizeText(item.requesting_dept),
+                completion_date:       item.completion_date || null,
+                target_period:         sanitizeText(item.target_period),
+                description:           sanitizeText(item.description),
+                resource_consideration: sanitizeText(item.resource_notes),
+              }))
             : [];
 
-        const sourceAll =
-          data.allAssignments || data.completed || data.cancelled || [];
-
-        const mappedAll = safeMap(sourceAll);
+        const sourceAll  = data.allAssignments || data.completed || data.cancelled || [];
+        const mappedAll  = safeMap(sourceAll);
         const mappedMine = safeMap(data.myInitiatives || []);
 
         if (aborted) return;
@@ -156,937 +338,381 @@ export default function InitiativesPage() {
         setMine(mappedMine);
         setFilteredInitiatives(mappedAll);
 
-        setAvailableCategories([...new Set(mappedAll.map(i => i.category).filter(Boolean))]);
-        setAvailableStatuses([...new Set(mappedAll.map(i => i.status).filter(Boolean))]);
-        setAvailableVPs([...new Set(mappedAll.map(i => i.requestor_vp).filter(Boolean))]);
-        setAvailableDepts([...new Set(mappedAll.map(i => i.requesting_dept).filter(Boolean))]);
-        setAvailableLeads([...new Set(mappedAll.map(i => i.lead).filter(Boolean))]);
-        setAvailableRequestors([...new Set(mappedAll.map(i => i.requestor).filter(Boolean))]);
-        setAvailableProjects([...new Set(mappedAll.map(i => i.project).filter(Boolean))]);
+        // Available lists are built in Effect 3 (tab-aware) — not here
+
       } catch (err) {
         console.error('Fetch error:', err);
       }
-    }
+    };
 
-  fetchInitiatives();
-  return () => (aborted = true);
-}, [user, refresh, activeTab]);
+    fetchInitiatives();
+    return () => { aborted = true; };
+  }, [user, refresh, activeTab]);
 
-  // Apply filters + sorting
+  /* ---------------------------------------------------------------------------
+     EFFECT 3: APPLY FILTERS + SORT + BUILD AVAILABLE FILTER LISTS
+     ---------------------------------------------------------------------------
+     The base dataset is scoped per tab:
+       • all       — active initiatives only (excludes Completed/Cancelled)
+       • mine      — logged-in user's rows only (also excludes Completed/Cancelled)
+       • completed — Completed only
+       • cancelled — Cancelled only
+
+     Filter option lists are derived from the tab-scoped base BEFORE filters
+     are applied — so each dropdown only shows values relevant to the current
+     tab. This means:
+       • My Initiatives dropdowns only show values from the logged-in user's rows
+       • All/Mine project filter never lists Completed or Cancelled projects
+       • Completed/Cancelled tabs only show their own statuses
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
-const base =
-  activeTab === 'mine'
-    ? mine
-    : activeTab === 'completed'
-    ? initiatives.filter(i => i.status === 'Completed')
-    : activeTab === 'cancelled'
-    ? initiatives.filter(i => i.status === 'Cancelled')
-    : initiatives.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled');
+    // Step 1: determine the tab-scoped source (before any filter applied)
+    const base =
+      activeTab === 'mine'      ? mine.filter((i) => i.status !== 'Completed' && i.status !== 'Cancelled') :
+      activeTab === 'completed' ? initiatives.filter((i) => i.status === 'Completed') :
+      activeTab === 'cancelled' ? initiatives.filter((i) => i.status === 'Cancelled') :
+      initiatives.filter((i) => i.status !== 'Completed' && i.status !== 'Cancelled');
 
+    // Step 2: rebuild available filter lists from the tab-scoped base
+    // so every dropdown only shows values relevant to the current tab
+    const uniq = (arr) => [...new Set(arr)].filter(Boolean);
+    setAvailableCategories(uniq(base.map((i) => i.category)));
+    setAvailableStatuses(uniq(base.map((i) => i.status)));
+    setAvailableVPs(uniq(base.map((i) => i.requestor_vp)));
+    setAvailableDepts(uniq(base.map((i) => i.requesting_dept)));
+    setAvailableLeads(uniq(base.map((i) => i.lead)));
+    setAvailableRequestors(uniq(base.map((i) => i.requestor)));
+    setAvailableProjects(uniq(base.map((i) => i.project)));
+
+    // Step 3: apply active filter selections to the scoped base
     let filtered = base.filter((i) =>
-      (selectedCategories.length ? selectedCategories.includes(i.category) : true) &&
-      (selectedStatuses.length ? selectedStatuses.includes(i.status) : true) &&
-      (selectedVPs.length ? selectedVPs.includes(i.requestor_vp) : true) &&
-      (selectedDepts.length ? selectedDepts.includes(i.requesting_dept) : true) &&
-      (selectedLeads.length ? selectedLeads.includes(i.lead) : true) &&
-      (selectedRequestors.length ? selectedRequestors.includes(i.requestor) : true) &&
-      (selectedProjects.length ? selectedProjects.includes(i.project) : true)
+      (!selectedCategories.length  || selectedCategories.includes(i.category))  &&
+      (!selectedStatuses.length    || selectedStatuses.includes(i.status))       &&
+      (!selectedVPs.length         || selectedVPs.includes(i.requestor_vp))      &&
+      (!selectedDepts.length       || selectedDepts.includes(i.requesting_dept)) &&
+      (!selectedLeads.length       || selectedLeads.includes(i.lead))            &&
+      (!selectedRequestors.length  || selectedRequestors.includes(i.requestor))  &&
+      (!selectedProjects.length    || selectedProjects.includes(i.project))
     );
 
-    if (projectSort === 'asc') filtered = [...filtered].sort((a, b) => a.project.localeCompare(b.project));
+    // Step 4: apply sort
+    if (projectSort === 'asc')  filtered = [...filtered].sort((a, b) => a.project.localeCompare(b.project));
     if (projectSort === 'desc') filtered = [...filtered].sort((a, b) => b.project.localeCompare(a.project));
 
     setFilteredInitiatives(filtered);
   }, [
-    activeTab,
-    initiatives,
-    mine,
-    user,
-    selectedCategories,
-    selectedStatuses,
-    selectedVPs,
-    selectedDepts,
-    selectedLeads,
-    selectedRequestors,
-    selectedProjects,
-    projectSort
+    activeTab, initiatives, mine, user,
+    selectedCategories, selectedStatuses, selectedVPs,
+    selectedDepts, selectedLeads, selectedRequestors,
+    selectedProjects, projectSort
   ]);
 
-
-
-  // Reusable checkbox
-  const Checkbox = ({ checked }) => (
-  <span
-    className="
-      w-4 h-4
-      border border-black rounded-sm
-      flex items-center justify-center
-      transition relative overflow-hidden
-      flex-shrink-0
-    "
-  >
-    <input
-      type="checkbox"
-      checked={checked}
-      readOnly
-      className="opacity-0 absolute w-4 h-4 cursor-pointer"
-    />
-
-    {checked && (
-      <>
-        <span className="absolute inset-0" style={{ backgroundColor: '#003A5C' }}></span>
-        <svg
-          className="absolute w-3 h-3 text-white"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="white"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="4 11 8 15 16 6" />
-        </svg>
-      </>
-    )}
-  </span>
-);
-
-  // Toggle helper
-  const toggleSelection = (value, setFn, current) => {
-    if (!value) return;
-    setFn(current.includes(value) ? current.filter(v => v !== value) : [...current, value]);
-  };
-  
-  // Close dropdowns
+  /* ---------------------------------------------------------------------------
+     EFFECT 4: CLOSE MENUS ON OUTSIDE CLICK
+  --------------------------------------------------------------------------- */
   useEffect(() => {
-    const closeAll = () => {
-      setShowCategoryMenu(false);
-      setShowStatusMenu(false);
-      setShowVPMenu(false);
-      setShowDeptMenu(false);
-      setShowLeadMenu(false);
-      setShowProjectSortMenu(false);
-      setShowRequestorMenu(false);
+    const handler = (e) => {
+      if (!e.target.closest('.dropdown-menu')) closeAllMenus();
     };
-    window.addEventListener('click', closeAll);
-    return () => window.removeEventListener('click', closeAll);
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
   }, []);
 
-  // Navigation
-  const handleAddInitiative = () => {
-    router.push('/resource-manager/create-edit-initiatives/add-initiative');
-  };
-
-  const handleEditInitiative = (id) => {
-    router.push(`/resource-manager/create-edit-initiatives/edit-initiative?id=${encodeURIComponent(id)}`);
-  };
-
+  /* ---------------------------------------------------------------------------
+     LOADING STATE
+  --------------------------------------------------------------------------- */
   if (!user) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" aria-label="Loading" />
       </div>
     );
   }
 
-return (
-  <>
-    {/* --------------------------------------------------------------------
-       HEADER SECTION
-       --------------------------------------------------------------------
-       SECURITY NOTES:
-       • No sensitive data displayed here.
-       • Navigation actions do not expose user identity.
-       • All protected data is fetched securely elsewhere (via JWT API calls).
-       -------------------------------------------------------------------- */}
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center gap-4">
-        <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
-          Initiatives
-        </h2>
+  /* ---------------------------------------------------------------------------
+     RENDER HELPER: renderMenuItems
+     Shared pattern for all filter dropdowns — "All" option + list of values.
+  --------------------------------------------------------------------------- */
+  const renderMenuItems = (available, selected, setSelected, sortOptions = false) => (
+    <>
+      {/* Sort options — project column only */}
+      {sortOptions && (
+        <>
+          {[{ val: 'asc', label: 'A → Z' }, { val: 'desc', label: 'Z → A' }].map(({ val, label }) => (
+            <div
+              key={val}
+              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${projectSort === val ? 'font-bold' : ''}`}
+              onClick={() => setProjectSort(projectSort === val ? '' : val)}
+            >
+              <Checkbox checked={projectSort === val} />
+              {label}
+            </div>
+          ))}
+          <div className="border-t my-1 text-xs font-semibold text-gray-500 px-3 py-1">Filter by project</div>
+        </>
+      )}
 
-        {/* Back navigation (safe — no sensitive state passed) */}
-        <button
-          onClick={() => router.push('/resource-manager/dashboard')}
-          className="
-            px-4 py-2 rounded text-sm
-            bg-[#017ACB] text-white border
-            hover:bg-[#017ACB]/20 transition-colors
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-          "
-          style={styles.outfitFont}
-        >
-          Back to Dashboard
-        </button>
+      {/* "All" — clears the filter */}
+      <div
+        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? 'font-bold' : ''}`}
+        onClick={() => setSelected([])}
+      >
+        <Checkbox checked={selected.length === 0} />
+        All
       </div>
 
-      {/* --------------------------------------------------------------------
-         TAB CONTROLS
-         --------------------------------------------------------------------
-         SECURITY NOTES:
-         • These tabs only toggle client‑side filters.
-         • No sensitive data is stored or transmitted.
-         • All protected data is fetched securely via JWT API calls.
-         -------------------------------------------------------------------- */}
-      <div className="flex items-center gap-3">
-
-        {/* ALL INITIATIVES */}
-        <button
-          onClick={() => setActiveTab('all')}
-          className={`
-            px-4 py-2 rounded text-sm transition-colors
-            ${
-              activeTab === 'all'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
-            }
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-          `}
-          style={styles.outfitFont}
+      {/* Individual options */}
+      {available.map((val) => (
+        <div
+          key={val}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(val) ? 'font-bold' : ''}`}
+          onClick={() => toggleSelection(val, setSelected, selected)}
         >
-          All Initiatives
-        </button>
+          <Checkbox checked={selected.includes(val)} />
+          {val}
+        </div>
+      ))}
+    </>
+  );
 
-        {/* MY INITIATIVES */}
-        <button
-          onClick={() => setActiveTab('mine')}
-          className={`
-            px-4 py-2 rounded text-sm transition-colors
-            ${
-              activeTab === 'mine'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
-            }
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-          `}
-          style={styles.outfitFont}
-        >
-          My Initiatives
-        </button>
+  /* ---------------------------------------------------------------------------
+     RENDER
+  --------------------------------------------------------------------------- */
+  return (
+    <>
+      {/* -----------------------------------------------------------------
+         PAGE HEADER
+         flex-wrap — title and buttons wrap on narrow screens.
+      ----------------------------------------------------------------- */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
 
-        {/* COMPLETED */}
-        <button
-          onClick={() => setActiveTab('completed')}
-          className={`
-            px-4 py-2 rounded text-sm transition-colors
-            ${
-              activeTab === 'completed'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
-            }
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-          `}
-          style={styles.outfitFont}
-        >
-          Completed
-        </button>
+        {/* LEFT: Title + Back button */}
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
+            Initiatives
+          </h2>
+          <button
+            onClick={() => router.push('/resource-manager/dashboard')}
+            className={btnDarkClass}
+            style={styles.outfitFont}
+          >
+            Back to Dashboard
+          </button>
+        </div>
 
-        {/* CANCELLED */}
-        <button
-          onClick={() => setActiveTab('cancelled')}
-          className={`
-            px-4 py-2 rounded text-sm transition-colors
-            ${
-              activeTab === 'cancelled'
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
-            }
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-          `}
-          style={styles.outfitFont}
-        >
-          Cancelled
-        </button>
+        {/* RIGHT: Tabs + Add button */}
+        <div className="flex flex-wrap gap-2 items-center">
 
-        {/* ADD INITIATIVE (secure — navigation only) */}
-        <button
-          onClick={handleAddInitiative}
-          className="
-            px-4 py-2 rounded text-sm
-            bg-[#017ACB] text-white border
-            hover:bg-[#017ACB]/20 transition-colors
-            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-            active:shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-          "
-          style={styles.outfitFont}
-        >
-          + Add Initiative
-        </button>
-
-      </div>
-    </div>
-
-    {/* --------------------------------------------------------------------
-       INITIATIVES TABLE
-       --------------------------------------------------------------------
-       SECURITY NOTES:
-       • All data shown here has already been sanitized.
-       • No raw backend values are rendered without cleaning.
-       • No sensitive identifiers (tokens, roles, emails) are displayed.
-       • Edit buttons only navigate — actual editing is protected by JWT.
-       -------------------------------------------------------------------- */}
-    <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
-      <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
-        <table className="min-w-max w-full border-collapse">
-          <thead className="bg-[#017ACB] text-white">
-            <tr className="sticky top-0 z-[100] bg-[#017ACB]">
-
-            {/* EDIT HEADER — sticky, blue preserved */}
-            <th
-              className="
-                         sticky left-0 top-0
-                                z-[9999]
-                                bg-[#017ACB] bg-opacity-100
-                                px-4 py-2
-                                text-sm font-semibold
-                                whitespace-nowrap
-                                align-middle
-                                [background-clip:padding-box]
-              "
+          {['all', 'mine', 'completed', 'cancelled'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab);
+                // Clear all filters on tab switch — prevents cross-tab filter bleed
+                setSelectedCategories([]); setSelectedStatuses([]); setSelectedVPs([]);
+                setSelectedDepts([]); setSelectedLeads([]); setSelectedRequestors([]);
+                setSelectedProjects([]); setProjectSort('');
+              }}
+              aria-pressed={activeTab === tab}
+              className={tabClass(activeTab === tab)}
               style={styles.outfitFont}
             >
-              Edit
-            </th>
+              {{ all: 'All Initiatives', mine: 'My Initiatives', completed: 'Completed', cancelled: 'Cancelled' }[tab]}
+            </button>
+          ))}
 
-              {/* PROJECT COLUMN (sorting + filtering only) */}
-              <th
-                className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                style={styles.outfitFont}
-              >
-                <div className="flex justify-between items-center">
-                  <span>Project</span>
+          <button
+            onClick={() => router.push('/resource-manager/create-edit-initiatives/add-initiative')}
+            className={btnClass}
+            style={styles.outfitFont}
+          >
+            + Add Initiative
+          </button>
 
-                  {/* Sorting button — UI only, no security impact */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const rect = e.target.getBoundingClientRect();
-                      setMenuPosition({ x: rect.left, y: rect.bottom });
-                      setShowProjectSortMenu(prev => !prev);
+        </div>
+      </div>
 
-                      // Close other menus
-                      setShowCategoryMenu(false);
-                      setShowStatusMenu(false);
-                      setShowVPMenu(false);
-                      setShowDeptMenu(false);
-                      setShowLeadMenu(false);
-                      setShowRequestorMenu(false);
-                    }}
-                    className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
-                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-                  >
-                    ▼
-                  </button>
-                </div>
+      {/* -----------------------------------------------------------------
+         INITIATIVES TABLE
+      ----------------------------------------------------------------- */}
+      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+        <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+          <table className="min-w-max w-full border-collapse">
 
-                {/* Sort menu — UI only */}
-                {showProjectSortMenu && (
-                  <div
-                    className="fixed bg-white text-black shadow-lg rounded w-56 z-50"
-                    style={{ top: menuPosition.y, left: menuPosition.x }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="px-3 py-2 text-xs font-semibold text-gray-500">
-                      Sort by project
-                    </div>
+            <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
+              <tr>
 
-                    <div
-                      className="px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2"
-                      onClick={() => setProjectSort(prev => (prev === 'asc' ? null : 'asc'))}
-                    >
-                      <Checkbox checked={projectSort === 'asc'} />
-                      A → Z
-                    </div>
-
-                    <div
-                      className="px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2"
-                      onClick={() => setProjectSort(prev => (prev === 'desc' ? null : 'desc'))}
-                    >
-                      <Checkbox checked={projectSort === 'desc'} />
-                      Z → A
-                    </div>
-
-                    <div className="border-t mt-1 pt-1 px-3 py-2 text-xs font-semibold text-gray-500">
-                      Filter by project
-                    </div>
-
-                    <div
-                      className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                        selectedProjects.length === 0 ? 'font-semibold' : ''
-                      }`}
-                      onClick={() => setSelectedProjects([])}
-                    >
-                      <Checkbox checked={selectedProjects.length === 0} />
-                      All
-                    </div>
-
-                    {availableProjects.map((proj) => (
-                      <div
-                        key={proj}
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                          selectedProjects.includes(proj) ? 'font-semibold' : ''
-                        }`}
-                        onClick={() =>
-                          toggleSelection(proj, setSelectedProjects, selectedProjects)
-                        }
-                      >
-                        <Checkbox checked={selectedProjects.includes(proj)} />
-                        {proj}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </th>
-
-              {/* CATEGORY COLUMN (UI only) */}
-              <th
-                className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                style={styles.outfitFont}
-              >
-                <div className="flex justify-between items-center">
-                  <span>Category</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const rect = e.target.getBoundingClientRect();
-                      setMenuPosition({ x: rect.left, y: rect.bottom });
-                      setShowCategoryMenu(prev => !prev);
-
-                      setShowStatusMenu(false);
-                      setShowVPMenu(false);
-                      setShowDeptMenu(false);
-                      setShowLeadMenu(false);
-                      setShowProjectSortMenu(false);
-                      setShowRequestorMenu(false);
-                    }}
-                    className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
-                    shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-                  >
-                    ▼
-                  </button>
-                </div>
-           
-                {showCategoryMenu && (
-                  <div
-                    className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
-                    style={{ top: menuPosition.y, left: menuPosition.x }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* 
-                      SECURITY:
-                      • Pure client‑side filtering — no backend calls.
-                      • Values displayed here come from sanitized initiative data.
-                      • No sensitive identifiers or tokens rendered.
-                    */}
-
-                    {/* ALL */}
-                    <div
-                      className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                        selectedCategories.length === 0 ? 'font-semibold' : ''
-                      }`}
-                      onClick={() => setSelectedCategories([])}
-                    >
-                      <Checkbox checked={selectedCategories.length === 0} />
-                      All
-                    </div>
-
-                    {/* INDIVIDUAL CATEGORIES */}
-                    {availableCategories.map((cat) => (
-                      <div
-                        key={cat}
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                          selectedCategories.includes(cat) ? 'font-semibold' : ''
-                        }`}
-                        onClick={() =>
-                          toggleSelection(cat, setSelectedCategories, selectedCategories)
-                        }
-                      >
-                        <Checkbox checked={selectedCategories.includes(cat)} />
-                        {cat}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                </th>
-
-                {/* LEADER */}
+                {/* EDIT — sticky left */}
                 <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
+                  className="sticky left-0 top-0 z-[9999] bg-[#017ACB] px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle [background-clip:padding-box]"
                   style={styles.outfitFont}
                 >
+                  Edit
+                </th>
+
+                {/* PROJECT — sort + filter */}
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                  <div className="flex justify-between items-center">
+                    <span>Project</span>
+                    <button className={colBtnClass} onClick={(e) => openMenu(e, setShowProjectSortMenu, showProjectSortMenu)}>▼</button>
+                  </div>
+                  {showProjectSortMenu && (
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                      {renderMenuItems(availableProjects, selectedProjects, setSelectedProjects, true)}
+                    </div>
+                  )}
+                </th>
+
+                {/* CATEGORY */}
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                  <div className="flex justify-between items-center">
+                    <span>Category</span>
+                    <button className={colBtnClass} onClick={(e) => openMenu(e, setShowCategoryMenu, showCategoryMenu)}>▼</button>
+                  </div>
+                  {showCategoryMenu && (
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                      {renderMenuItems(availableCategories, selectedCategories, setSelectedCategories)}
+                    </div>
+                  )}
+                </th>
+
+                {/* LEADER ACCOUNTABLE */}
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Leader Accountable</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.target.getBoundingClientRect();
-                        setMenuPosition({ x: rect.left, y: rect.bottom });
-
-                        // SECURITY: UI‑only state toggles — no data exposure
-                        setShowLeadMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowProjectSortMenu(false);
-                        setShowRequestorMenu(false);
-                      }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
-                      shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-                    >
-                      ▼
-                    </button>
+                    <button className={colBtnClass} onClick={(e) => openMenu(e, setShowLeadMenu, showLeadMenu)}>▼</button>
                   </div>
-
                   {showLeadMenu && (
-                    <div
-                      className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
-                      style={{ top: menuPosition.y, left: menuPosition.x }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* 
-                        SECURITY:
-                        • All values shown here are sanitized.
-                        • No backend calls triggered by menu interaction.
-                      */}
-
-                      {/* ALL */}
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                          selectedLeads.length === 0 ? 'font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedLeads([])}
-                      >
-                        <Checkbox checked={selectedLeads.length === 0} />
-                        All
-                      </div>
-
-                      {/* INDIVIDUAL LEADS */}
-                      {availableLeads.map((lead) => (
-                        <div
-                          key={lead}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                            selectedLeads.includes(lead) ? 'font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(lead, setSelectedLeads, selectedLeads)
-                          }
-                        >
-                          <Checkbox checked={selectedLeads.includes(lead)} />
-                          {lead}
-                        </div>
-                      ))}
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                      {renderMenuItems(availableLeads, selectedLeads, setSelectedLeads)}
                     </div>
                   )}
                 </th>
 
                 {/* STATUS */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Status</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.target.getBoundingClientRect();
-                        setMenuPosition({ x: rect.left, y: rect.bottom });
-
-                        // SECURITY: UI‑only toggles, no sensitive data exposed
-                        setShowStatusMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                        setShowRequestorMenu(false);
-                      }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
-                      shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-                    >
-                      ▼
-                    </button>
+                    <button className={colBtnClass} onClick={(e) => openMenu(e, setShowStatusMenu, showStatusMenu)}>▼</button>
                   </div>
-
                   {showStatusMenu && (
-                    <div
-                      className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
-                      style={{ top: menuPosition.y, left: menuPosition.x }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* ALL */}
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                          selectedStatuses.length === 0 ? 'font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedStatuses([])}
-                      >
-                        <Checkbox checked={selectedStatuses.length === 0} />
-                        All
-                      </div>
-
-                      {/* INDIVIDUAL STATUSES */}
-                      {visibleStatuses.map((status) => (
-                        <div
-                          key={status}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                            selectedStatuses.includes(status) ? 'font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(status, setSelectedStatuses, selectedStatuses)
-                          }
-                        >
-                          <Checkbox checked={selectedStatuses.includes(status)} />
-                          {status}
-                        </div>
-                      ))}
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                      {renderMenuItems(visibleStatuses, selectedStatuses, setSelectedStatuses)}
                     </div>
                   )}
                 </th>
 
                 {/* REQUESTOR */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  <div className="flex justify_between items-center">
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                  <div className="flex justify-between items-center">
                     <span>Requestor</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.target.getBoundingClientRect();
-                        setMenuPosition({ x: rect.left, y: rect.bottom });
-
-                        // SECURITY: UI‑only, no backend interaction
-                        setShowRequestorMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                      }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
-                      shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-                    >
-                      ▼
-                    </button>
+                    <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestorMenu, showRequestorMenu)}>▼</button>
                   </div>
-
                   {showRequestorMenu && (
-                    <div
-                      className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
-                      style={{ top: menuPosition.y, left: menuPosition.x }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* ALL */}
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                          selectedRequestors.length === 0 ? 'font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedRequestors([])}
-                      >
-                        <Checkbox checked={selectedRequestors.length === 0} />
-                        All
-                      </div>
-
-                      {/* INDIVIDUAL REQUESTORS */}
-                      {availableRequestors.map((req) => (
-                        <div
-                          key={req}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                            selectedRequestors.includes(req) ? 'font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(req, setSelectedRequestors, selectedRequestors)
-                          }
-                        >
-                          <Checkbox checked={selectedRequestors.includes(req)} />
-                          {req}
-                        </div>
-                      ))}
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                      {renderMenuItems(availableRequestors, selectedRequestors, setSelectedRequestors)}
                     </div>
                   )}
                 </th>
 
                 {/* REQUESTOR VP */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor VP</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.target.getBoundingClientRect();
-                        setMenuPosition({ x: rect.left, y: rect.bottom });
-
-                        /* 
-                          SECURITY:
-                          • UI-only state toggles — no backend calls.
-                          • VP values shown here come from sanitized initiative data.
-                          • No sensitive identifiers or tokens exposed.
-                        */
-                        setShowVPMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowDeptMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                        setShowRequestorMenu(false);
-                      }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
-                      shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-                    >
-                      ▼
-                    </button>
+                    <button className={colBtnClass} onClick={(e) => openMenu(e, setShowVPMenu, showVPMenu)}>▼</button>
                   </div>
-
                   {showVPMenu && (
-                    <div
-                      className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
-                      style={{ top: menuPosition.y, left: menuPosition.x }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* 
-                        SECURITY:
-                        • Pure client-side filtering.
-                        • All VP names sanitized before rendering.
-                      */}
-
-                      {/* ALL */}
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                          selectedVPs.length === 0 ? 'font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedVPs([])}
-                      >
-                        <Checkbox checked={selectedVPs.length === 0} />
-                        All
-                      </div>
-
-                      {/* INDIVIDUAL VPs */}
-                      {availableVPs.map((vp) => (
-                        <div
-                          key={vp}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                            selectedVPs.includes(vp) ? 'font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(vp, setSelectedVPs, selectedVPs)
-                          }
-                        >
-                          <Checkbox checked={selectedVPs.includes(vp)} />
-                          {vp}
-                        </div>
-                      ))}
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                      {renderMenuItems(availableVPs, selectedVPs, setSelectedVPs)}
                     </div>
                   )}
                 </th>
 
                 {/* REQUESTING DEPT */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requesting Dept</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.target.getBoundingClientRect();
-                        setMenuPosition({ x: rect.left, y: rect.bottom });
-
-                        /* 
-                          SECURITY:
-                          • Department values are sanitized backend data.
-                          • No sensitive backend identifiers shown.
-                        */
-                        setShowDeptMenu(prev => !prev);
-                        setShowCategoryMenu(false);
-                        setShowStatusMenu(false);
-                        setShowVPMenu(false);
-                        setShowLeadMenu(false);
-                        setShowProjectSortMenu(false);
-                        setShowRequestorMenu(false);
-                      }}
-                      className="ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold hover:bg-[#CDE6F7] transition
-                      shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]"
-                    >
-                      ▼
-                    </button>
+                    <button className={colBtnClass} onClick={(e) => openMenu(e, setShowDeptMenu, showDeptMenu)}>▼</button>
                   </div>
-
                   {showDeptMenu && (
-                    <div
-                      className="fixed bg-white text-black shadow-lg rounded w-48 z-50"
-                      style={{ top: menuPosition.y, left: menuPosition.x }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* ALL */}
-                      <div
-                        className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                          selectedDepts.length === 0 ? 'font-semibold' : ''
-                        }`}
-                        onClick={() => setSelectedDepts([])}
-                      >
-                        <Checkbox checked={selectedDepts.length === 0} />
-                        All
-                      </div>
-
-                      {/* INDIVIDUAL DEPARTMENTS */}
-                      {availableDepts.map((dept) => (
-                        <div
-                          key={dept}
-                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-[#017ACB]/20 flex items-center gap-2 ${
-                            selectedDepts.includes(dept) ? 'font-semibold' : ''
-                          }`}
-                          onClick={() =>
-                            toggleSelection(dept, setSelectedDepts, selectedDepts)
-                          }
-                        >
-                          <Checkbox checked={selectedDepts.includes(dept)} />
-                          {dept}
-                        </div>
-                      ))}
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                      {renderMenuItems(availableDepts, selectedDepts, setSelectedDepts)}
                     </div>
                   )}
                 </th>
 
-                {/* COMPLETION DATE */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  Completion Date
-                </th>
+                {/* NON-FILTERABLE COLUMNS */}
+                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Completion Date</th>
+                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Target Period</th>
+                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Description</th>
+                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Resource Consideration</th>
 
-                {/* TARGET PERIOD */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  Target Period
-                </th>
+              </tr>
+            </thead>
 
-                {/* DESCRIPTION */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  Description
-                </th>
-
-                {/* RESOURCE NOTES */}
-                <th
-                  className="px-4 py-2 border text-sm font-semibold whitespace-nowrap"
-                  style={styles.outfitFont}
-                >
-                  Resource Consideration
-                </th>
+            <tbody>
+              {filteredInitiatives.length === 0 && (
+                <tr>
+                  <td colSpan={12} className="text-center py-8 text-gray-500 border" style={styles.outfitFont}>
+                    No initiatives found.
+                  </td>
                 </tr>
-                </thead>
+              )}
 
-                {/* BODY */}
-                <tbody>
-                  {filteredInitiatives.map((item, index) => (
-                    <tr
-                      key={item.id}
-                      className={`hover:bg-[#017ACB]/20 ${
-                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                      }`}
+              {filteredInitiatives.map((item, index) => {
+                const isHighlighted = highlightedId === item.id;
+                return (
+                <tr
+                  key={item.id}
+                  onClick={() => toggleHighlight(item.id)}
+                  className={`cursor-pointer transition-colors hover:bg-[#017ACB]/20 ${
+                    isHighlighted ? 'bg-[#CDE6F7]' : 'bg-white'
+                  }`}
+                >
+                  {/* EDIT — sticky left, stopPropagation prevents row highlight toggle */}
+                  <td className="sticky left-0 z-30 px-4 py-2 bg-white border-r border-black text-black whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => router.push(`/resource-manager/create-edit-initiatives/edit-initiative?id=${encodeURIComponent(item.id)}`)}
+                      className="
+                        px-2 py-1 rounded text-xs
+                        bg-[#017ACB] text-white border border-black/50
+                        hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                        shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                        active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                        relative
+                        before:content-[''] before:absolute before:inset-0 before:rounded
+                        before:pointer-events-none
+                        before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                      "
+                      style={styles.outfitFont}
                     >
-                      {/* EDIT BUTTON */}
-                      <td
-                        className="
-                          sticky left-0 z-30
-                          px-4 py-2
-                          bg-white
-                          border-r border-black
-                          text-black
-                          whitespace-nowrap
-                        "
-                      >
-                        <button
-                          onClick={() => handleEditInitiative(item.id)}
-                          className="
-                            px-2 py-1
-                            bg-[#017ACB] text-white text-xs rounded
-                            hover:bg-[#017ACB]/20 hover:text-gray-700 transition
-                            shadow-[inset_2px_2px_0_rgba(255,255,255,1),inset_-2px_-2px_0_rgba(0,0,0,0.32)]
-                          "
-                          style={styles.outfitFont}
-                        >
-                          Edit
-                        </button>
-                      </td>
+                      Edit
+                    </button>
+                  </td>
 
-                      {/* NORMAL COLUMNS — all values sanitized earlier */}
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.project}
-                      </td>
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.category}
-                      </td>
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.lead}
-                      </td>
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.status}
-                      </td>
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.requestor}
-                      </td>
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.requestor_vp}
-                      </td>
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.requesting_dept}
-                      </td>
+                  {/* DATA CELLS — all values sanitized before storage */}
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.project}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.category}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.lead}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.status}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.requestor}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.requestor_vp}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.requesting_dept}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">
+                    {item.completion_date ? new Date(item.completion_date).toLocaleDateString() : ''}
+                  </td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.target_period}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-normal break-words align-top max-w-[750px] bg-inherit">{item.description}</td>
+                  <td className="px-4 py-2 border text-sm text-black whitespace-normal break-words align-top max-w-[500px] bg-inherit">{item.resource_consideration}</td>
+                </tr>
+                );
+              })}
+            </tbody>
 
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.completion_date
-                          ? new Date(item.completion_date).toLocaleDateString()
-                          : ''}
-                      </td>
-
-                      <td className="px-4 py-2 border text-sm text-black whitespace-nowrap">
-                        {item.target_period}
-                      </td>
-
-                      <td
-                        className="
-                          px-4 py-2 border text-sm text-black
-                          whitespace-normal break-words align-top
-                          max-w-[750px]
-                        "
-                      >
-                        {item.description}
-                      </td>
-
-                      <td
-                        className="
-                          px-4 py-2 border text-sm text-black
-                          whitespace-normal break-words align-top
-                          max-w-[500px]
-                        "
-                      >
-                        {item.resource_consideration}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-            </table>
-          </div>
+          </table>
+        </div>
       </div>
     </>
   );

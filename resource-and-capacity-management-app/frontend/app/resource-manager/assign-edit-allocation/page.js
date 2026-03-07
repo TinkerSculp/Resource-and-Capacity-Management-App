@@ -121,8 +121,8 @@ const btnClass = `
 const tabClass = (isActive) => `
   px-4 py-2 rounded text-sm border border-black/50
   ${isActive
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
+    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
+    : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
   }
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
@@ -135,8 +135,23 @@ const tabClass = (isActive) => `
 
 /* -----------------------------------------------------------------------------
    COLUMN FILTER BUTTON CLASS (▼ buttons inside table header cells)
-   Lighter inset-only shadow — sits inside the blue header so it needs less
-   lift. White bg with brand blue text, consistent hover tint.
+   -----------------------------------------------------------------------------
+   WHY NO before: PSEUDO-ELEMENT:
+     The before: pseudo adds an inset shadow layer via absolute positioning.
+     On a tiny button like this, any absolute child changes the layout box
+     height by a fractional pixel, and because the parent <th> uses flexbox,
+     that fractional shift becomes visible as an upward nudge on hover.
+     Keeping a single box-shadow with no absolute children solves it entirely.
+
+   WHY inline-flex items-center:
+     Without an explicit flex context the button height is derived from
+     line-height, which is affected by font metrics and padding rounding.
+     inline-flex items-center gives the button a stable, consistent height
+     that does not change between normal and hover states.
+
+   WHY active shadow swaps inset direction:
+     On press, reversing the inset direction creates a convincing pressed-in
+     feel without any transform or translate that would cause a layout shift.
 ----------------------------------------------------------------------------- */
 const colBtnClass = `
   ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
@@ -159,7 +174,7 @@ const colBtnClass = `
 const menuClass = `
   dropdown-menu
   fixed bg-white text-black shadow-lg rounded
-  w-48 max-h-72 overflow-y-auto
+  min-w-[12rem] w-max max-w-xs max-h-[min(60vh,420px)] overflow-y-auto
   z-[30000] border border-gray-300 pointer-events-auto
 `;
 
@@ -196,6 +211,10 @@ export default function AssignmentsAllocationsPage() {
   const [activeTab, setActiveTab]       = useState("all");
   const [loading, setLoading]           = useState(true);
 
+  // Confirm dialog — shown when clearing the last allocation on a row
+  // Shape: { row, m, index } — held until user confirms or cancels
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
   // Filter selections — all default to [] meaning "show all"
   const [selectedResources, setSelectedResources]           = useState([]);
   const [selectedActivities, setSelectedActivities]         = useState([]);
@@ -207,8 +226,9 @@ export default function AssignmentsAllocationsPage() {
   const [selectedRequestingDepts, setSelectedRequestingDepts] = useState([]);
   const [selectedManagers, setSelectedManagers]             = useState([]);
 
-  // Resource sort — only sort kept from original
-  const [resourceSort, setResourceSort] = useState("");
+  // Resource sort and search — resource column only
+  const [resourceSort, setResourceSort]     = useState("");
+  const [resourceSearch, setResourceSearch] = useState(""); // Filters the resource name dropdown list
 
   // Dropdown menu visibility flags
   const [showResourceMenu, setShowResourceMenu]           = useState(false);
@@ -240,6 +260,19 @@ export default function AssignmentsAllocationsPage() {
   const [startMonth, setStartMonth] = useState(null);
 
   /* ---------------------------------------------------------------------------
+     CONFIRM DIALOG STATE
+     ---------------------------------------------------------------------------
+     editConfirm: shown when the Edit button is clicked — asks "Are you sure?"
+       • row: the row being edited (passed to handleEditAllocation on confirm)
+
+     deleteWarning: shown when clearing the last allocation for an employee —
+       warns the user to add another allocation before deleting this one.
+       • Does NOT proceed with the delete — the user must dismiss and act first.
+  --------------------------------------------------------------------------- */
+  const [editConfirm, setEditConfirm]       = useState(null); // null | { row }
+  const [deleteWarning, setDeleteWarning]   = useState(false); // boolean
+
+  /* ---------------------------------------------------------------------------
      HELPER: toggleSelection
      Adds a value to a filter array if not present, removes it if present.
      Used by all filter dropdowns.
@@ -268,6 +301,7 @@ export default function AssignmentsAllocationsPage() {
     setShowRequestingDeptMenu(false);
     setShowManagerMenu(false);
     setShowStartMonthMenu(false);
+    setResourceSearch(""); // Clear search when any menu closes
   };
 
   /* ---------------------------------------------------------------------------
@@ -275,21 +309,27 @@ export default function AssignmentsAllocationsPage() {
      Computes the dropdown position from the clicked button's bounding rect,
      clamps to viewport edges, closes all other menus, then opens the target.
   --------------------------------------------------------------------------- */
-  const openMenu = (e, setFn) => {
+  const openMenu = (e, setFn, currentlyOpen) => {
     e.stopPropagation();
-    const rect          = e.currentTarget.getBoundingClientRect();
-    const dropdownWidth = 192; // w-48 = 192px
+
+    // If this menu is already open, just close everything and return
+    if (currentlyOpen) {
+      closeAllMenus();
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
     let x = rect.left;
     let y = rect.bottom + 4;
 
-    // Clamp to right viewport edge
-    if (x + dropdownWidth > window.innerWidth) {
-      x = window.innerWidth - dropdownWidth - 10;
+    // Clamp to right viewport edge — use a generous estimate since width is content-driven
+    if (x + 320 > window.innerWidth) {
+      x = window.innerWidth - 320 - 10;
     }
 
     setMenuPosition({ x, y });
     closeAllMenus();
-    setFn((prev) => !prev);
+    setFn(true);
   };
 
   /* ---------------------------------------------------------------------------
@@ -301,11 +341,12 @@ export default function AssignmentsAllocationsPage() {
     if (e.key === "Enter") e.target.blur();
 
     if (e.key === "Escape") {
-      setFilteredRows((prev) => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], editing: null };
-        return updated;
-      });
+      // Clear editing on all three arrays — mirrors the cell-click pattern
+      const clearEditing = (prev) =>
+        prev.map((r, i) => i === index ? { ...r, editing: null } : r);
+      setAllRows((prev) => prev.map((r, i) => i === index ? { ...r, editing: null } : r));
+      setMine((prev) => prev.map((r, i) => i === index ? { ...r, editing: null } : r));
+      setFilteredRows(clearEditing);
     }
   };
 
@@ -325,16 +366,62 @@ export default function AssignmentsAllocationsPage() {
     const raw      = e.target.value;
     const newValue = raw === "" ? null : parseFloat(raw);
 
-    // Optimistic UI update — shows new value immediately before API responds
-    setFilteredRows((prev) => {
-      const updated   = [...prev];
-      updated[index]  = {
-        ...updated[index],
-        allocations: { ...updated[index].allocations, [m.key]: newValue },
-        editing: null
-      };
-      return updated;
-    });
+    // If clearing this cell AND it would be the last allocation for this row
+    // (across ALL months, not just visible ones), show a confirm dialog.
+    if (newValue === null) {
+      const otherMonths = Object.entries(row.allocations || {}).filter(
+        ([key, val]) =>
+          key !== m.key &&
+          val !== null &&
+          val !== undefined &&
+          val !== "" &&
+          !Number.isNaN(Number(val))
+      );
+      if (otherMonths.length === 0) {
+        // This is the last allocation — ask for confirmation
+        setConfirmDialog({ row, m, index });
+        // Restore the input to its previous value by clearing editing state
+        const clearEditing = (prev) =>
+          prev.map((r) =>
+            r.employee?.emp_id === row.employee?.emp_id &&
+            r.assignment?.project_name === row.assignment?.project_name
+              ? { ...r, editing: null }
+              : r
+          );
+        setAllRows(clearEditing);
+        setMine(clearEditing);
+        setFilteredRows(clearEditing);
+        return; // Don't save yet — wait for confirmation
+      }
+    }
+
+    /*
+      Optimistic UI update — update allRows, mine, AND filteredRows together.
+
+      WHY ALL THREE:
+        filteredRows is re-derived from allRows/mine every time filters change
+        (Effect 6). If we only update filteredRows, switching a filter will
+        re-run Effect 6 from the stale allRows/mine data and resurrect a row
+        that was just deleted (set to 0/empty). Updating the source arrays
+        ensures any subsequent filter re-run sees the correct deleted state.
+    */
+    /*
+      updateAllocations updates BOTH the allocation value AND clears the
+      editing flag on the matching row. This is critical for null (delete)
+      case — if we only update filteredRows, Effect 6 will re-derive it from
+      the stale allRows/mine and resurrect the old value on any filter change.
+      Clearing editing here also prevents a stale input from re-opening.
+    */
+    const updateAllocations = (prev) =>
+      prev.map((r) =>
+        r.employee?.emp_id === row.employee?.emp_id &&
+        r.assignment?.project_name === row.assignment?.project_name
+          ? { ...r, allocations: { ...r.allocations, [m.key]: newValue }, editing: null }
+          : r
+      );
+
+    setAllRows(updateAllocations);
+    setMine(updateAllocations);
 
     try {
       if (newValue === null) {
@@ -478,11 +565,16 @@ export default function AssignmentsAllocationsPage() {
 
   /* ---------------------------------------------------------------------------
      MEMO: rowsWithVisibleAllocations
-     Filters allRows to only those with at least one allocation in the visible
-     month window. Applies resource sort if active.
+     Filters the active tab's source rows (allRows or mine) to only those with
+     at least one allocation in the visible month window. Used to build the
+     filter option lists — so "My Assignments" tab only shows values relevant
+     to the logged-in user's rows. Applies resource sort if active.
   --------------------------------------------------------------------------- */
   const rowsWithVisibleAllocations = useMemo(() => {
-    let rows = allRows.filter((row) =>
+    // Use mine when on My Assignments tab so filter lists reflect only that user's data
+    const source = activeTab === "mine" ? mine : allRows;
+
+    let rows = source.filter((row) =>
       visibleMonths.some((m) => {
         const val = row.allocations?.[m];
         return val !== null && val !== undefined && val !== "";
@@ -493,11 +585,14 @@ export default function AssignmentsAllocationsPage() {
     if (resourceSort === "desc") rows = [...rows].sort((a, b) => b.employee.emp_name.localeCompare(a.employee.emp_name));
 
     return rows;
-  }, [allRows, visibleMonths, resourceSort]);
+  }, [allRows, mine, activeTab, visibleMonths, resourceSort]);
 
   /* ---------------------------------------------------------------------------
      EFFECT 4: BUILD FILTER OPTION LISTS
      Derives unique values for each filter dropdown from the visible rows.
+     Since rowsWithVisibleAllocations is now tab-aware, these lists automatically
+     reflect only the current tab's data — My Assignments shows only that user's
+     values, All Assignments shows everyone's.
      Option lists come from server data only — never from user-typed input.
   --------------------------------------------------------------------------- */
   useEffect(() => {
@@ -597,6 +692,50 @@ export default function AssignmentsAllocationsPage() {
   };
 
   /* ---------------------------------------------------------------------------
+     HANDLER: handleConfirmDelete
+     Called when the user clicks "Yes" in the confirm dialog.
+     Performs the actual DELETE for the last allocation on a row,
+     then refreshes the page so the row disappears cleanly.
+  --------------------------------------------------------------------------- */
+  const handleConfirmDelete = async () => {
+    const { row, m } = confirmDialog;
+    setConfirmDialog(null);
+
+    // Optimistic update — clear the value in all three arrays
+    const updateAllocations = (prev) =>
+      prev.map((r) =>
+        r.employee?.emp_id === row.employee?.emp_id &&
+        r.assignment?.project_name === row.assignment?.project_name
+          ? { ...r, allocations: { ...r.allocations, [m.key]: null }, editing: null }
+          : r
+      );
+    setAllRows(updateAllocations);
+    setMine(updateAllocations);
+    setFilteredRows(updateAllocations);
+
+    try {
+      await fetch(`${apiUrl}/api/assignments-allocations/delete`, {
+        method:  "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emp_id:   row.employee.emp_id,
+          month:    m.key,
+          activity: row.assignment.project_name,
+          category: row.assignment.category
+        })
+      });
+
+      // Refresh so the now-empty row disappears from the table
+      router.replace(
+        `/resource-manager/assign-edit-allocation?refresh=${Date.now()}`
+      );
+
+    } catch (err) {
+      console.error("Failed to delete last allocation:", err);
+    }
+  };
+
+  /* ---------------------------------------------------------------------------
      LOADING STATE
   --------------------------------------------------------------------------- */
   if (!user || loading) {
@@ -616,47 +755,73 @@ export default function AssignmentsAllocationsPage() {
      Shared pattern — renders "All" option then a list of values, each with
      a Checkbox and hover tint.
   --------------------------------------------------------------------------- */
-  const renderMenuItems = (available, selected, setSelected, sortOptions = null) => (
-    <>
-      {/* Sort options (resource column only) */}
-      {sortOptions && (
-        <>
-          {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
-            <div
-              key={val}
-              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${resourceSort === val ? "font-semibold" : ""}`}
-              onClick={() => setResourceSort(resourceSort === val ? "" : val)}
-            >
-              <Checkbox checked={resourceSort === val} />
-              {label}
-            </div>
-          ))}
-          <div className="border-t my-2" />
-        </>
-      )}
+  const renderMenuItems = (available, selected, setSelected, sortOptions = null, searchable = false) => {
+    // If searchable, filter the list by the current resourceSearch value
+    const displayList = searchable && resourceSearch
+      ? available.filter((n) => n.toLowerCase().includes(resourceSearch.toLowerCase()))
+      : available;
 
-      {/* "All" clears the filter */}
-      <div
-        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? "font-semibold" : ""}`}
-        onClick={() => setSelected([])}
-      >
-        <Checkbox checked={selected.length === 0} />
-        All
-      </div>
+    return (
+      <>
+        {/* Sort options (resource column only) */}
+        {sortOptions && (
+          <>
+            {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
+              <div
+                key={val}
+                className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${resourceSort === val ? "font-semibold" : ""}`}
+                onClick={() => setResourceSort(resourceSort === val ? "" : val)}
+              >
+                <Checkbox checked={resourceSort === val} />
+                {label}
+              </div>
+            ))}
+            <div className="border-t my-2" />
+          </>
+        )}
 
-      {/* Option list — values come from server data only */}
-      {available.map((name) => (
+        {/* Search bar — sits directly above the "All" option */}
+        {searchable && (
+          <div className="px-2 pt-1 pb-1 border-b border-gray-200">
+            <input
+              type="text"
+              placeholder="Search name..."
+              value={resourceSearch}
+              onChange={(e) => setResourceSearch(e.target.value)}
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40 text-black"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+
+        {/* "All" clears the filter */}
         <div
-          key={name}
-          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(name) ? "font-semibold" : ""}`}
-          onClick={() => toggleSelection(name, setSelected, selected)}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? "font-semibold" : ""}`}
+          onClick={() => setSelected([])}
         >
-          <Checkbox checked={selected.includes(name)} />
-          {name}
+          <Checkbox checked={selected.length === 0} />
+          All
         </div>
-      ))}
-    </>
-  );
+
+        {/* Option list — filtered by search if searchable */}
+        {displayList.map((name) => (
+          <div
+            key={name}
+            className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(name) ? "font-semibold" : ""}`}
+            onClick={() => toggleSelection(name, setSelected, selected)}
+          >
+            <Checkbox checked={selected.includes(name)} />
+            {name}
+          </div>
+        ))}
+
+        {/* No results message */}
+        {searchable && resourceSearch && displayList.length === 0 && (
+          <div className="px-3 py-2 text-sm text-gray-400">No results</div>
+        )}
+      </>
+    );
+  };
 
   /* ---------------------------------------------------------------------------
      RENDER
@@ -672,6 +837,61 @@ export default function AssignmentsAllocationsPage() {
   --------------------------------------------------------------------------- */
   return (
     <div className="h-[600px] bg-white">
+
+      {/* ----------------------------------------------------------------- */}
+      {/* CONFIRM DIALOG                                                      */}
+      {/* Shown when the user clears the last allocation on a row.           */}
+      {/* Uses the same overlay pattern as AddAllocationModal/EditAllocation  */}
+      {/* ----------------------------------------------------------------- */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-lg font-bold text-black mb-2" style={styles.outfitFont}>
+              Remove Allocation
+            </h2>
+            <p className="text-sm text-gray-700 mb-6" style={styles.outfitFont}>
+              This is the last allocation for this assignment. Are you sure you want to remove it?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="
+                  px-4 py-2 rounded text-sm
+                  bg-[#003A5C] text-white border border-black/50
+                  hover:bg-[#017ACB]/20 transition hover:text-gray-700
+                  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                  relative
+                  before:content-[''] before:absolute before:inset-0 before:rounded
+                  before:pointer-events-none
+                  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                "
+                style={styles.outfitFont}
+              >
+                No
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="
+                  px-4 py-2 rounded text-sm
+                  bg-[#017ACB] text-white border border-black/50
+                  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                  relative
+                  before:content-[''] before:absolute before:inset-0 before:rounded
+                  before:pointer-events-none
+                  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                "
+                style={styles.outfitFont}
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-full mx-auto px-3 sm:px-4 lg:px-6 py-4">
 
         {/* -----------------------------------------------------------------
@@ -689,15 +909,6 @@ export default function AssignmentsAllocationsPage() {
             >
               Assignments &amp; Allocations
             </h2>
-
-            {/* <button
-              onClick={() => router.push("/resource-manager/dashboard")}
-              aria-label="Go back to dashboard"
-              className={btnClass}
-              style={styles.outfitFont}
-            >
-              Back to Dashboard
-            </button> */}
 
                     <button
           onClick={() => router.push('/resource-manager/dashboard')}
@@ -723,7 +934,13 @@ export default function AssignmentsAllocationsPage() {
           <div className="flex flex-wrap gap-2 items-center">
 
             <button
-              onClick={() => setActiveTab("all")}
+              onClick={() => {
+                setActiveTab("all");
+                // Clear all filters so the All Assignments list isn't narrowed by My Assignments filters
+                setSelectedResources([]); setSelectedProjects([]); setSelectedCategories([]);
+                setSelectedLeaders([]); setSelectedRequestors([]); setSelectedRequestorVPs([]);
+                setSelectedRequestingDepts([]); setSelectedManagers([]);
+              }}
               aria-pressed={activeTab === "all"}
               className={tabClass(activeTab === "all")}
               style={styles.outfitFont}
@@ -732,7 +949,13 @@ export default function AssignmentsAllocationsPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab("mine")}
+              onClick={() => {
+                setActiveTab("mine");
+                // Clear all filters so My Assignments list isn't narrowed by All Assignments filters
+                setSelectedResources([]); setSelectedProjects([]); setSelectedCategories([]);
+                setSelectedLeaders([]); setSelectedRequestors([]); setSelectedRequestorVPs([]);
+                setSelectedRequestingDepts([]); setSelectedManagers([]);
+              }}
               aria-pressed={activeTab === "mine"}
               className={tabClass(activeTab === "mine")}
               style={styles.outfitFont}
@@ -783,11 +1006,11 @@ export default function AssignmentsAllocationsPage() {
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Resource Name</span>
-                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowResourceMenu)}>▼</button>
+                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowResourceMenu, showResourceMenu)}>▼</button>
                     </div>
                     {showResourceMenu && (
                       <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
-                        {renderMenuItems(availableResources, selectedResources, setSelectedResources, true)}
+                        {renderMenuItems(availableResources, selectedResources, setSelectedResources, true, true)}
                       </div>
                     )}
                   </th>
@@ -801,7 +1024,7 @@ export default function AssignmentsAllocationsPage() {
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Reports To</span>
-                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowManagerMenu)}>▼</button>
+                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowManagerMenu, showManagerMenu)}>▼</button>
                     </div>
                     {showManagerMenu && (
                       <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
@@ -814,7 +1037,7 @@ export default function AssignmentsAllocationsPage() {
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Project</span>
-                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowProjectMenu)}>▼</button>
+                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowProjectMenu, showProjectMenu)}>▼</button>
                     </div>
                     {showProjectMenu && (
                       <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
@@ -827,7 +1050,7 @@ export default function AssignmentsAllocationsPage() {
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Activity Category</span>
-                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowCategoryMenu)}>▼</button>
+                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowCategoryMenu, showCategoryMenu)}>▼</button>
                     </div>
                     {showCategoryMenu && (
                       <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
@@ -840,7 +1063,7 @@ export default function AssignmentsAllocationsPage() {
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Leader Accountable</span>
-                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowLeaderMenu)}>▼</button>
+                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowLeaderMenu, showLeaderMenu)}>▼</button>
                     </div>
                     {showLeaderMenu && (
                       <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
@@ -853,7 +1076,7 @@ export default function AssignmentsAllocationsPage() {
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Requestor</span>
-                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestorMenu)}>▼</button>
+                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestorMenu, showRequestorMenu)}>▼</button>
                     </div>
                     {showRequestorMenu && (
                       <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
@@ -866,7 +1089,7 @@ export default function AssignmentsAllocationsPage() {
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Requestor VP</span>
-                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestorVPMenu)}>▼</button>
+                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestorVPMenu, showRequestorVPMenu)}>▼</button>
                     </div>
                     {showRequestorVPMenu && (
                       <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
@@ -879,7 +1102,7 @@ export default function AssignmentsAllocationsPage() {
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Requesting Dept</span>
-                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestingDeptMenu)}>▼</button>
+                      <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestingDeptMenu, showRequestingDeptMenu)}>▼</button>
                     </div>
                     {showRequestingDeptMenu && (
                       <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
@@ -895,7 +1118,7 @@ export default function AssignmentsAllocationsPage() {
                       <button
                         className={colBtnClass}
                         onClick={(e) => {
-                          openMenu(e, setShowStartMonthMenu);
+                          openMenu(e, setShowStartMonthMenu, showStartMonthMenu);
                           // Scroll to selected month after menu renders
                           setTimeout(() => {
                             if (startMonthMenuRef.current) {
@@ -992,12 +1215,12 @@ export default function AssignmentsAllocationsPage() {
                             px-2 py-1 rounded text-xs
                             bg-[#017ACB] text-white border border-black/50
                             hover:bg-[#017ACB]/20 hover:text-gray-700 transition
-                            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-                            relative
-                            before:content-[''] before:absolute before:inset-0 before:rounded
-                            before:pointer-events-none
-                            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                              relative
+                              before:content-[''] before:absolute before:inset-0 before:rounded
+                              before:pointer-events-none
+                              before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
                           "
                           style={styles.outfitFont}
                         >
@@ -1023,11 +1246,18 @@ export default function AssignmentsAllocationsPage() {
                           className="px-2 sm:px-4 py-2 border text-sm text-black text-center whitespace-nowrap cursor-pointer bg-inherit"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setFilteredRows((prev) => {
-                              const updated = [...prev];
-                              updated[index] = { ...updated[index], editing: m.key };
-                              return updated;
-                            });
+                            // Set editing on ALL three arrays — so the edit state
+                            // survives any filter re-run triggered by Effect 6.
+                            const setEditing = (prev) =>
+                              prev.map((r) =>
+                                r.employee?.emp_id === row.employee?.emp_id &&
+                                r.assignment?.project_name === row.assignment?.project_name
+                                  ? { ...r, editing: m.key }
+                                  : r
+                              );
+                            setAllRows(setEditing);
+                            setMine(setEditing);
+                            setFilteredRows(setEditing);
                           }}
                         >
                           {row.editing === m.key ? (
