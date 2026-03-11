@@ -126,6 +126,11 @@ export default function LoginPage() {
         return;
       }
 
+            if (user.acc_type_id === 4) {
+        router.push('/admin/dashboard'); // Admin
+        return;
+      }
+
       // Unknown role — fallback to generic dashboard
       router.push('/dashboard');
 

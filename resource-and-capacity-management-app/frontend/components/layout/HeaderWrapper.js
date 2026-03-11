@@ -74,6 +74,7 @@ export default function HeaderWrapper() {
     "/login",           // Main login page
     "/forgot-password", // Password reset request page
     "/reset-password",  // Password reset confirmation page (covers sub-paths)
+    "/admin",           //Admin page
   ];
 
   /* ---------------------------------------------------------------------------
