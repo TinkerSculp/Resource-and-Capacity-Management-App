@@ -251,6 +251,11 @@ export default function AddInitiativeModal() {
     setError('');
 
     if (!form.project.trim()) return setError('Project Name is required.');
+    if ((form.status === 'Completed' || form.status === 'Cancelled') && !form.completion_date)
+      return setError('Completion date is required when status is Completed or Cancelled.');
+    if ((form.status === 'Completed' || form.status === 'Cancelled') && !form.completion_date)
+      return setError('Completion date is required when status is Completed or Cancelled.');
+    if ((form.status === 'Completed' || form.status === 'Cancelled') && !form.completion_date) return setError('Completion date is required when status is Completed or Cancelled.');
 
     const payload = { ...form, requesting_dept: dept };
 
@@ -362,7 +367,7 @@ export default function AddInitiativeModal() {
               </div>
 
               <div className="flex flex-col">
-                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Completion Date</label>
+                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Completion Date{(form.status === 'Completed' || form.status === 'Cancelled') ? ' *' : ''}</label>
                 <input
                   type="date"
                   value={form.completion_date}

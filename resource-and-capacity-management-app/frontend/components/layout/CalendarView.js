@@ -477,7 +477,7 @@ export default function CalendarView() {
 
             {/* Back button — uses browser history, no unsafe redirect */}
                     <button
-          onClick={() => router.push('/resource-manager/dashboard')}
+          onClick={() => router.back()}
           className="
             px-4 py-2 rounded text-sm
             bg-[#003A5C] text-white border border-black/50
