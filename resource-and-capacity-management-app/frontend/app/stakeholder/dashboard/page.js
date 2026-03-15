@@ -41,7 +41,7 @@ export default function StakeholderDashboardPage() {
   const tiles = [
     { label: 'Capacity Summary', icon: <Image src="/capacitysummary.svg" alt="capacitysummary icon" width={96} height={96} />, href: '/capacity' },
     { label: 'Initiatives',      icon: <Image src="/Initiatives.svg"     alt="initiatives icon"     width={96} height={96} />, href: '/stakeholder/view-initiatives' },
-    { label: 'Assignments',      icon: <Image src="/Assignments.svg"     alt="assignment icon"      width={96} height={96} />, href: null },
+    { label: 'Assignments',      icon: <Image src="/Assignments.svg"     alt="assignment icon"      width={96} height={96} />, href: '/stakeholder/assignments' },
     { label: 'Calendar',         icon: <Image src="/Calendar.svg"        alt="calendar icon"        width={96} height={96} />, href: '/calendar' },
   ];
 
