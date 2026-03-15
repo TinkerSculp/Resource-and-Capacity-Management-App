@@ -156,12 +156,12 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
           role="listbox"
           className="absolute top-full left-0 w-full bg-white border border-gray-500 rounded shadow-lg z-50 mt-1"
         >
-          {/* Search bar */}
+          {/* Search bar — letters and spaces only */}
           <input
             type="text"
             placeholder={`Search ${label}...`}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
             className="
               p-2 border-b border-gray-300 w-full text-black bg-white
               focus:outline-none focus:bg-[#017ACB]/10

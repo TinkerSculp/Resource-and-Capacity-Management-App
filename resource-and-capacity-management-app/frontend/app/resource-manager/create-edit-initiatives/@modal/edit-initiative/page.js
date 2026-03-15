@@ -137,7 +137,7 @@ function SearchableDropdown({ label, value, onChange, list }) {
             type="text"
             placeholder="Search..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ''))}
             onClick={(e) => e.stopPropagation()}
             className="w-full p-2 border-b border-gray-300 text-black focus:outline-none focus:border-black text-sm"
             style={styles.outfitFont}

@@ -135,7 +135,7 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
             type="text"
             placeholder="Search..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
             className="p-2 border-b border-gray-500 w-full text-black bg-white hover:bg-[#017ACB]/20 transition focus:outline-none"
           />
           {/* Option list */}
@@ -548,7 +548,7 @@ export default function EditAllocationModal() {
           <button
             type="button"
             onClick={() => router.back()}
-            className={`${btnClass} bg-[#003A5C] text-white`}
+            className={`${btnClass} bg-gray-200 text-black`}
           >
             Close
           </button>

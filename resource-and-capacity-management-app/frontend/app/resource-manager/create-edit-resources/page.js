@@ -631,7 +631,7 @@ export default function ResourcesPage() {
             type="text"
             placeholder="Search..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
             className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
             style={styles.outfitFont}
           />
