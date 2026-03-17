@@ -18,6 +18,13 @@ const nextConfig = {
   ------------------------------------------------------- */
   reactCompiler: true,
 
+  experimental: {
+  missingSuspenseWithCSRBailout: false,
+},
+devIndicators: {
+  buildActivity: false,
+},
+
   /* -------------------------------------------------------
      SECURITY HEADERS (APPLIED TO ALL ROUTES)
      -------------------------------------------------------
