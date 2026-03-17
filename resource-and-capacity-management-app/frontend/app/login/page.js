@@ -279,7 +279,7 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* FORGOT PASSWORD LINK */}
+          {/* FORGOT PASSWORD LINK
           <div className="text-right">
             <Link
               href="/forgot-password"
@@ -287,7 +287,7 @@ export default function LoginPage() {
             >
               Forgot Password?
             </Link>
-          </div>
+          </div> */}
 
           {/* SIGN IN BUTTON */}
           {/* w-full on mobile for easy tapping, auto + mx-auto centres on sm+ */}
