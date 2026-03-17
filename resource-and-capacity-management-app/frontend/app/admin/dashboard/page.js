@@ -2,20 +2,6 @@
 
 // /* =============================================================================
 //    DashboardPage.jsx  (Admin Dashboard)
-//    -----------------------------------------------------------------------------
-//    ACCOUNT TYPES:
-//      1 = Resource Manager — account fields only
-//      2 = Stakeholder      — account fields + employee: emp_name, emp_title,
-//                             dept_no, requestor_vp
-//      3 = Team Member      — account fields + full employee record
-//      4 = Admin            — account fields only
-
-//    API ENDPOINTS:
-//      GET  /api/admin/dropdowns           — departments, employees, account types
-//      GET  /api/admin/next-emp-id         — next available emp_id
-//      GET  /api/admin/accounts            — list all accounts
-//      POST /api/admin/accounts            — create account
-//      PUT  /api/admin/accounts/:empId     — edit account
 //    ============================================================================= */
 
 // import { useEffect, useState, useTransition, useLayoutEffect, useRef } from 'react';
@@ -86,14 +72,14 @@
 //    ============================================================================= */
 // function SearchableDropdown({ label, value, onChange, options, placeholder }) {
 //   const [open, setOpen] = useState(false);
-//   const [search, setSearch] = useState('');
+//   const [query, setQuery] = useState('');
 //   const ref = useRef(null);
 //   useEffect(() => {
 //     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
 //     document.addEventListener('mousedown', h);
 //     return () => document.removeEventListener('mousedown', h);
 //   }, []);
-//   const filtered = options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()));
+//   const filtered = options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()));
 //   const selected = options.find(o => String(o.value) === String(value));
 //   return (
 //     <div className="flex flex-col relative" ref={ref}>
@@ -104,10 +90,10 @@
 //       </div>
 //       {open && (
 //         <div className="absolute top-full left-0 right-0 bg-white border border-black rounded mt-1 z-50 shadow-lg">
-//           <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} onClick={e => e.stopPropagation()} className="w-full p-2 border-b border-gray-300 text-black focus:outline-none text-sm" style={styles.outfitFont} />
+//           <input type="text" placeholder="Search..." value={query} onChange={e => setQuery(e.target.value)} onClick={e => e.stopPropagation()} className="w-full p-2 border-b border-gray-300 text-black focus:outline-none text-sm" style={styles.outfitFont} />
 //           <div className="max-h-40 overflow-y-auto">
 //             {filtered.map(opt => (
-//               <div key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); setSearch(''); }}
+//               <div key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); setQuery(''); }}
 //                 className={`p-2 cursor-pointer text-black hover:bg-[#017ACB]/20 transition text-sm font-semibold ${String(value) === String(opt.value) ? 'bg-[#CDE6F7]' : ''}`}
 //                 style={styles.outfitFont}>{opt.label}</div>
 //             ))}
@@ -120,7 +106,7 @@
 // }
 
 // /* =============================================================================
-//    EmployeeSection — shared between Create and Edit for types 2 and 3
+//    EmployeeSection
 //    ============================================================================= */
 // function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions }) {
 //   const isStakeholder = Number(accTypeId) === 2;
@@ -131,25 +117,18 @@
 //     <div className="border-t border-gray-200 pt-4 mb-4">
 //       <p className="text-sm font-semibold text-[#017ACB] mb-3" style={styles.outfitFont}>Employee Details</p>
 //       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
 //         <div className="flex flex-col">
 //           <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Name *</label>
 //           <input value={form.emp_name} onChange={e => update('emp_name', e.target.value.replace(/[^a-zA-Z0-9 .,'\-]/g, ''))} placeholder="e.g. Jane Smith" className={inputClass} style={styles.outfitFont} />
 //         </div>
-
 //         <div className="flex flex-col">
 //           <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Title *</label>
 //           <input value={form.emp_title} onChange={e => update('emp_title', e.target.value.replace(/[^a-zA-Z0-9 .,'\-]/g, ''))} placeholder="e.g. VP, IT" className={inputClass} style={styles.outfitFont} />
 //         </div>
-
 //         <StyledDropdown label="Department" value={form.dept_no} onChange={val => update('dept_no', val)} options={deptOptions} placeholder="Select Department" required />
-
-//         {/* Stakeholder: requestor_vp only */}
 //         {isStakeholder && (
 //           <SearchableDropdown label="Requestor VP" value={form.requestor_vp} onChange={val => update('requestor_vp', val)} options={empOptions} placeholder="Select Requestor VP" />
 //         )}
-
-//         {/* Team Member: full set */}
 //         {isTeamMember && (
 //           <>
 //             <SearchableDropdown label="Reports To"     value={form.reports_to}     onChange={val => update('reports_to', val)}     options={empOptions} placeholder="Select Reports To" />
@@ -158,7 +137,6 @@
 //           </>
 //         )}
 //       </div>
-
 //       {isTeamMember && (
 //         <>
 //           <div className="flex flex-col mt-4">
@@ -195,7 +173,7 @@
 //   const [success, setSuccess] = useState(false);
 
 //   const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
-//   const accTypeId = Number(form.acc_type_id);
+//   const accTypeId     = Number(form.acc_type_id);
 //   const needsEmployee = accTypeId === 2 || accTypeId === 3;
 
 //   const accountTypeOptions = (dropdowns.accountTypes || []).map(t => ({ value: t.acc_type_id, label: `${t.acc_type_id} — ${t.acc_type}` }));
@@ -263,9 +241,7 @@
 //                 <input type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder="Enter password" className={inputClass} style={styles.outfitFont} />
 //               </div>
 //             </div>
-
 //             <EmployeeSection accTypeId={form.acc_type_id} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} />
-
 //             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
 //               <button type="button" onClick={onClose} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
 //               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Creating...' : 'Create'}</button>
@@ -282,18 +258,18 @@
 //    ============================================================================= */
 // function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
 //   const [form, setForm] = useState({
-//     acc_type_id:    account.acc_type_id  || '',
-//     account_id:     account.account_id   || '',
-//     username:       account.username     || '',
+//     acc_type_id:    account.acc_type_id   || '',
+//     account_id:     account.account_id    || '',
+//     username:       account.username      || '',
 //     password:       '',
-//     emp_name:       account.emp_name     || '',
-//     emp_title:      account.emp_title    || '',
-//     dept_no:        account.dept_no      || '',
-//     requestor_vp:   account.requestor_vp  != null ? String(account.requestor_vp)  : '',
-//     reports_to:     account.reports_to    != null ? String(account.reports_to)    : '',
-//     manager_level:  account.manager_level != null ? String(account.manager_level) : '',
+//     emp_name:       account.emp_name      || '',
+//     emp_title:      account.emp_title     || '',
+//     dept_no:        account.dept_no       || '',
+//     requestor_vp:   account.requestor_vp   != null ? String(account.requestor_vp)   : '',
+//     reports_to:     account.reports_to     != null ? String(account.reports_to)     : '',
+//     manager_level:  account.manager_level  != null ? String(account.manager_level)  : '',
 //     director_level: account.director_level != null ? String(account.director_level) : '',
-//     other_info:     account.other_info   || '',
+//     other_info:     account.other_info    || '',
 //     current_status: account.current_status || 'Active',
 //   });
 //   const [loading, setLoading] = useState(false);
@@ -317,20 +293,13 @@
 //     if (needsEmployee && !form.emp_title.trim()) return setError('Title is required.');
 //     if (needsEmployee && !form.dept_no)          return setError('Department is required.');
 
-//     // Build payload — only send password if admin entered one
 //     const payload = {
-//       account_id:     form.account_id,
-//       username:       form.username,
-//       acc_type_id:    Number(form.acc_type_id),
+//       account_id:  form.account_id,
+//       username:    form.username,
+//       acc_type_id: Number(form.acc_type_id),
 //       ...(form.password.trim() ? { password: form.password } : {}),
-//       ...(needsEmployee ? {
-//         emp_name:  form.emp_name,
-//         emp_title: form.emp_title,
-//         dept_no:   form.dept_no,
-//       } : {}),
-//       ...(accTypeId === 2 ? {
-//         requestor_vp: form.requestor_vp ? Number(form.requestor_vp) : null,
-//       } : {}),
+//       ...(needsEmployee ? { emp_name: form.emp_name, emp_title: form.emp_title, dept_no: form.dept_no } : {}),
+//       ...(accTypeId === 2 ? { requestor_vp: form.requestor_vp ? Number(form.requestor_vp) : null } : {}),
 //       ...(accTypeId === 3 ? {
 //         reports_to:     form.reports_to     ? Number(form.reports_to)     : null,
 //         manager_level:  form.manager_level  ? Number(form.manager_level)  : null,
@@ -361,8 +330,6 @@
 //           <p className="text-xs text-gray-400 mb-4" style={styles.outfitFont}>Employee ID: {account.emp_id} — cannot be changed</p>
 //           {error && <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>{error}<button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button></div>}
 //           <form onSubmit={handleSubmit} noValidate>
-
-//             {/* emp_id — read only */}
 //             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
 //               <div className="flex flex-col">
 //                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Employee ID</label>
@@ -387,9 +354,7 @@
 //                 <input type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder="Leave blank to keep current password" className={inputClass} style={styles.outfitFont} />
 //               </div>
 //             </div>
-
 //             <EmployeeSection accTypeId={accTypeId} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} />
-
 //             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
 //               <button type="button" onClick={onClose} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
 //               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
@@ -405,16 +370,17 @@
 //    DashboardPage (main)
 //    ============================================================================= */
 // export default function DashboardPage() {
-//   const [user, setUser]             = useState(null);
-//   const [hydrated, setHydrated]     = useState(false);
+//   const [user, setUser]               = useState(null);
+//   const [hydrated, setHydrated]       = useState(false);
 //   const [sessionExpired, setSessionExpired] = useState(false);
-//   const [accounts, setAccounts]     = useState([]);
-//   const [dropdowns, setDropdowns]   = useState({ departments: [], employees: [], accountTypes: [] });
-//   const [nextEmpId, setNextEmpId]   = useState(null);
+//   const [accounts, setAccounts]       = useState([]);
+//   const [dropdowns, setDropdowns]     = useState({ departments: [], employees: [], accountTypes: [] });
+//   const [nextEmpId, setNextEmpId]     = useState(null);
 //   const [loadingData, setLoadingData] = useState(true);
-//   const [dataError, setDataError]   = useState('');
-//   const [showCreate, setShowCreate] = useState(false);
-//   const [editAccount, setEditAccount] = useState(null); // account object to edit
+//   const [dataError, setDataError]     = useState('');
+//   const [showCreate, setShowCreate]   = useState(false);
+//   const [editAccount, setEditAccount] = useState(null);
+//   const [searchTerm, setSearchTerm]   = useState('');
 
 //   const [, startTransition] = useTransition();
 //   const router = useRouter();
@@ -463,6 +429,18 @@
 //   useEffect(() => { if (user) loadData(); }, [user]);
 
 //   const handleLogout = () => { localStorage.removeItem('user'); localStorage.removeItem('token'); router.push(LOGIN_PATH); };
+
+//   // Filter accounts by search term
+//   const filteredAccounts = accounts.filter(acc => {
+//     if (!searchTerm.trim()) return true;
+//     const q = searchTerm.toLowerCase();
+//     return (
+//       (acc.username   || '').toLowerCase().includes(q) ||
+//       (acc.account_id || '').toLowerCase().includes(q) ||
+//       (acc.role       || '').toLowerCase().includes(q) ||
+//       String(acc.emp_id).includes(q)
+//     );
+//   });
 
 //   if (!hydrated || !user) {
 //     return (
@@ -516,8 +494,24 @@
 
 //       {/* PAGE CONTENT */}
 //       <div className="p-6 flex flex-col gap-6">
+
+//         {/* PAGE HEADER ROW */}
 //         <div className="flex items-center justify-between flex-wrap gap-3">
 //           <h2 className="text-3xl font-bold text-gray-900" style={styles.outfitFont}>Admin Dashboard</h2>
+
+//           {/* CENTRE: Search */}
+//           <div className="flex-1 flex justify-center px-4">
+//             <input
+//               type="text"
+//               value={searchTerm}
+//               onChange={e => setSearchTerm(e.target.value)}
+//               placeholder="Search..."
+//               className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors focus:outline-none"
+//               style={styles.outfitFont}
+//             />
+//           </div>
+
+//           {/* RIGHT: Create */}
 //           <button onClick={() => setShowCreate(true)} className={btnClass} style={styles.outfitFont}>+ Create Account</button>
 //         </div>
 
@@ -544,11 +538,12 @@
 //                   </tr>
 //                 </thead>
 //                 <tbody>
-//                   {accounts.length === 0 ? (
-//                     <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500 border-t border-black" style={styles.outfitFont}>No accounts found.</td></tr>
-//                   ) : accounts.map((acc, i) => (
+//                   {filteredAccounts.length === 0 ? (
+//                     <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500 border-t border-black" style={styles.outfitFont}>
+//                       {searchTerm ? `No accounts match "${searchTerm}".` : 'No accounts found.'}
+//                     </td></tr>
+//                   ) : filteredAccounts.map((acc, i) => (
 //                     <tr key={acc.emp_id} className={`border-t border-black hover:bg-[#017ACB]/10 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-//                       {/* EDIT BUTTON */}
 //                       <td className="px-3 py-2 border-r border-black">
 //                         <button
 //                           onClick={() => setEditAccount(acc)}
@@ -575,13 +570,17 @@
 //           )}
 //         </div>
 
-//         {!loadingData && <p className="text-sm text-gray-500" style={styles.outfitFont}>Showing {accounts.length} account{accounts.length !== 1 ? 's' : ''}</p>}
+//         {!loadingData && (
+//           <p className="text-sm text-gray-500" style={styles.outfitFont}>
+//             {searchTerm
+//               ? `Showing ${filteredAccounts.length} of ${accounts.length} account${accounts.length !== 1 ? 's' : ''}`
+//               : `Showing ${accounts.length} account${accounts.length !== 1 ? 's' : ''}`}
+//           </p>
+//         )}
 //       </div>
 //     </div>
 //   );
 // }
-
-
 
 'use client';
 
@@ -619,6 +618,31 @@ const btnDarkClass = `px-4 py-2 rounded text-sm bg-[#003A5C] text-white border b
 
 const inputClass = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full text-sm';
 const readOnlyClass = 'bg-gray-100 text-gray-500 border border-black p-2 rounded cursor-not-allowed w-full text-sm';
+
+/* =============================================================================
+   EyeToggle — reusable show/hide password button
+   ============================================================================= */
+function EyeToggle({ show, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition"
+      aria-label={show ? 'Hide password' : 'Show password'}
+    >
+      {show ? (
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7a9.77 9.77 0 012.168-3.832M6.343 6.343A9.956 9.956 0 0112 5c5 0 9 4 9 7a9.77 9.77 0 01-1.657 2.343M3 3l18 18" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
 /* =============================================================================
    StyledDropdown
@@ -753,9 +777,10 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
     emp_name: '', emp_title: '', dept_no: '', requestor_vp: '',
     reports_to: '', manager_level: '', director_level: '', other_info: '', current_status: 'Active',
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-  const [success, setSuccess] = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState('');
+  const [success, setSuccess]           = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
   const accTypeId     = Number(form.acc_type_id);
@@ -823,7 +848,17 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
               </div>
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Password *</label>
-                <input type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder="Enter password" className={inputClass} style={styles.outfitFont} />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={e => update('password', e.target.value)}
+                    placeholder="Enter password"
+                    className={`${inputClass} pr-8`}
+                    style={styles.outfitFont}
+                  />
+                  <EyeToggle show={showPassword} onToggle={() => setShowPassword(p => !p)} />
+                </div>
               </div>
             </div>
             <EmployeeSection accTypeId={form.acc_type_id} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} />
@@ -857,9 +892,10 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
     other_info:     account.other_info    || '',
     current_status: account.current_status || 'Active',
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-  const [success, setSuccess] = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState('');
+  const [success, setSuccess]           = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
   const accTypeId     = account.acc_type_id;
@@ -936,7 +972,17 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
               </div>
               <div className="flex flex-col sm:col-span-2">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>New Password</label>
-                <input type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder="Leave blank to keep current password" className={inputClass} style={styles.outfitFont} />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={e => update('password', e.target.value)}
+                    placeholder="Leave blank to keep current password"
+                    className={`${inputClass} pr-8`}
+                    style={styles.outfitFont}
+                  />
+                  <EyeToggle show={showPassword} onToggle={() => setShowPassword(p => !p)} />
+                </div>
               </div>
             </div>
             <EmployeeSection accTypeId={accTypeId} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} />
