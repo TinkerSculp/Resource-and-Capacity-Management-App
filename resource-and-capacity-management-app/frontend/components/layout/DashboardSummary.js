@@ -47,6 +47,15 @@ const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
 };
 
+function SummaryCardIcon({ defaultSrc, darkSrc, alt }) {
+  return (
+    <picture>
+      <source srcSet={darkSrc} media="(prefers-color-scheme: dark)" />
+      <img src={defaultSrc} alt={alt} className="w-14 h-14" />
+    </picture>
+  );
+}
+
 export default function DashboardSummary() {
 
   /* ---------------------------------------------------------------------------
@@ -152,7 +161,7 @@ export default function DashboardSummary() {
   --------------------------------------------------------------------------- */
   if (!user) {
     return (
-      <div className="min-h-[200px] flex items-center justify-center">
+      <div className="min-h-50 flex items-center justify-center">
         <div
           className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#017ACB]"
           role="status"
@@ -181,17 +190,17 @@ export default function DashboardSummary() {
       {/* username comes from the validated localStorage session object        */}
       {/* ------------------------------------------------------------------- */}
       <h2
-        className="text-[clamp(1.4rem,1.8vw,2.2rem)] text-gray-900 mb-[clamp(0.15rem,0.3vw,0.45rem)]"
+        className="text-[clamp(1.4rem,1.8vw,2.2rem)] text-gray-900 dark:text-slate-100 mb-[clamp(0.15rem,0.3vw,0.45rem)]"
         style={styles.outfitFont}
       >
         Welcome back, {user.username}
       </h2>
 
       {/* ------------------------------------------------------------------- */}
-      {/* FILTER BUTTONS                                                        */}
-      {/* "All" → global summary across all assignments                        */}
-      {/* "Mine" → summary scoped to the authenticated user's role             */}
-      {/* Active filter is highlighted with brand blue background              */}
+      {/* FILTER BUTTONS                                                      */}
+      {/* "All" → global summary across all assignments                       */}
+      {/* "Mine" → summary scoped to the authenticated user's role            */}
+      {/* Active filter is highlighted with brand blue background             */}
       {/* ------------------------------------------------------------------- */}
       <div className="flex gap-2 mb-[clamp(0.6rem,1vw,1.2rem)]">
 
@@ -204,20 +213,23 @@ export default function DashboardSummary() {
             px-[clamp(0.4rem,0.6vw,0.8rem)]
             py-[clamp(0.2rem,0.4vw,0.6rem)]
             w-[clamp(3.5rem,4.5vw,5.5rem)]
-            border border-[#00263F]/50
+            border border-[#00263F]/50 dark:border-slate-500/60
             text-center cursor-pointer rounded
             text-[clamp(0.9rem,1vw,1.1rem)]
             transition
             ${filter === 'all'
-              ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-              : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+              ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+              : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
             }
             shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+            dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
             active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+            dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
             relative
             before:content-[''] before:absolute before:inset-0 before:rounded
             before:pointer-events-none
             before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+            dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
           `}
           style={styles.outfitFont}
         >
@@ -233,20 +245,23 @@ export default function DashboardSummary() {
             px-[clamp(0.4rem,0.6vw,0.8rem)]
             py-[clamp(0.2rem,0.4vw,0.6rem)]
             w-[clamp(3.5rem,4.5vw,5.5rem)]
-            border border-[#00263F]/50
+            border border-[#00263F]/50 dark:border-slate-500/60
             text-center cursor-pointer rounded
             text-[clamp(0.9rem,1vw,1.1rem)]
             transition
             ${filter === 'mine'
-              ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-              : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+              ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+              : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
             }
             shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+            dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
             active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+            dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
             relative
             before:content-[''] before:absolute before:inset-0 before:rounded
             before:pointer-events-none
             before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+            dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
           `}
           style={styles.outfitFont}
         >
@@ -264,27 +279,45 @@ export default function DashboardSummary() {
         {[
           {
             label: 'Active Initiatives',
-            icon: <img src="/ActiveProject.svg" alt="Active project icon" className="w-14 h-14" />,
+            icon: (
+              <SummaryCardIcon
+                defaultSrc="/ActiveProject.svg"
+                darkSrc="/ActiveProject-light.svg"
+                alt="Active project icon"
+              />
+            ),
             value: summary.active   // Validated with ?? 0 — never undefined
           },
           {
             label: 'Initiatives on Hold',
-            icon: <img src="/hold.svg" alt="On hold icon" className="w-14 h-14" />,
+            icon: (
+              <SummaryCardIcon
+                defaultSrc="/hold.svg"
+                darkSrc="/hold-light.svg"
+                alt="On hold icon"
+              />
+            ),
             value: summary.hold
           },
           {
             label: 'Initiatives in Back Log',
-            icon: <img src="/Backlog.svg" alt="Backlog icon" className="w-14 h-14" />,
+            icon: (
+              <SummaryCardIcon
+                defaultSrc="/Backlog.svg"
+                darkSrc="/Backlog-light.svg"
+                alt="Backlog icon"
+              />
+            ),
             value: summary.backlog
           }
         ].map((item, i) => (
           <div
             key={i}
-            className="bg-gray-200 rounded-lg shadow-sm border border-gray-300 p-[clamp(1rem,1.5vw,2rem)] transition"
+            className="bg-gray-200 rounded-lg shadow-sm dark:shadow-black/30 border border-gray-300 dark:bg-slate-900 dark:border-slate-700 p-[clamp(1rem,1.5vw,2rem)] transition"
           >
             {/* Card label — plain text from a static array, no injection risk */}
             <p
-              className="text-gray-600 text-[clamp(0.9rem,1.0vw,1.2rem)] text-center"
+              className="text-gray-600 dark:text-slate-300 text-[clamp(0.9rem,1.0vw,1.2rem)] text-center"
               style={styles.outfitFont}
             >
               {item.label}
@@ -292,7 +325,7 @@ export default function DashboardSummary() {
 
             {/* Card value + icon — value is a validated integer from summary state */}
             <h3
-              className="flex items-center justify-center gap-2 text-[clamp(1.3rem,1.5vw,1.9rem)] font-semibold text-gray-900 mb-2"
+              className="flex items-center justify-center gap-2 text-[clamp(1.3rem,1.5vw,1.9rem)] font-semibold text-gray-900 dark:text-slate-100 mb-2"
               style={styles.outfitFont}
             >
               <span className="flex items-center gap-1">

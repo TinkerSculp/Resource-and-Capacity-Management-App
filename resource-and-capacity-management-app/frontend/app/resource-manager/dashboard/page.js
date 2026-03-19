@@ -62,7 +62,7 @@ export default function DashboardPage() {
     <DashboardSummary />
   </div>
 
-  <div className="border-t-2 border-gray-900 w-full"></div>
+  <div className="border-t-2 border-gray-900 dark:border-slate-600 w-full"></div>
 
   <div
     className="
@@ -83,9 +83,9 @@ export default function DashboardPage() {
         key={i}
         onClick={() => router.push(tile.href)}
         className="
-          bg-white rounded-lg shadow-sm border text-center border-4 border-gray-400
+          bg-white rounded-lg shadow-sm dark:shadow-black/30 text-center border-4 border-gray-400 dark:bg-slate-900 dark:border-slate-700
           p-[clamp(0.8rem,1.6vw,2.4rem)]
-          hover:shadow-md hover:bg-[#017ACB]/20
+          hover:shadow-md hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30
           cursor-pointer transition
           w-full
         "
@@ -94,7 +94,7 @@ export default function DashboardPage() {
           {tile.icon}
 
           <h3
-            className="text-[clamp(1.1rem,1.4vw,1.6rem)] font-semibold text-gray-900"
+            className="text-[clamp(1.1rem,1.4vw,1.6rem)] font-semibold text-gray-900 dark:text-slate-100"
             style={styles.outfitFont}
           >
             {tile.label}

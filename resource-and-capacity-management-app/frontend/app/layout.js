@@ -36,7 +36,7 @@ export default function RootLayout({ children }) {
           ${geistSans.variable}
           ${geistMono.variable}
           ${outfit.variable}
-          antialiased bg-gray-50
+          antialiased bg-background text-foreground
         `}
       >
 
