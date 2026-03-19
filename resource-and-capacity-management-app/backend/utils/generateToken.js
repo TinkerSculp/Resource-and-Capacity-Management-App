@@ -23,7 +23,7 @@
      • The token is signed with JWT_SECRET loaded from environment variables —
        never hardcoded. If JWT_SECRET is exposed, rotate it immediately and
        all existing tokens will be invalidated automatically.
-     • The 7-day expiry limits the window of exposure if a token is stolen.
+     • The 5-day expiry limits the window of exposure if a token is stolen.
        After expiry the client must re-authenticate to obtain a new token.
      • Tokens are verified (not just decoded) by the protect() middleware
        using the same JWT_SECRET, ensuring tampered tokens are rejected.
@@ -63,6 +63,6 @@ export const generateToken = (user) => {
       username: user.account.username // Account username — available to the frontend without an extra API call
     },
     process.env.JWT_SECRET, // Signing secret — loaded from .env, never hardcoded
-    { expiresIn: "7d" }     // Token expires after 7 days — client must re-authenticate after
+    { expiresIn: "5d" }     // Token expires after 1 dayd — client must re-authenticate after
   );
 };
