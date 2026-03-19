@@ -22,13 +22,20 @@ const styles = { outfitFont: { fontFamily: "Outfit, sans-serif" } };
 ----------------------------------------------------------------------------- */
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
-  bg-[#003A5C] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  bg-[#003A5C] text-white border border-black/50 dark:border-slate-500/60
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-  relative before:content-[''] before:absolute before:inset-0 before:rounded
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const tabClass = (isActive) => `
@@ -374,7 +381,7 @@ export default function TeamMemberAssignmentsPage() {
       {/* HEADER */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>Assignments</h2>
+          <h2 className="text-4xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>Assignments</h2>
           <button onClick={() => router.push("/team-member/dashboard")} className={btnDarkClass} style={styles.outfitFont}>
             Back to Dashboard
           </button>
@@ -400,7 +407,7 @@ export default function TeamMemberAssignmentsPage() {
       </div>
 
       {/* TABLE */}
-      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+      <div className="table-surface border rounded-lg shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse text-sm">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">

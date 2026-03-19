@@ -37,26 +37,33 @@ import api from '@/lib/api';
 
 const btnClass = `
   px-4 py-2 rounded text-sm
-  bg-[#017ACB] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  bg-[#017ACB] text-white border border-black/50 dark:border-slate-500/60
+  hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
-  bg-[#003A5C] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  bg-[#003A5C] text-white border border-black/50 dark:border-slate-500/60
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const styles = {
@@ -64,10 +71,10 @@ const styles = {
 };
 
 const inputClass =
-  'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full';
+  'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full dark:bg-[#1f1f1f] dark:text-slate-100 dark:border-slate-600 dark:hover:bg-[#017ACB]/30 dark:focus:ring-slate-400';
 
 const readOnlyClass =
-  'bg-gray-100 text-gray-500 border border-black p-2 rounded cursor-not-allowed w-full';
+  'bg-gray-100 text-gray-500 border border-black p-2 rounded cursor-not-allowed w-full dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600';
 
 /* =============================================================================
    COMPONENT: SearchableDropdown
@@ -94,19 +101,19 @@ function SearchableDropdown({ label, value, onChange, list }) {
 
   return (
     <div className="flex flex-col relative" ref={ref}>
-      <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>{label}</label>
+      <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>{label}</label>
       <div
-        className="bg-white text-black border border-black p-2 rounded cursor-pointer hover:bg-[#017ACB]/20 transition flex justify-between items-center"
+        className="bg-white dark:bg-[#1f1f1f] text-black dark:text-slate-100 border border-black dark:border-slate-600 p-2 rounded cursor-pointer hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition flex justify-between items-center"
         onClick={() => setOpen((o) => !o)}
         style={styles.outfitFont}
       >
-        <span className={value ? 'text-black' : 'text-gray-400'}>{value || `Select ${label}`}</span>
+        <span className={value ? 'text-black dark:text-slate-100' : 'text-gray-400 dark:text-slate-400'}>{value || `Select ${label}`}</span>
         <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </div>
       {open && (
-        <div className="absolute top-full left-0 right-0 bg-white border border-black rounded mt-1 z-50 shadow-lg">
+        <div className="absolute top-full left-0 right-0 bg-white dark:bg-[#1f1f1f] border border-black dark:border-slate-600 rounded mt-1 z-50 shadow-lg dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
           {/* Search bar — letters and spaces only */}
           <input
             type="text"
@@ -114,7 +121,7 @@ function SearchableDropdown({ label, value, onChange, list }) {
             value={search}
             onChange={(e) => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ''))}
             onClick={(e) => e.stopPropagation()}
-            className="w-full p-2 border-b border-gray-300 text-black focus:outline-none focus:border-black text-sm"
+            className="w-full p-2 border-b border-gray-300 dark:border-slate-700 text-black dark:text-slate-100 bg-white dark:bg-[#1f1f1f] focus:outline-none focus:border-black dark:focus:border-slate-400 text-sm"
             style={styles.outfitFont}
           />
           <div className="max-h-40 overflow-y-auto">
@@ -122,14 +129,14 @@ function SearchableDropdown({ label, value, onChange, list }) {
               <div
                 key={emp.emp_name}
                 onClick={() => { onChange(emp.emp_name); setOpen(false); setSearch(''); }}
-                className={`p-2 cursor-pointer text-black hover:bg-[#017ACB]/20 transition text-sm ${value === emp.emp_name ? 'font-bold bg-[#CDE6F7]' : ''}`}
+                className={`p-2 cursor-pointer text-black dark:text-slate-100 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition text-sm ${value === emp.emp_name ? 'font-bold bg-[#CDE6F7] dark:bg-[#0A5F8A]/40' : ''}`}
                 style={styles.outfitFont}
               >
                 {emp.emp_name}
               </div>
             ))}
             {filtered.length === 0 && (
-              <div className="p-2 text-gray-500 text-sm" style={styles.outfitFont}>No results</div>
+              <div className="p-2 text-gray-500 dark:text-slate-400 text-sm" style={styles.outfitFont}>No results</div>
             )}
           </div>
         </div>
@@ -153,24 +160,24 @@ function StyledDropdown({ label, value, onChange, options }) {
 
   return (
     <div className="flex flex-col relative" ref={ref}>
-      <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>{label}</label>
+      <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>{label}</label>
       <div
-        className="bg-white text-black border border-black p-2 rounded cursor-pointer hover:bg-[#017ACB]/20 transition flex justify-between items-center"
+        className="bg-white dark:bg-[#1f1f1f] text-black dark:text-slate-100 border border-black dark:border-slate-600 p-2 rounded cursor-pointer hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition flex justify-between items-center"
         onClick={() => setOpen((o) => !o)}
         style={styles.outfitFont}
       >
-        <span className={value ? 'text-black' : 'text-gray-400'}>{value || `Select ${label}`}</span>
+        <span className={value ? 'text-black dark:text-slate-100' : 'text-gray-400 dark:text-slate-400'}>{value || `Select ${label}`}</span>
         <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </div>
       {open && (
-        <div className="absolute top-full left-0 right-0 bg-white border border-black rounded mt-1 z-50 max-h-48 overflow-y-auto shadow-lg">
+        <div className="absolute top-full left-0 right-0 bg-white dark:bg-[#1f1f1f] border border-black dark:border-slate-600 rounded mt-1 z-50 max-h-48 overflow-y-auto shadow-lg dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
           {(options || []).map((opt) => (
             <div
               key={opt}
               onClick={() => { onChange(opt); setOpen(false); }}
-              className={`p-2 cursor-pointer text-black hover:bg-[#017ACB]/20 transition text-sm ${value === opt ? 'font-bold bg-[#CDE6F7]' : ''}`}
+              className={`p-2 cursor-pointer text-black dark:text-slate-100 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition text-sm ${value === opt ? 'font-bold bg-[#CDE6F7] dark:bg-[#0A5F8A]/40' : ''}`}
               style={styles.outfitFont}
             >
               {opt}
@@ -284,12 +291,12 @@ export default function AddInitiativeModal() {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-[#212121] rounded-lg shadow-xl dark:shadow-[0_12px_40px_rgba(0,0,0,0.55)] border border-transparent dark:border-slate-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
 
         {success && (
           <div
             role="status"
-            className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 rounded text-sm text-center font-semibold"
+            className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 dark:bg-emerald-900/40 dark:border-emerald-700 dark:text-emerald-200 rounded text-sm text-center font-semibold"
             style={styles.outfitFont}
           >
             ✓ Initiative added successfully.
@@ -297,18 +304,18 @@ export default function AddInitiativeModal() {
         )}
 
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4 text-black" style={styles.outfitFont}>
+          <h2 className="text-2xl font-bold mb-4 text-black dark:text-white" style={styles.outfitFont}>
             Add Initiative
           </h2>
 
           {error && (
             <div
               role="alert"
-              className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm"
+              className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/40 dark:border-red-700 dark:text-red-200 rounded text-sm"
               style={styles.outfitFont}
             >
               {error}
-              <button onClick={() => setError('')} className="ml-3 font-bold text-red-900" aria-label="Dismiss">×</button>
+              <button onClick={() => setError('')} className="ml-3 font-bold text-red-900 dark:text-red-100" aria-label="Dismiss">×</button>
             </div>
           )}
 
@@ -316,7 +323,7 @@ export default function AddInitiativeModal() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
               <div className="flex flex-col">
-                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Project Name *</label>
+                <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>Project Name *</label>
                 <input
                   value={form.project}
                   onChange={(e) => updateField('project', e.target.value.replace(/[^a-zA-Z0-9 .,]/g, ''))}
@@ -355,19 +362,19 @@ export default function AddInitiativeModal() {
               />
 
               <div className="flex flex-col">
-                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Requestor VP</label>
+                <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>Requestor VP</label>
                 <input value={form.requestor_vp} readOnly className={readOnlyClass} style={styles.outfitFont} />
-                <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Auto-filled from Requestor</span>
+                <span className="text-[10px] text-gray-400 dark:text-slate-400 mt-0.5" style={styles.outfitFont}>Auto-filled from Requestor</span>
               </div>
 
               <div className="flex flex-col">
-                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Requesting Dept</label>
+                <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>Requesting Dept</label>
                 <input value={dept} readOnly className={readOnlyClass} style={styles.outfitFont} />
-                <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Auto-filled from Requestor</span>
+                <span className="text-[10px] text-gray-400 dark:text-slate-400 mt-0.5" style={styles.outfitFont}>Auto-filled from Requestor</span>
               </div>
 
               <div className="flex flex-col">
-                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Completion Date{(form.status === 'Completed' || form.status === 'Cancelled') ? ' *' : ''}</label>
+                <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>Completion Date{(form.status === 'Completed' || form.status === 'Cancelled') ? ' *' : ''}</label>
                 <input
                   type="date"
                   value={form.completion_date}
@@ -379,7 +386,7 @@ export default function AddInitiativeModal() {
               </div>
 
               <div className="flex flex-col">
-                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Target Period *</label>
+                <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>Target Period *</label>
                 <input
                   value={form.target_period}
                   onChange={(e) => updateField('target_period', e.target.value.replace(/[^a-zA-Z0-9 .,]/g, ''))}
@@ -392,7 +399,7 @@ export default function AddInitiativeModal() {
             </div>
 
             <div className="flex flex-col mt-4">
-              <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Description *</label>
+              <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>Description *</label>
               <textarea
                 value={form.description}
                 onChange={(e) => updateField('description', e.target.value.replace(/[^a-zA-Z0-9 .,]/g, ''))}
@@ -404,7 +411,7 @@ export default function AddInitiativeModal() {
             </div>
 
             <div className="flex flex-col mt-4">
-              <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Resource Consideration</label>
+              <label className="text-xs text-black dark:text-slate-100 mb-1 font-semibold" style={styles.outfitFont}>Resource Consideration</label>
               <textarea
                 value={form.resource_consideration}
                 onChange={(e) => updateField('resource_consideration', e.target.value.replace(/[^a-zA-Z0-9 .,]/g, ''))}

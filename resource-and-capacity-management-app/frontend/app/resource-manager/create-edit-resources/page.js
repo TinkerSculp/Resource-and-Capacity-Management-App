@@ -66,52 +66,69 @@ const styles = {
 const DEPARTMENT_FILTER_NAME = "Data Mgmt";
 
 /* -----------------------------------------------------------------------------
-   SHARED BUTTON CLASS — neumorphic, matches all other pages in the app.
+   SHARED BUTTON CLASS — mirrors the dashboard All/Mine active filter style.
 ----------------------------------------------------------------------------- */
 const btnClass = `
   px-4 py-2 rounded text-sm
-  bg-[#017ACB] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  border border-[#00263F]/50 dark:border-slate-500/60
+  bg-[#017ACB] text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 /* -----------------------------------------------------------------------------
-   DARK BUTTON CLASS — Back to Dashboard (dark brand blue).
+   SECONDARY BUTTON CLASS — mirrors the dashboard All/Mine inactive style.
 ----------------------------------------------------------------------------- */
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
-  bg-[#003A5C] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  border border-black/50 dark:border-slate-500/60
+  bg-[#003A5C] text-white
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 /* -----------------------------------------------------------------------------
    TAB BUTTON CLASS BUILDER
-   Active tab = blue fill; inactive = gray surface.
+   Mirrors the dashboard All/Mine filter active/inactive states.
 ----------------------------------------------------------------------------- */
 const tabClass = (isActive) => `
-  px-6 py-2 rounded text-sm border border-black/50
+  px-6 py-2 rounded text-sm
+  border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-    : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
+    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
   }
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-  transition whitespace-nowrap
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 /* -----------------------------------------------------------------------------
@@ -596,7 +613,7 @@ export default function ResourcesPage() {
   --------------------------------------------------------------------------- */
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" aria-label="Loading resources" />
       </div>
     );
@@ -606,14 +623,14 @@ export default function ResourcesPage() {
      RENDER
   --------------------------------------------------------------------------- */
   return (
-    <div className="h-[600px] bg-white p-2 flex flex-col">
+    <div className="h-[600px] page-surface p-2 flex flex-col">
 
       {/* PAGE HEADER */}
       <div className="flex items-center justify-between mb-4 shrink-0 flex-wrap gap-2">
 
         {/* LEFT: Title + Back button */}
         <div className="flex items-center gap-4 flex-wrap">
-          <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
+          <h2 className="text-4xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>
             Resources
           </h2>
           <button
@@ -687,7 +704,7 @@ export default function ResourcesPage() {
       )}
 
       {/* TABLE */}
-      <div className="border rounded-lg shadow-sm bg-white overflow-hidden shrink-0">
+      <div className="table-surface border rounded-lg shadow-sm bg-white overflow-hidden shrink-0">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse text-sm">
 
@@ -883,7 +900,7 @@ export default function ResourcesPage() {
                       <td className="sticky left-0 z-30 px-4 py-2 bg-white border-r border-black text-black whitespace-nowrap">
                         <Link
                           href={`/resource-manager/create-edit-resources/edit-resource?id=${employee.emp_id}`}
-                          className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] inline-block"
+                          className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:text-white transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(0,0,0,0.15)] inline-block"
                           style={styles.outfitFont}
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -900,9 +917,9 @@ export default function ResourcesPage() {
                       <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{getLevelName(employee.director_level)}</td>
                       <td className="px-2 py-2 text-black border-r border-black max-w-[500px]" style={styles.outfitFont}>{employee.other_info || ""}</td>
 
-                      {/* STATUS — black text badge, background colour only */}
+                      {/* STATUS — muted, darker badge shades in dark mode */}
                       <td className="px-2 py-2 border-r border-black" style={styles.outfitFont}>
-                        <span className={`px-2 py-1 text-xs rounded text-black ${getCurrentStatus(employee) === "Active" ? "bg-green-100" : "bg-red-100"}`}>
+                        <span className={`px-2 py-1 text-xs rounded text-black dark:text-white ${getCurrentStatus(employee) === "Active" ? "bg-green-100 dark:bg-green-900/70" : "bg-red-100 dark:bg-red-900/70"}`}>
                           {getCurrentStatus(employee)}
                         </span>
                       </td>

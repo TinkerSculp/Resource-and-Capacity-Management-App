@@ -39,6 +39,61 @@ const styles = {
 };
 
 /* -----------------------------------------------------------------------------
+   SHARED BUTTON CLASSES
+   Reuses the same neumorphic button language used on the earlier pages.
+----------------------------------------------------------------------------- */
+const btnClass = `
+  px-4 py-2 rounded text-sm
+  bg-[#017ACB] text-white border border-[#00263F]/50 dark:border-slate-500/60
+  hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition-colors
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+`;
+
+const btnDarkClass = `
+  px-4 py-2 rounded text-sm
+  bg-[#003A5C] text-white border border-black/50 dark:border-slate-500/60
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition-colors
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+`;
+
+const filterTabClass = (isActive) => `
+  px-4 py-2 rounded text-sm border border-[#00263F]/50 dark:border-slate-500/60
+  ${isActive
+    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    : 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+  }
+  transition-colors
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+`;
+
+/* -----------------------------------------------------------------------------
    UTILITY: monthToIndex
    -----------------------------------------------------------------------------
    Converts a YYYYMM integer into a flat linear month index.
@@ -397,7 +452,7 @@ export default function CalendarView() {
   --------------------------------------------------------------------------- */
   if (loadingUser || loadingMonths || loadingCalendar) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen page-surface flex items-center justify-center">
         {/* Accessible spinner — visible during all data fetch operations */}
         <div
           className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
@@ -437,7 +492,7 @@ export default function CalendarView() {
      preventing XSS risks.
   =========================================================================== */
   return (
-    <div className="w-full relative">
+      <div className="w-full relative min-h-screen page-surface">
 
       {/* -----------------------------------------------------------------------
           KEYFRAME: shake
@@ -469,7 +524,7 @@ export default function CalendarView() {
 
             {/* Page title */}
             <h2
-              className="text-2xl sm:text-3xl font-bold text-black"
+              className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white"
               style={styles.outfitFont}
             >
               Calendar View
@@ -477,21 +532,11 @@ export default function CalendarView() {
 
             {/* Back button — uses browser history, no unsafe redirect */}
             <button
-          onClick={() => router.back()}
-          className="
-            px-4 py-2 rounded text-sm
-            bg-[#003A5C] text-white border border-black/50
-            hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
-              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-              relative
-              before:content-[''] before:absolute before:inset-0 before:rounded
-              before:pointer-events-none
-              before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-          "
-          style={styles.outfitFont}
-        >
-          Back to Dashboard
+              onClick={() => router.back()}
+              className={btnDarkClass}
+              style={styles.outfitFont}
+            >
+              Back to Dashboard
             </button>
           </div>
         </div>
@@ -525,10 +570,11 @@ export default function CalendarView() {
                 grid ${gridCols}
                 w-full
                 gap-0
-                border border-black
+                table-surface
+                border border-black dark:border-slate-600
                 rounded-lg
                 bg-white
-                shadow
+                shadow-sm
                 overflow-hidden
               `}
             >
@@ -541,7 +587,7 @@ export default function CalendarView() {
                   <div
                     key={month.yyyymm}
                     className={`
-                      flex flex-col border-black
+                      flex flex-col border-black dark:border-slate-600
                       ${index > 0 ? 'border-t sm:border-t-0 sm:border-l' : ''}
                     `}
                   >
@@ -554,7 +600,7 @@ export default function CalendarView() {
                     ----------------------------------------------------------- */}
                     <div
                       className={`
-                        px-4 sm:px-6 py-3 border-b border-black bg-[#017ACB]
+                        px-4 sm:px-6 py-3 border-b border-black dark:border-slate-600 bg-[#017ACB]
                         flex items-center relative
                         ${index === 0 ? 'rounded-tl-md' : ''}
                         ${index === activitiesByMonth.length - 1 ? 'rounded-tr-md' : ''}
@@ -602,7 +648,7 @@ export default function CalendarView() {
                     <div className="p-4 sm:p-6">
                       {month.activities.length === 0 ? (
                         // Empty state — shown when no activities exist for the month
-                        <p className="text-black italic text-center" style={styles.outfitFont}>
+                        <p className="text-black dark:text-slate-100 italic text-center" style={styles.outfitFont}>
                           No activities this month
                         </p>
                       ) : (
@@ -617,14 +663,14 @@ export default function CalendarView() {
                               <div key={cat}>
                                 {/* Category heading */}
                                 <h4
-                                  className="font-bold text-base sm:text-lg text-black mb-2"
+                                  className="font-bold text-base sm:text-lg text-black dark:text-slate-100 mb-2"
                                   style={styles.outfitFont}
                                 >
                                   {cat}
                                 </h4>
 
                                 {/* Activity list — plain text, no HTML injection risk */}
-                                <ul className="list-disc pl-5 sm:pl-6 space-y-1 text-black">
+                                <ul className="list-disc pl-5 sm:pl-6 space-y-1 text-black dark:text-slate-100">
                                   {items.map((act, i) => (
                                     <li
                                       key={i}
@@ -671,7 +717,7 @@ export default function CalendarView() {
                   absolute top-0 right-0
                   w-full sm:w-[20rem]
                   max-w-full
-                  border border-black rounded-lg bg-white shadow-xl p-4 z-50
+                  border border-black dark:border-slate-700 rounded-lg bg-white dark:bg-[#212121] shadow-xl dark:shadow-[0_12px_40px_rgba(0,0,0,0.55)] p-4 z-50
                   ${shake ? 'animate-[shake_0.15s_ease-in-out]' : ''}
                 `}
               >
@@ -685,7 +731,7 @@ export default function CalendarView() {
                       which enforces contiguity and range rules.
                   ------------------------------------------------------------- */}
                   <div className="flex-1">
-                    <h4 className="font-semibold mb-2 text-black" style={styles.outfitFont}>
+                    <h4 className="font-semibold mb-2 text-black dark:text-white" style={styles.outfitFont}>
                       Months
                     </h4>
 
@@ -696,14 +742,14 @@ export default function CalendarView() {
                         return (
                           <label
                             key={m.yyyymm}
-                            className="flex items-center gap-2 text-black text-sm cursor-pointer"
+                            className="flex items-center gap-2 text-black dark:text-slate-100 text-sm cursor-pointer"
                             style={styles.outfitFont}
                           >
                             {/* Custom styled checkbox — visually replaces native input */}
                             <span className="
-                              w-4 h-4 flex-shrink-0 border border-black rounded-sm
+                              w-4 h-4 flex-shrink-0 border border-black dark:border-slate-500 rounded-sm
                               flex items-center justify-center relative overflow-hidden
-                              transition hover:bg-[#017ACB]/20
+                              transition hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30
                             ">
                               {/* Hidden native checkbox — handles onChange for accessibility */}
                               <input
@@ -716,7 +762,7 @@ export default function CalendarView() {
                               {/* Filled state: dark background + white checkmark SVG */}
                               {isSelected && (
                                 <>
-                                  <span className="absolute inset-0 bg-[#003A5C]"></span>
+                                  <span className="absolute inset-0 bg-[#003A5C] dark:bg-[#0A5F8A]"></span>
                                   <svg
                                     className="absolute w-3 h-3"
                                     viewBox="0 0 20 20"
@@ -750,7 +796,7 @@ export default function CalendarView() {
                   ------------------------------------------------------------- */}
                   <div className="w-36 flex flex-col justify-between">
                     <div>
-                      <h4 className="font-semibold mb-2 text-black" style={styles.outfitFont}>
+                      <h4 className="font-semibold mb-2 text-black dark:text-white" style={styles.outfitFont}>
                         View
                       </h4>
 
@@ -759,19 +805,7 @@ export default function CalendarView() {
                         {/* All employees filter */}
                         <button
                           aria-pressed={filterMode === 'all'}
-                          className={`
-                            px-4 py-2 rounded text-sm transition-colors border border-[#00263F]/50
-                            ${filterMode === 'all'
-                              ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                              : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
-                            }
-                            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-                            relative
-                            before:content-[''] before:absolute before:inset-0 before:rounded
-                            before:pointer-events-none
-                            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-                          `}
+                          className={filterTabClass(filterMode === 'all')}
                           onClick={() => setFilterMode('all')}
                           style={styles.outfitFont}
                         >
@@ -781,19 +815,7 @@ export default function CalendarView() {
                         {/* Current user filter — appends emp_id to the API request */}
                         <button
                           aria-pressed={filterMode === 'mine'}
-                          className={`
-                            px-4 py-2 rounded text-sm transition-colors border border-[#00263F]/50
-                            ${filterMode === 'mine'
-                              ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                              : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
-                            }
-                            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-                            relative
-                            before:content-[''] before:absolute before:inset-0 before:rounded
-                            before:pointer-events-none
-                            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-                          `}
+                          className={filterTabClass(filterMode === 'mine')}
                           onClick={() => setFilterMode('mine')}
                           style={styles.outfitFont}
                         >
@@ -805,17 +827,7 @@ export default function CalendarView() {
                     {/* Apply button — closes the panel; filter is already live via state */}
                     <button
                       onClick={applyFilters}
-                      className="
-                        w-full px-4 py-2 rounded text-sm font-semibold transition-colors
-                        bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700
-                        border border-black/50
-                        shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                        active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-                        relative
-                        before:content-[''] before:absolute before:inset-0 before:rounded
-                        before:pointer-events-none
-                        before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-                      "
+                      className={`w-full font-semibold ${btnClass}`}
                       style={styles.outfitFont}
                     >
                       Apply

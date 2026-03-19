@@ -71,31 +71,59 @@ const styles = {
 const dropClass = `
   border border-black/50 rounded px-2 py-1.5 text-sm
   bg-white text-black
+  dark:bg-[#1f1f1f] dark:text-slate-100 dark:border-slate-600
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-  hover:bg-[#017ACB]/20 transition
-  focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+  hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition
+  focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40 dark:focus:ring-slate-400
 `;
 
 /* -----------------------------------------------------------------------------
-   SHARED BUTTON CLASS
-   Matches the neumorphic button style used across all other pages in the app.
-   Applied to Back to Dashboard and Export CSV buttons.
+   BUTTON CLASSES
+   Mirrors the dashboard All/Mine filter active/inactive visual language.
 ----------------------------------------------------------------------------- */
 const btnClass = `
   px-4 py-2 rounded text-sm
-  bg-[#017ACB] text-white border border-black
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  border border-[#00263F]/50 dark:border-slate-500/60
+  bg-[#017ACB] text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+`;
+
+const btnDarkClass = `
+  px-4 py-2 rounded text-sm
+  border border-black/50 dark:border-slate-500/60
+  bg-[#003A5C] text-white
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 /* -----------------------------------------------------------------------------
@@ -422,7 +450,7 @@ export default function Report() {
   --------------------------------------------------------------------------- */
   if (!user || loadingMonths || loadingSummary) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen page-surface flex items-center justify-center">
         <div
           className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]"
           role="status"
@@ -629,7 +657,7 @@ export default function Report() {
      • Heading: text-xl sm:text-3xl — scales fluidly with viewport.
   --------------------------------------------------------------------------- */
   return (
-    <div className="h-[600px] bg-white">
+    <div className="h-[600px] page-surface">
       <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
         {/* ----------------------------------------------------------------- */}
@@ -642,30 +670,20 @@ export default function Report() {
           {/* LEFT: Page title + Back button */}
           <div className="flex flex-wrap items-center gap-3">
             <h2
-              className="text-xl sm:text-3xl font-bold text-gray-900"
+              className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white"
               style={styles.outfitFont}
             >
               Capacity Report
             </h2>
 
             {/* Back to Dashboard — neumorphic style matches all other pages */}
-                    <button
-          onClick={() => router.push('/resource-manager/dashboard')}
-          className="
-            px-4 py-2 rounded text-sm
-            bg-[#003A5C] text-white border border-black/50
-            hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
-            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-            relative
-            before:content-[''] before:absolute before:inset-0 before:rounded
-            before:pointer-events-none
-            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-          "
-          style={styles.outfitFont}
-        >
-          Back to Dashboard
-        </button>
+            <button
+              onClick={() => router.push('/resource-manager/dashboard')}
+              className={btnDarkClass}
+              style={styles.outfitFont}
+            >
+              Back to Dashboard
+            </button>
           </div>
 
           {/* RIGHT: View selector + Month selector + Export button */}
@@ -674,7 +692,7 @@ export default function Report() {
 
             {/* View mode selector */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 whitespace-nowrap" style={styles.outfitFont}>
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-200 whitespace-nowrap" style={styles.outfitFont}>
                 View:
               </label>
               <select
@@ -683,9 +701,9 @@ export default function Report() {
                 className={`w-full sm:w-auto ${dropClass}`}
                 style={styles.outfitFont}
               >
-                <option value="month">Allocation per Category</option>
-                <option value="person">Allocation per Person</option>
-                <option value="activity">Allocation per Activity</option>
+                <option className="bg-white text-black dark:bg-[#1f1f1f] dark:text-slate-100" value="month">Allocation per Category</option>
+                <option className="bg-white text-black dark:bg-[#1f1f1f] dark:text-slate-100" value="person">Allocation per Person</option>
+                <option className="bg-white text-black dark:bg-[#1f1f1f] dark:text-slate-100" value="activity">Allocation per Activity</option>
               </select>
             </div>
 
@@ -693,7 +711,7 @@ export default function Report() {
                 Number() coercion on onChange — prevents string-typed YYYYMM
                 from reaching API calls that expect a number */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 whitespace-nowrap" style={styles.outfitFont}>
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-200 whitespace-nowrap" style={styles.outfitFont}>
                 Start Month:
               </label>
               <select
@@ -703,7 +721,7 @@ export default function Report() {
                 style={styles.outfitFont}
               >
                 {selectableMonths.map((m) => (
-                  <option key={m.value} value={m.value}>
+                  <option key={m.value} value={m.value} className="bg-white text-black dark:bg-[#1f1f1f] dark:text-slate-100">
                     {m.label}
                   </option>
                 ))}
@@ -770,7 +788,7 @@ export default function Report() {
               },
             ].map((filter) => (
               <div key={filter.label} className="flex-1 min-w-[150px]">
-                <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
+                <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-1 block" style={styles.outfitFont}>
                   {filter.label}
                 </label>
                 <select
@@ -780,7 +798,7 @@ export default function Report() {
                   style={styles.outfitFont}
                 >
                   {filter.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value} className="bg-white text-black dark:bg-[#1f1f1f] dark:text-slate-100">{opt.label}</option>
                   ))}
                 </select>
               </div>
@@ -795,9 +813,9 @@ export default function Report() {
         {/* sticky thead — header row stays visible while scrolling            */}
         {/* whitespace-nowrap on header cells — month labels never wrap        */}
         {/* ----------------------------------------------------------------- */}
-        <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+        <div className="table-surface border dark:border-slate-600 rounded-lg shadow-sm bg-white overflow-hidden">
           <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
-            <table className="min-w-full text-sm border-collapse border border-black">
+            <table className="min-w-full text-sm border-collapse border border-black dark:border-slate-600 text-gray-700 dark:text-slate-100">
 
               <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
                 <tr>

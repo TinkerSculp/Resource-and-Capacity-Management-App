@@ -63,14 +63,17 @@ import { useEffect, useState, useRef } from "react";
 ----------------------------------------------------------------------------- */
 const btnClass = `
   px-4 py-2 rounded text-sm
-  border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  border border-black/50 dark:border-slate-500/60
+  hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
   w-full sm:w-auto
 `;
 
@@ -120,7 +123,7 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
 
   return (
     <div className="flex flex-col relative" ref={ref}>
-      <label className="text-xs text-black mb-1">{label}</label>
+      <label className="text-xs text-black dark:text-slate-100 mb-1">{label}</label>
 
       {/* Trigger button — shows selected label or placeholder */}
       <div
@@ -130,9 +133,9 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
         aria-expanded={open}
         onKeyDown={(e) => e.key === "Enter" && setOpen(!open)}
         className="
-          bg-white text-black border border-gray-500 p-2
+          bg-white dark:bg-[#1f1f1f] text-black dark:text-slate-100 border border-gray-500 dark:border-slate-600 p-2
           cursor-pointer flex justify-between items-center
-          hover:bg-[#017ACB]/20 transition
+          hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition
         "
         onClick={() => setOpen(!open)}
       >
@@ -154,7 +157,7 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
       {open && (
         <div
           role="listbox"
-          className="absolute top-full left-0 w-full bg-white border border-gray-500 rounded shadow-lg z-50 mt-1"
+          className="absolute top-full left-0 w-full bg-white dark:bg-[#1f1f1f] border border-gray-500 dark:border-slate-600 rounded shadow-lg dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)] z-50 mt-1"
         >
           {/* Search bar — letters and spaces only */}
           <input
@@ -163,8 +166,8 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
             value={search}
             onChange={(e) => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
             className="
-              p-2 border-b border-gray-300 w-full text-black bg-white
-              focus:outline-none focus:bg-[#017ACB]/10
+              p-2 border-b border-gray-300 dark:border-slate-700 w-full text-black dark:text-slate-100 bg-white dark:bg-[#1f1f1f]
+              focus:outline-none focus:bg-[#017ACB]/10 dark:focus:bg-[#017ACB]/20
             "
             aria-label={`Search ${label}`}
           />
@@ -172,7 +175,7 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
           {/* Option list — max height with scroll */}
           <div className="max-h-60 overflow-y-auto" role="group">
             {filtered.length === 0 && (
-              <div className="p-2 text-sm text-gray-400">No results</div>
+              <div className="p-2 text-sm text-gray-400 dark:text-slate-400">No results</div>
             )}
             {filtered.map((opt) => (
               <div
@@ -180,9 +183,9 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
                 role="option"
                 aria-selected={opt[valueKey] === value}
                 className={`
-                  p-2 cursor-pointer text-sm text-black transition
-                  hover:bg-[#017ACB]/20
-                  ${opt[valueKey] === value ? "bg-[#017ACB]/10 font-medium" : ""}
+                  p-2 cursor-pointer text-sm text-black dark:text-slate-100 transition
+                  hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30
+                  ${opt[valueKey] === value ? "bg-[#017ACB]/10 dark:bg-[#0A5F8A]/40 font-medium" : ""}
                 `}
                 onClick={() => {
                   onChange(opt[valueKey]);
@@ -208,8 +211,8 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
 function ReadOnlyField({ label, value }) {
   return (
     <div className="flex flex-col">
-      <label className="text-xs text-black mb-1">{label}</label>
-      <div className="bg-gray-200 text-black border border-gray-500 p-2">
+      <label className="text-xs text-black dark:text-slate-100 mb-1">{label}</label>
+      <div className="bg-gray-200 text-black border border-gray-500 p-2 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600">
         {value || "—"}
       </div>
     </div>
@@ -442,12 +445,12 @@ export default function AddAllocationModal() {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
 
       {/* Modal card */}
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <div className="bg-white dark:bg-[#212121] rounded-lg shadow-xl dark:shadow-[0_12px_40px_rgba(0,0,0,0.55)] border border-transparent dark:border-slate-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
 
         {/* ----------------------------------------------------------------- */}
         {/* HEADER                                                             */}
         {/* ----------------------------------------------------------------- */}
-        <h2 className="text-xl sm:text-2xl font-bold font-[Outfit] mb-4 text-black">
+        <h2 className="text-xl sm:text-2xl font-bold font-[Outfit] mb-4 text-black dark:text-white">
           Add Allocation
         </h2>
 
@@ -455,7 +458,7 @@ export default function AddAllocationModal() {
         {error && (
           <div
             role="alert"
-            className="mb-4 p-3 bg-red-100 text-red-700 rounded border border-red-300 text-sm"
+            className="mb-4 p-3 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200 rounded border border-red-300 dark:border-red-700 text-sm"
           >
             {error}
           </div>
@@ -466,7 +469,7 @@ export default function AddAllocationModal() {
           <div
             role="status"
             aria-live="polite"
-            className="mb-4 p-3 bg-green-100 text-green-800 rounded border border-green-400 text-sm flex items-center gap-2"
+            className="mb-4 p-3 bg-green-100 text-green-800 dark:bg-emerald-900/40 dark:text-emerald-200 rounded border border-green-400 dark:border-emerald-700 text-sm flex items-center gap-2"
           >
             {/* Checkmark icon */}
             <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -533,7 +536,7 @@ export default function AddAllocationModal() {
           <button
             type="button"
             onClick={() => router.back()}
-            className={`${btnClass} bg-[#003A5C] text-white`}
+            className={`${btnClass} bg-[#003A5C] text-white dark:bg-slate-800 dark:text-slate-200`}
           >
             Cancel
           </button>
@@ -544,7 +547,7 @@ export default function AddAllocationModal() {
             onClick={handleSave}
             disabled={loading}
             aria-disabled={loading}
-            className={`${btnClass} bg-[#017ACB] text-white disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`${btnClass} bg-[#017ACB] text-white dark:bg-[#0A5F8A] dark:text-white disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {loading ? "Saving..." : "Save Allocation"}
           </button>

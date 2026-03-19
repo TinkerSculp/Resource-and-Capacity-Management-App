@@ -20,6 +20,11 @@
   --foreground: #171717;   /* Global text color */
 }
 
+/* Shared page-level panel surface used around table controls + table blocks. */
+.page-surface {
+  background-color: #ffffff;
+}
+
 
 /* ---------------------------------------------------------
    TAILWIND THEME EXTENSIONS (INLINE)
@@ -49,8 +54,43 @@
 --------------------------------------------------------- */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;  /* Dark mode background */
+    --background: #212121;  /* Dark mode background */
     --foreground: #ededed;  /* Dark mode text color */
+  }
+
+  .page-surface {
+    background-color: #212121 !important;
+  }
+
+  /* Table surfaces match the main dark page background. */
+  .table-surface {
+    background-color: #212121 !important;
+    border-color: #64748b !important;
+  }
+
+  .table-surface table {
+    background-color: #212121 !important;
+  }
+
+  .table-surface tbody td,
+  .table-surface tbody th {
+    border-color: #64748b !important;
+  }
+
+  .table-surface tbody td.text-black,
+  .table-surface tbody th.text-black,
+  .table-surface tbody span.text-black {
+    color: #e2e8f0 !important;
+  }
+
+  .table-surface tbody tr.bg-white,
+  .table-surface tbody td.bg-white {
+    background-color: #212121 !important;
+  }
+
+  .table-surface tbody tr.bg-gray-50,
+  .table-surface tbody tr.bg-gray-200 {
+    background-color: #475569 !important;
   }
 }
 

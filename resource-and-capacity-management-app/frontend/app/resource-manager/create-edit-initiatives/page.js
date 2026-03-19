@@ -49,50 +49,66 @@ const styles = {
 };
 
 /* -----------------------------------------------------------------------------
-   SHARED BUTTON CLASS — neumorphic, matches all other pages in the app.
+   SHARED BUTTON CLASS — mirrors the dashboard All/Mine active filter style.
 ----------------------------------------------------------------------------- */
 const btnClass = `
   px-4 py-2 rounded text-sm
-  bg-[#017ACB] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  border border-[#00263F]/50 dark:border-slate-500/60
+  bg-[#017ACB] text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
-  bg-[#003A5C] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  border border-black/50 dark:border-slate-500/60
+  bg-[#003A5C] text-white
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 /* -----------------------------------------------------------------------------
    TAB BUTTON CLASS BUILDER
-   Active tab gets blue fill; inactive gets gray surface.
-   Both share the same neumorphic shadow and border-black/50.
+   Mirrors the dashboard All/Mine filter active/inactive states.
 ----------------------------------------------------------------------------- */
 const tabClass = (isActive) => `
-  px-4 py-2 rounded text-sm border border-black/50
+  px-4 py-2 rounded text-sm
+  border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-    : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
   }
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-  transition whitespace-nowrap
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 /* -----------------------------------------------------------------------------
@@ -490,7 +506,7 @@ export default function InitiativesPage() {
 
         {/* LEFT: Title + Back button */}
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>
+          <h2 className="text-4xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>
             Initiatives
           </h2>
           <button
@@ -537,7 +553,7 @@ export default function InitiativesPage() {
       {/* -----------------------------------------------------------------
          INITIATIVES TABLE
       ----------------------------------------------------------------- */}
-      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+      <div className="table-surface border rounded-lg shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse">
 
@@ -678,13 +694,13 @@ export default function InitiativesPage() {
                       className="
                         px-2 py-1 rounded text-xs
                         bg-[#017ACB] text-white border border-black/50
-                        hover:bg-[#017ACB]/20 hover:text-gray-700 transition
-                        shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                        active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                        hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:text-white transition
+                        shadow-[4px_4px_10px_rgba(0,0,0,0.25)]
+                        active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]
                         relative
                         before:content-[''] before:absolute before:inset-0 before:rounded
                         before:pointer-events-none
-                        before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                        before:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(0,0,0,0.15)]
                       "
                       style={styles.outfitFont}
                     >

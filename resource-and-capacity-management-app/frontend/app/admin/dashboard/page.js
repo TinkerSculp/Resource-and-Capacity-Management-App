@@ -491,14 +491,14 @@ export default function DashboardPage() {
 
   if (!hydrated || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin h-10 w-10 border-b-2 border-[#017ACB] rounded-full" role="status" />
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 overflow-y-auto flex flex-col bg-white">
+    <div className="fixed inset-0 overflow-y-auto flex flex-col page-surface">
 
       {/* SESSION EXPIRED MODAL */}
       {sessionExpired && (
@@ -544,7 +544,7 @@ export default function DashboardPage() {
 
         {/* PAGE HEADER ROW */}
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h2 className="text-3xl font-bold text-gray-900" style={styles.outfitFont}>Admin Dashboard</h2>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>Admin Dashboard</h2>
 
           {/* CENTRE: Search */}
           <div className="flex-1 flex justify-center px-4">
@@ -569,7 +569,7 @@ export default function DashboardPage() {
         )}
 
         {/* ACCOUNTS TABLE */}
-        <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+        <div className="table-surface border rounded-lg shadow-sm bg-white overflow-hidden">
           {loadingData ? (
             <div className="flex items-center justify-center py-16">
               <div className="animate-spin h-8 w-8 border-b-2 border-[#017ACB] rounded-full" />
@@ -594,7 +594,7 @@ export default function DashboardPage() {
                       <td className="px-3 py-2 border-r border-black">
                         <button
                           onClick={() => setEditAccount(acc)}
-                          className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[2px_2px_6px_rgba(0,0,0,0.2),-2px_-2px_6px_rgba(255,255,255,0.3)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.2),inset_0_-1px_2px_rgba(0,0,0,0.12)]"
+                          className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:text-white transition shadow-[2px_2px_6px_rgba(0,0,0,0.2)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(0,0,0,0.12)]"
                           style={styles.outfitFont}
                         >
                           Edit

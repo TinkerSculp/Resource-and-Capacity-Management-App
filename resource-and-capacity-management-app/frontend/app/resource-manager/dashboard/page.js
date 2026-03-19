@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import DashboardSummary from '@/components/layout/DashboardSummary';
+import DashboardTileIcon from '@/components/layout/DashboardTileIcon';
 
 const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
@@ -72,12 +72,16 @@ export default function DashboardPage() {
     "
   >
     {[
-      { label: 'Capacity Summary', icon: <Image src="/capacitysummary.svg" alt="capacitysummary icon" width={96} height={96} />, href: '/capacity' },
-      { label: 'Resources', icon: <Image src="/Resources.svg" alt="resources icon" width={96} height={96} />, href: '/resource-manager/create-edit-resources' },
-      { label: 'Initiatives', icon: <Image src="/Initiatives.svg" alt="initiatives icon" width={96} height={96} />, href: '/resource-manager/create-edit-initiatives' },
-      { label: 'Assignments', icon: <Image src="/Assignments.svg" alt="assignment icon" width={96} height={96} />, href: '/resource-manager/assign-edit-allocation' },
-      { label: 'Calendar', icon: <Image src="/Calendar.svg" alt="calendar icon" width={96} height={96} />, href: '/calendar' },
-      { label: 'Reports', icon: <Image src="/Reports.svg" alt="reports icon" width={96} height={96} />, href: '/resource-manager/reports' },
+      {
+        label: 'Capacity Summary',
+        icon: <DashboardTileIcon defaultSrc="/capacitysummary.svg" darkSrc="/WhiteCapacitySummary.svg" alt="capacitysummary icon" />,
+        href: '/capacity'
+      },
+      { label: 'Resources', icon: <DashboardTileIcon defaultSrc="/Resources.svg" darkSrc="/WhiteResources.svg" alt="resources icon" />, href: '/resource-manager/create-edit-resources' },
+      { label: 'Initiatives', icon: <DashboardTileIcon defaultSrc="/Initiatives.svg" darkSrc="/WhiteInitiatives.svg" alt="initiatives icon" />, href: '/resource-manager/create-edit-initiatives' },
+      { label: 'Assignments', icon: <DashboardTileIcon defaultSrc="/Assignments.svg" darkSrc="/WhiteAssignments.svg" alt="assignment icon" />, href: '/resource-manager/assign-edit-allocation' },
+      { label: 'Calendar', icon: <DashboardTileIcon defaultSrc="/Calendar.svg" darkSrc="/WhiteCalendar.svg" alt="calendar icon" />, href: '/calendar' },
+      { label: 'Reports', icon: <DashboardTileIcon defaultSrc="/reports.svg" darkSrc="/WhiteReports.svg" alt="reports icon" />, href: '/resource-manager/reports' },
     ].map((tile, i) => (
       <div
         key={i}

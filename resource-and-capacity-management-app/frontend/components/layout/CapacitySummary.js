@@ -92,13 +92,34 @@ const btnClass = `
   w-full sm:w-auto
   px-4 py-2 rounded text-sm
   bg-[#017ACB] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  dark:border-slate-500/60
+  hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+`;
+
+const btnDarkClass = `
+  w-full sm:w-auto
+  px-4 py-2 rounded text-sm
+  bg-[#003A5C] text-white border border-black/50 dark:border-slate-500/60
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100 transition
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 /* -----------------------------------------------------------------------------
@@ -113,14 +134,18 @@ const btnClass = `
 const dropClass = `
   border border-black/50 rounded px-2 py-1.5 text-sm
   bg-white text-black
+  dark:bg-[#1f1f1f] dark:text-slate-100 dark:border-slate-600
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-  hover:bg-[#017ACB]/20 transition
-  focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+  hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition
+  focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40 dark:focus:ring-slate-400
   w-full sm:w-auto
 `;
 
@@ -239,7 +264,7 @@ export default function CapacitySummary() {
   --------------------------------------------------------------------------- */
   if (!user || loadingMonths || loadingSummary) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen page-surface flex items-center justify-center">
         <div
           className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]"
           role="status"
@@ -280,15 +305,30 @@ export default function CapacitySummary() {
   // Lower value = taller chart. 1 on mobile gives a square-ish chart
   // that's easy to read; 2 on larger screens keeps the standard wide look.
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const isDarkMode = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: true,
     aspectRatio: isMobile ? 1 : 2,
-    plugins: { legend: { position: 'top' } },
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: { color: isDarkMode ? '#e2e8f0' : '#111827' }
+      }
+    },
     scales: {
-      x: { stacked: true },
-      y: { stacked: true, beginAtZero: true }
+      x: {
+        stacked: true,
+        ticks: { color: isDarkMode ? '#cbd5e1' : '#374151' },
+        grid: { color: isDarkMode ? 'rgba(148,163,184,0.35)' : 'rgba(0,0,0,0.1)' }
+      },
+      y: {
+        stacked: true,
+        beginAtZero: true,
+        ticks: { color: isDarkMode ? '#cbd5e1' : '#374151' },
+        grid: { color: isDarkMode ? 'rgba(148,163,184,0.35)' : 'rgba(0,0,0,0.1)' }
+      }
     }
   };
 
@@ -305,7 +345,7 @@ export default function CapacitySummary() {
      • All font sizes and padding have sm: variants for comfortable mobile reading.
   --------------------------------------------------------------------------- */
   return (
-    <div className="w-full bg-white">
+    <div className="w-full min-h-screen page-surface">
       <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4">
 
         {/* -----------------------------------------------------------------
@@ -318,37 +358,27 @@ export default function CapacitySummary() {
           {/* LEFT: Title + Back Button */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <h2
-              className="text-2xl sm:text-3xl font-bold text-gray-900"
+              className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white"
               style={styles.outfitFont}
             >
               Capacity Summary
             </h2>
 
             {/* Back to Dashboard — neumorphic style via btnClass */}
-                    <button
-          onClick={() => router.back()}
-          className="
-            px-4 py-2 rounded text-sm
-            bg-[#003A5C] text-white border border-black/50
-            hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
-            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-            relative
-            before:content-[''] before:absolute before:inset-0 before:rounded
-            before:pointer-events-none
-            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-          "
-          style={styles.outfitFont}
-        >
-          Back to Dashboard
-        </button>
+            <button
+              onClick={() => router.back()}
+              className={btnDarkClass}
+              style={styles.outfitFont}
+            >
+              Back to Dashboard
+            </button>
           </div>
 
           {/* RIGHT: Month selector — uses dropClass, same as Report.jsx dropdowns */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label
               htmlFor="start-month-select"
-              className="text-sm font-medium text-gray-700 whitespace-nowrap"
+              className="text-sm font-medium text-gray-700 dark:text-slate-200 whitespace-nowrap"
               style={styles.outfitFont}
             >
               Start Month:
@@ -364,7 +394,7 @@ export default function CapacitySummary() {
               style={styles.outfitFont}
             >
               {selectableMonths.map((m) => (
-                <option key={m.value} value={m.value} className="bg-white text-black">
+                <option key={m.value} value={m.value} className="bg-white text-black dark:bg-[#1f1f1f] dark:text-slate-100">
                   {m.label}
                 </option>
               ))}
@@ -378,8 +408,8 @@ export default function CapacitySummary() {
            never breaks the page layout on narrow screens.
            min-w-max — prevents columns from collapsing below readable width.
         ----------------------------------------------------------------- */}
-        <div className="overflow-x-auto border rounded-lg shadow bg-white mb-6 -mx-3 sm:mx-0">
-          <table className="min-w-max w-full border-collapse text-xs sm:text-sm text-gray-700">
+        <div className="table-surface overflow-x-auto border rounded-lg shadow-sm bg-white mb-6 -mx-3 sm:mx-0">
+          <table className="min-w-max w-full border-collapse text-xs sm:text-sm text-gray-700 dark:text-slate-100">
 
             <thead className="bg-[#017ACB] text-white">
               <tr>
@@ -404,11 +434,11 @@ export default function CapacitySummary() {
             <tbody>
               {categories.map((cat) => (
                 <tr key={cat.label}>
-                  <td className="px-3 sm:px-4 py-2 border font-semibold" style={styles.outfitFont}>
+                  <td className="px-3 sm:px-4 py-2 border font-semibold text-black dark:text-slate-100" style={styles.outfitFont}>
                     {cat.label}
                   </td>
                   {cat.values.map((val, idx) => (
-                    <td key={idx} className="px-2 py-2 border text-center">
+                    <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">
                       {fmt(val)}
                     </td>
                   ))}
@@ -427,22 +457,22 @@ export default function CapacitySummary() {
               </tr>
 
               <tr className="bg-gray-50">
-                <td className="px-3 sm:px-4 py-2 border font-bold" style={styles.outfitFont}>
+                <td className="px-3 sm:px-4 py-2 border font-bold text-black dark:text-slate-100" style={styles.outfitFont}>
                   Total People Capacity
                 </td>
                 {peopleCapacity.map((val, idx) => (
-                  <td key={idx} className="px-2 py-2 border text-center">
+                  <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">
                     {fmt(val)}
                   </td>
                 ))}
               </tr>
 
               <tr className="bg-gray-50">
-                <td className="px-3 sm:px-4 py-2 border font-bold" style={styles.outfitFont}>
+                <td className="px-3 sm:px-4 py-2 border font-bold text-black dark:text-slate-100" style={styles.outfitFont}>
                   Remaining Capacity
                 </td>
                 {remainingCapacity.map((val, idx) => (
-                  <td key={idx} className="px-2 py-2 border text-center">
+                  <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">
                     {fmt(val)}
                   </td>
                 ))}
@@ -457,7 +487,7 @@ export default function CapacitySummary() {
            w-full ensures it fills the container at all screen widths.
            max-w-5xl prevents it from becoming too wide on large screens.
         ----------------------------------------------------------------- */}
-        <div className="bg-white p-3 sm:p-4 rounded-lg shadow mb-6 flex justify-center">
+        <div className="bg-white dark:bg-[#212121] border border-transparent dark:border-slate-700 p-3 sm:p-4 rounded-lg shadow-sm dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)] mb-6 flex justify-center">
           <div className="w-full max-w-5xl">
             <Bar data={chartData} options={chartOptions} />
           </div>
