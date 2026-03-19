@@ -655,12 +655,12 @@ export default function Report() {
             px-4 py-2 rounded text-sm
             bg-[#003A5C] text-white border border-black/50
             hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
-  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-  relative
-  before:content-[''] before:absolute before:inset-0 before:rounded
-  before:pointer-events-none
-  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+            relative
+            before:content-[''] before:absolute before:inset-0 before:rounded
+            before:pointer-events-none
+            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
           "
           style={styles.outfitFont}
         >
