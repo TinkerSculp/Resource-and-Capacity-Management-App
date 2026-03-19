@@ -55,10 +55,10 @@ const btnClass = `
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
 `;
 
-const btnBlueClass = `
+const btnGrayClass = `
   px-4 py-2 rounded text-sm
-  bg-[#003A5C] text-white border border-black/50
-  hover:bg-[#017ACB]/20 transition hover:text-gray-700
+  bg-gray-200 text-black border border-black/50
+  hover:bg-[#017ACB]/20 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
   relative
@@ -78,7 +78,7 @@ const styles = {
    SHARED INPUT CLASS — box style matches ResourcesPage read-only fields.
 ----------------------------------------------------------------------------- */
 const inputClass =
-  'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full';
+  'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:border-black [&:focus]:shadow-[0_0_0_1px_black] w-full';
 
 /* =============================================================================
    COMPONENT: StyledDropdown
@@ -167,7 +167,7 @@ function SearchableDropdown({ label, value, onChange, list }) {
             className="w-full p-2 border-b border-gray-300 text-black focus:outline-none focus:border-black text-sm"
             placeholder="Search..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ''))}
             onClick={(e) => e.stopPropagation()}
             style={styles.outfitFont}
           />
@@ -524,7 +524,7 @@ export default function CreateResourceModal() {
                 type="button"
                 onClick={() => router.back()}
                 disabled={loading}
-                className={`${btnBlueClass} w-full sm:w-auto`}
+                className={`${btnGrayClass} w-full sm:w-auto`}
                 style={styles.outfitFont}
               >
                 Cancel

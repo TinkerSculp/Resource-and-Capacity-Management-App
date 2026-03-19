@@ -1,5 +1,5 @@
 /* =============================================================================
-   protect.js
+   auth.js
    -----------------------------------------------------------------------------
    PURPOSE:
      Express middleware that enforces JWT authentication on protected routes.

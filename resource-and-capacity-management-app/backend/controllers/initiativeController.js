@@ -116,16 +116,39 @@ export const getAllInitiatives = async (req, res) => {
       ])
       .toArray();
 
-    // Handle status filters — return only the filtered subset
-    // String equality comparison — no injection risk
-    if (status === "Completed") {
-      const completed = allAssignments.filter((i) => i.status === "Completed");
-      return res.json({ completed });
-    }
+    // Handle status filters — scoped to the user's own initiatives for Stakeholders
+    if (status === "Completed" || status === "Cancelled") {
+      let filtered = allAssignments.filter((i) => i.status === status);
 
-    if (status === "Cancelled") {
-      const cancelled = allAssignments.filter((i) => i.status === "Cancelled");
-      return res.json({ cancelled });
+      // For Stakeholders, scope to their own initiatives only
+      if (username) {
+        const account = await db.collection("account").findOne({
+          "account.username": username
+        });
+
+        if (account && account.account?.acc_type_id === 2) {
+          const employee = await db.collection("employee").findOne({
+            emp_id: account.emp_id
+          });
+
+          if (employee) {
+            // Resolve the dept_name from the employee's dept_no
+            const dept = await db.collection("department").findOne({
+              dept_no: employee.dept_no
+            });
+
+            if (dept?.dept_name) {
+              // assignment.requesting_dept stores the dept name string — match directly
+              filtered = filtered.filter(
+                (i) => i.requesting_dept === dept.dept_name
+              );
+            }
+          }
+        }
+      }
+
+      if (status === "Completed") return res.json({ completed: filtered });
+      if (status === "Cancelled") return res.json({ cancelled: filtered });
     }
 
     // Default: exclude cancelled initiatives from the main list
@@ -137,25 +160,38 @@ export const getAllInitiatives = async (req, res) => {
 
     if (username) {
       // Validate username against the DB — never trust the client-provided value
-      // directly for filtering. Look up the account to get the canonical emp_id.
       const account = await db.collection("account").findOne({
         "account.username": username
       });
 
       if (account) {
+        const accTypeId = account.account?.acc_type_id;
+
         // Resolve the employee record from the validated emp_id
         const employee = await db.collection("employee").findOne({
           emp_id: account.emp_id
         });
 
         if (employee) {
-          // Filter to initiatives this employee leads — scoped to active only
-          // Users can only see their own initiatives, not other users'
-          myInitiatives = activeAssignments.filter(
-            (i) =>
-              i.leader === employee.emp_name &&
-              i.status !== "Completed"
-          );
+          const empName = employee.emp_name;
+
+          if (accTypeId === 2) {
+            // Stakeholder (acc_type_id 2) — match on leader, requestor, or requestor_vp
+            // Completed and Cancelled are included so the tabs work correctly
+            myInitiatives = allAssignments.filter(
+              (i) =>
+                i.leader === empName ||
+                i.requestor === empName ||
+                i.requestor_vp === empName
+            );
+          } else {
+            // Resource Manager (acc_type_id 1) — match on leader only, active only
+            myInitiatives = activeAssignments.filter(
+              (i) =>
+                i.leader === empName &&
+                i.status !== "Completed"
+            );
+          }
         }
       }
     }
@@ -387,9 +423,9 @@ export const createInitiative = async (req, res) => {
     }
 
     // Business rule: completion_date is required when status is "Completed"
-    if (status === "Completed" && (!completion_date || completion_date.trim() === "")) {
+    if ((status === "Completed" || status === "Cancelled") && (!completion_date || completion_date.trim() === "")) {
       return res.status(400).json({
-        error: "Completion date is required when status is Completed."
+        error: "Completion date is required when status is Completed or Cancelled."
       });
     }
 
@@ -506,9 +542,9 @@ export const updateInitiative = async (req, res) => {
     }
 
     // Business rule: completion_date is required when status is "Completed"
-    if (status === "Completed" && (!completion_date || completion_date.trim() === "")) {
+    if ((status === "Completed" || status === "Cancelled") && (!completion_date || completion_date.trim() === "")) {
       return res.status(400).json({
-        error: "Completion date is required when status is Completed."
+        error: "Completion date is required when status is Completed or Cancelled."
       });
     }
 

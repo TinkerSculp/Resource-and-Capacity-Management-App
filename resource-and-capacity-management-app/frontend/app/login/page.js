@@ -64,9 +64,13 @@ export default function LoginPage() {
      ---------------------------------------------------------------------------
      username/password: Controlled input values — drive the POST body on submit.
      Passwords are never stored in state beyond the lifetime of this component.
+     showPassword: Toggles between masked and visible password input.
   --------------------------------------------------------------------------- */
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   const router = useRouter();
 
@@ -93,6 +97,7 @@ export default function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault(); // Prevent GET submission — keeps credentials out of URL
 
+    setLoginError('');
     try {
       // POST body — credentials never sent as URL parameters
       const res = await api.post('/auth/login', { username, password });
@@ -126,6 +131,11 @@ export default function LoginPage() {
         return;
       }
 
+            if (user.acc_type_id === 4) {
+        router.push('/admin/dashboard'); // Admin
+        return;
+      }
+
       // Unknown role — fallback to generic dashboard
       router.push('/dashboard');
 
@@ -139,11 +149,12 @@ export default function LoginPage() {
       const message =
         errorCode === 'username_not_found' ? 'Username not found. Please check and try again.' :
         errorCode === 'wrong_password'     ? 'Incorrect password. Please try again.' :
+        errorCode === 'account_inactive'   ? 'This account has been deactivated. Please contact your administrator.' :
         error?.response?.data?.message    ||
         error?.message                    ||
         'Login failed. Please try again.';
 
-      alert(message);
+      setLoginError(message);
     }
   };
 
@@ -162,6 +173,7 @@ export default function LoginPage() {
      • flex-1 on the Sign In button fills the full action row width.
   --------------------------------------------------------------------------- */
   return (
+    <>
     <div
       className="
         fixed inset-0 bg-white/30 backdrop-blur-sm
@@ -233,6 +245,7 @@ export default function LoginPage() {
                 // from being typed into the field entirely
                 const sanitized = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
                 setUsername(sanitized);
+                if (loginError) setLoginError('');
               }}
               className="
                 w-full px-5 py-3 border text-gray-700
@@ -252,37 +265,79 @@ export default function LoginPage() {
             >
               Password
             </label>
-            <input
-              id="password-input"
-              type="password" // Masks input — prevents shoulder surfing
-              value={password}
-              onChange={(e) => {
-                // Block characters used in code/script injection attacks:
-                // < > ' " ` ; — covers HTML injection, SQL injection, and JS injection.
-                // All other special characters (!@#$%^&*-_+=) are allowed
-                // so legitimate complex passwords are not restricted.
-                const sanitized = e.target.value.replace(/[<>'"`;]/g, '');
-                setPassword(sanitized);
-              }}
-              className="
-                w-full px-5 py-3 border text-gray-700
-                border-gray-300 rounded-lg text-base
-                hover:bg-[#017ACB]/20 transition
-              "
-              autoComplete="current-password" // Enables password manager autofill
-              required // Client-side UX guard — backend validates authoritatively
-            />
+            {/* Relative wrapper — positions the show/hide toggle inside the input */}
+            <div className="relative">
+              <input
+                id="password-input"
+                type={showPassword ? 'text' : 'password'} // Toggled by showPassword state
+                value={password}
+                onChange={(e) => {
+                  // Block characters used in code/script injection attacks:
+                  // < > ' " ` ; — covers HTML injection, SQL injection, and JS injection.
+                  // All other special characters (!@#$%^&*-_+=) are allowed
+                  // so legitimate complex passwords are not restricted.
+                  const sanitized = e.target.value.replace(/[<>'"`;]/g, '');
+                  setPassword(sanitized);
+                }}
+                className="
+                  w-full px-5 py-3 pr-12 border text-gray-700
+                  border-gray-300 rounded-lg text-base
+                  hover:bg-[#017ACB]/20 transition
+                "
+                autoComplete="current-password" // Enables password manager autofill
+                required // Client-side UX guard — backend validates authoritatively
+              />
+
+              {/* SHOW / HIDE PASSWORD TOGGLE */}
+              {/* type="button" prevents accidental form submission on click */}
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  /* Eye-off icon — shown when password is visible */
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7a9.77 9.77 0 012.168-3.832M6.343 6.343A9.956 9.956 0 0112 5c5 0 9 4 9 7a9.77 9.77 0 01-1.657 2.343M3 3l18 18" />
+                  </svg>
+                ) : (
+                  /* Eye icon — shown when password is masked */
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* FORGOT PASSWORD LINK */}
           <div className="text-right">
-            <Link
-              href="/forgot-password"
-              className="text-sm text-blue-600 hover:text-blue-800"
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(true)}
+              className="text-sm text-blue-600 hover:text-blue-800 transition"
+              style={{ fontFamily: 'Outfit, sans-serif' }}
             >
               Forgot Password?
-            </Link>
+            </button>
           </div>
+
+          {/* INLINE ERROR BANNER */}
+          {loginError && (
+            <div
+              role="alert"
+              className="p-3 bg-red-50 border border-red-300 text-red-700 rounded-lg text-sm flex items-start gap-2"
+              style={{ fontFamily: 'Outfit, sans-serif' }}
+            >
+              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <span className="flex-1">{loginError}</span>
+              <button type="button" onClick={() => setLoginError('')} className="font-bold text-red-900 hover:text-red-700 leading-none">×</button>
+            </div>
+          )}
 
           {/* SIGN IN BUTTON */}
           {/* w-full on mobile for easy tapping, auto + mx-auto centres on sm+ */}
@@ -311,5 +366,52 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+
+      {/* FORGOT PASSWORD MODAL */}
+      {showForgotModal && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4"
+          onClick={() => setShowForgotModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm border border-gray-200 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-[#017ACB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0-1.657 1.343-3 3-3s3 1.343 3 3v1H9v-1c0-1.657 1.343-3 3-3s3 1.343 3 3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 11h14v10H5z" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-black mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              Forgot Password?
+            </h3>
+            <p className="text-sm text-gray-600 mb-6" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              Please contact your administrator to reset your password.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(false)}
+              className="
+                w-full px-5 py-2.5 border border-black/50
+                bg-[#017ACB] text-white
+                rounded-lg text-sm
+                hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                relative before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+              "
+              style={{ fontFamily: 'Outfit, sans-serif' }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

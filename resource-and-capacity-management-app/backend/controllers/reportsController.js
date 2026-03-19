@@ -340,6 +340,9 @@ export const getEmployeeCapacity = async (req, res) => {
     // Aggregate employee → allocation join to get per-month totals per employee
     const pipeline = [
       {
+            $match: { dept_no: "D01" }
+      },
+      {
         // Join each employee to their allocations within the target month window
         // $expr uses server-controlled field references — no user input in field paths
         $lookup: {

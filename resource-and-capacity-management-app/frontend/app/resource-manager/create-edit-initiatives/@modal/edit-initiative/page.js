@@ -137,7 +137,7 @@ function SearchableDropdown({ label, value, onChange, list }) {
             type="text"
             placeholder="Search..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ''))}
             onClick={(e) => e.stopPropagation()}
             className="w-full p-2 border-b border-gray-300 text-black focus:outline-none focus:border-black text-sm"
             style={styles.outfitFont}
@@ -323,6 +323,7 @@ export default function EditInitiativeModal() {
     setError('');
 
     if (!form.project.trim()) return setError('Project Name is required.');
+    if ((form.status === 'Completed' || form.status === 'Cancelled') && !form.completion_date) return setError('Completion date is required when status is Completed or Cancelled.');
 
     const payload = { id, ...form, requesting_dept: dept };
 
@@ -471,7 +472,7 @@ export default function EditInitiativeModal() {
               {/* COMPLETION DATE */}
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>
-                  Completion Date
+                  Completion Date{(form.status === 'Completed' || form.status === 'Cancelled') ? ' *' : ''}
                 </label>
                 <input
                   type="date"
