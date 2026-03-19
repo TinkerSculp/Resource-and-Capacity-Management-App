@@ -72,11 +72,7 @@ export default function DashboardPage() {
     "
   >
     {[
-      {
-        label: 'Capacity Summary',
-        icon: <DashboardTileIcon defaultSrc="/capacitysummary.svg" darkSrc="/WhiteCapacitySummary.svg" alt="capacitysummary icon" />,
-        href: '/capacity'
-      },
+      { label: 'Capacity Summary', icon: <DashboardTileIcon defaultSrc="/capacitysummary.svg" darkSrc="/WhiteCapacitySummary.svg" alt="capacitysummary icon" />, href: '/capacity'},
       { label: 'Resources', icon: <DashboardTileIcon defaultSrc="/Resources.svg" darkSrc="/WhiteResources.svg" alt="resources icon" />, href: '/resource-manager/create-edit-resources' },
       { label: 'Initiatives', icon: <DashboardTileIcon defaultSrc="/Initiatives.svg" darkSrc="/WhiteInitiatives.svg" alt="initiatives icon" />, href: '/resource-manager/create-edit-initiatives' },
       { label: 'Assignments', icon: <DashboardTileIcon defaultSrc="/Assignments.svg" darkSrc="/WhiteAssignments.svg" alt="assignment icon" />, href: '/resource-manager/assign-edit-allocation' },
