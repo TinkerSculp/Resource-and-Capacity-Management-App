@@ -23,7 +23,7 @@
      • The token is signed with JWT_SECRET loaded from environment variables —
        never hardcoded. If JWT_SECRET is exposed, rotate it immediately and
        all existing tokens will be invalidated automatically.
-     • The 5-day expiry limits the window of exposure if a token is stolen.
+     • The 1-day expiry limits the window of exposure if a token is stolen.
        After expiry the client must re-authenticate to obtain a new token.
      • Tokens are verified (not just decoded) by the protect() middleware
        using the same JWT_SECRET, ensuring tampered tokens are rejected.
@@ -43,7 +43,7 @@ import jwt from "jsonwebtoken";
 
    PARAM:  user {Object} — The authenticated user document from MongoDB.
                            Must contain _id, emp_id, and account.username fields.
-   RETURN: {string}      — A signed JWT string valid for 7 days.
+   RETURN: {string}      — A signed JWT string valid for 1 day.
 
    SECURITY:
    • Only _id, emp_id, and username are included in the payload — the minimum
@@ -63,6 +63,6 @@ export const generateToken = (user) => {
       username: user.account.username // Account username — available to the frontend without an extra API call
     },
     process.env.JWT_SECRET, // Signing secret — loaded from .env, never hardcoded
-    { expiresIn: "5d" }     // Token expires after 1 dayd — client must re-authenticate after
+    { expiresIn: "1d" }     // Token expires after 1 day — client must re-authenticate after
   );
 };
