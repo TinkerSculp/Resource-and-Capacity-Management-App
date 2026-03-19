@@ -1,10 +1,10 @@
 "use client";
 
 /* =============================================================================
-   TeamMemberAssignmentsPage.jsx
+   StakeholderAssignmentsPage.jsx
    -----------------------------------------------------------------------------
    PURPOSE:
-     Read-only assignments view for Team Member users. Shows all assignments
+     Read-only assignments view for Stakeholder users. Shows all assignments
      and their monthly allocations in a filterable, scrollable table.
      Supports "All Assignments" and "My Assignments" tabs with column filters.
      Uses the app-wide design system — neumorphic buttons, branded colours,
