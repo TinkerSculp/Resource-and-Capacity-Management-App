@@ -77,6 +77,24 @@ const styles = {
 /* -----------------------------------------------------------------------------
    SHARED INPUT CLASS — box style matches ResourcesPage read-only fields.
 ----------------------------------------------------------------------------- */
+const BLOCKED_WORDS = [
+  "kill", "murder", "stab", "shoot", "die", "death", "dead", "attack",
+  "hate", "sucks", "stupid", "idiot", "moron", "dumb", "loser", "trash",
+  "ass", "bastard", "bitch", "damn", "hell", "crap", "shit", "fuck",
+  "cunt", "dick", "cock", "pussy", "whore", "slut", "nigger", "faggot",
+  "retard", "rape", "bomb", "terror", "threat", "hurt", "harm", "destroy",
+  "beat", "punch", "fight", "abuse", "violent", "violence", "weapon", "knife", "gun",
+];
+
+function containsBlockedWords(text) {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return BLOCKED_WORDS.some((word) => {
+    const regex = new RegExp(`\\b${word}\\b`, "i");
+    return regex.test(lower);
+  });
+}
+
 const inputClass =
   'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:border-black [&:focus]:shadow-[0_0_0_1px_black] w-full';
 
@@ -275,10 +293,16 @@ export default function CreateResourceModal() {
     e.preventDefault();
     setError('');
 
-    // Client-side validation
-    if (!formData.emp_id.trim())    return setError('Employee ID is required.');
-    if (!formData.emp_name.trim())  return setError('Name is required.');
-    if (!formData.emp_title.trim()) return setError('Title is required.');
+    // Client-side validation — all fields except Other Information are required
+    if (containsBlockedWords(formData.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
+    if (!formData.emp_id.trim())        return setError('Employee ID is required.');
+    if (!formData.emp_name.trim())      return setError('Name is required.');
+    if (!formData.emp_title.trim())     return setError('Title is required.');
+    if (!formData.dept_no)              return setError('Department is required.');
+    if (!formData.reports_to)           return setError('Reports To is required.');
+    if (!formData.manager_level)        return setError('Manager Level is required.');
+    if (!formData.director_level)       return setError('Director Level is required.');
+    if (!formData.requestor_vp)         return setError('VP is required.');
 
     const payload = {
       emp_id:         Number(formData.emp_id.trim()),   // always numeric — safe to cast
@@ -377,6 +401,7 @@ export default function CreateResourceModal() {
                   value={formData.emp_id}
                   onChange={handleEmpIdChange}
                   placeholder="e.g. 12345"
+                  maxLength={10}
                   required
                   className={inputClass}
                   style={styles.outfitFont}
@@ -394,6 +419,7 @@ export default function CreateResourceModal() {
                   value={formData.emp_name}
                   onChange={handleTextField('emp_name')}
                   placeholder="e.g. Jane Smith"
+                  maxLength={100}
                   required
                   className={inputClass}
                   style={styles.outfitFont}
@@ -410,6 +436,7 @@ export default function CreateResourceModal() {
                   value={formData.emp_title}
                   onChange={handleTextField('emp_title')}
                   placeholder="e.g. Solution Analyst II"
+                  maxLength={100}
                   required
                   className={inputClass}
                   style={styles.outfitFont}
@@ -421,7 +448,7 @@ export default function CreateResourceModal() {
                 label="Department"
                 value={formData.dept_no}
                 onChange={(val) => setFormData((prev) => ({ ...prev, dept_no: val }))}
-                options={departments.map((d) => d.dept_name)}
+                options={departments.filter((d) => d.dept_name === "Data Mgmt").map((d) => d.dept_name)}
               />
 
               {/* REPORTS TO */}
@@ -471,6 +498,7 @@ export default function CreateResourceModal() {
                   setFormData((prev) => ({ ...prev, other_info: cleaned }));
                 }}
                 rows={3}
+                maxLength={500}
                 className={inputClass}
                 style={styles.outfitFont}
               />

@@ -632,6 +632,7 @@ export default function ResourcesPage() {
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
+            maxLength={100}
             className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
             style={styles.outfitFont}
           />
@@ -922,7 +923,16 @@ export default function ResourcesPage() {
                               max="1"
                               step="0.25"
                               value={editingValue}
-                              onChange={(e) => setEditingValue(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                // Allow empty (for null/clear), 0, and values up to 1
+                                if (val === "" || val === "0" || val === "0." || val === "0.0" || val === "0.00") {
+                                  setEditingValue(val);
+                                } else {
+                                  const num = parseFloat(val);
+                                  if (!isNaN(num) && num <= 1) setEditingValue(val);
+                                }
+                              }}
                               onBlur={() => saveMonthValue(employee, month.key)}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter")  { e.preventDefault(); saveMonthValue(employee, month.key); }
