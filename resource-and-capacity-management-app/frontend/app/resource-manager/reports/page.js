@@ -48,7 +48,7 @@
      • next/navigation  — useRouter for programmatic navigation
    ============================================================================= */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 
@@ -71,12 +71,7 @@ const styles = {
 const dropClass = `
   border border-black/50 rounded px-2 py-1.5 text-sm
   bg-white text-black
-  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-  relative
-  before:content-[''] before:absolute before:inset-0 before:rounded
-  before:pointer-events-none
-  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  shadow-[2px_2px_6px_rgba(0,0,0,0.15),-1px_-1px_4px_rgba(255,255,255,0.5)]
   hover:bg-[#017ACB]/20 transition
   focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40
 `;
@@ -106,6 +101,79 @@ const btnClass = `
 function fmt(n) {
   if (n === null || n === undefined || isNaN(n)) return "0.00";
   return Number(n).toFixed(2);
+}
+
+/* -----------------------------------------------------------------------------
+   COMPONENT: ActivityFilterDropdown
+   Custom styled dropdown for activity filters — matches app design system.
+   searchable prop enables a search bar inside the dropdown.
+----------------------------------------------------------------------------- */
+function ActivityFilterDropdown({ label, value, setValue, options, searchable = false }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setSearch(""); }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const displayed = searchable && search
+    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  return (
+    <div className="flex-1 min-w-[150px]" ref={ref}>
+      <label className="text-sm font-medium text-gray-700 mb-1 block" style={{ fontFamily: "Outfit, sans-serif" }}>
+        {label}
+      </label>
+      <div className="relative">
+        <div
+          className="border border-black/50 rounded px-2 py-1.5 text-sm bg-white text-black cursor-pointer flex justify-between items-center hover:bg-[#017ACB]/20 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]"
+          onClick={() => { setOpen(o => !o); if (open) setSearch(""); }}
+          style={{ fontFamily: "Outfit, sans-serif" }}
+        >
+          <span className="truncate">{options.find(o => o.value === value)?.label || "All"}</span>
+          <svg className={`w-4 h-4 ml-2 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+        {open && (
+          <div className="absolute left-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-60 overflow-y-auto min-w-full">
+            {searchable && (
+              <div className="px-2 pt-1 pb-1 border-b border-gray-200">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#017ACB]/40 text-black"
+                  style={{ fontFamily: "Outfit, sans-serif" }}
+                />
+              </div>
+            )}
+            {displayed.map((opt) => (
+              <div
+                key={opt.value}
+                onClick={() => { setValue(opt.value); setOpen(false); setSearch(""); }}
+                className={`px-3 py-2 cursor-pointer text-sm text-black hover:bg-[#017ACB]/20 transition ${value === opt.value ? "bg-[#CDE6F7]" : ""}`}
+                style={{ fontFamily: "Outfit, sans-serif" }}
+              >
+                {opt.label}
+              </div>
+            ))}
+            {searchable && search && displayed.length === 0 && (
+              <div className="px-3 py-2 text-sm text-gray-400">No results</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function Report() {
@@ -139,6 +207,7 @@ export default function Report() {
   const [reportMonths, setReportMonths] = useState([]);
   const [rows, setRows]                 = useState([]);       // Activity rows
   const [employees, setEmployees]       = useState([]);       // Person rows
+  const [employeeCapacities, setEmployeeCapacities] = useState({}); // { emp_id: { YYYYMM: amount } }
 
   // Activity view filters — option lists always come from backend, never user input
   const [activityCategory, setActivityCategory] = useState("all");
@@ -154,6 +223,12 @@ export default function Report() {
   // Loading flags — used to show spinner and prevent premature renders
   const [loadingMonths, setLoadingMonths]   = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(true);
+  const [showViewDropdown, setShowViewDropdown]   = useState(false);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const viewDropdownRef  = useRef(null);
+  const monthDropdownRef = useRef(null);
+  const [openFilter, setOpenFilter] = useState(null); // label of currently open activity filter
+  const [pageSearch, setPageSearch] = useState(""); // global search across all views
 
   /* ---------------------------------------------------------------------------
      HANDLER: handleExportCSV
@@ -349,10 +424,46 @@ export default function Report() {
 
     async function loadCapacity() {
       try {
-        const res  = await api.get(`/reports/capacity?start=${encodeURIComponent(startMonth)}&months=6`);
-        const data = res?.data || {};
+        // Fetch report data and all employees in parallel
+        const [reportRes, allEmpRes] = await Promise.all([
+          api.get(`/reports/capacity?start=${encodeURIComponent(startMonth)}&months=6`),
+          api.get(`/resources/employees`)
+        ]);
+
+        const data = reportRes?.data || {};
         setReportMonths(data.months || []);
-        setEmployees(data.data     || []);
+        const emps = data.data || [];
+
+        // Build a name→emp_id lookup from the full employee list
+        const allEmps = Array.isArray(allEmpRes.data) ? allEmpRes.data : [];
+        const nameToId = {};
+        allEmps.forEach(e => { if (e.emp_name && e.emp_id) nameToId[e.emp_name] = e.emp_id; });
+
+        // Attach emp_id to each report row using name lookup
+        const empsWithId = emps.map(e => ({
+          ...e,
+          emp_id: e.emp_id || nameToId[e.emp_name] || null
+        }));
+        setEmployees(empsWithId);
+
+        // Fetch capacity for each employee by emp_id
+        const capMap = {};
+        await Promise.all(empsWithId.map(async (emp) => {
+          if (!emp.emp_id) return;
+          try {
+            const capRes = await api.get(`/resources/employees/${emp.emp_id}/capacity`);
+            const capData = Array.isArray(capRes.data) ? capRes.data : [];
+            const capEntries = {};
+            capData.forEach(c => {
+              capEntries[String(c.date)] = parseFloat(c.amount);
+            });
+            // Store under both numeric and string keys to handle type mismatches
+            capMap[emp.emp_id] = capEntries;
+            capMap[String(emp.emp_id)] = capEntries;
+            capMap[Number(emp.emp_id)] = capEntries;
+          } catch { capMap[emp.emp_id] = {}; }
+        }));
+        setEmployeeCapacities(capMap);
       } catch (error) {
         console.error("Error fetching person capacity:", error);
       }
@@ -403,9 +514,34 @@ export default function Report() {
         const data = res?.data || {};
         // Option lists come from backend — never user-typed input
         setLeaderList(data.leaders            || []);
-        setRequestorList(data.requestors      || []);
-        setRequestorVPList(data.requestor_vp  || []);
         setDeptList(data.requesting_dept      || []);
+
+        // Requestor and Requestor VP: fetch accounts with acc_type_id 1 (Resource Manager)
+        // or 2 (Stakeholder) — these are the only roles who can be requestors
+        try {
+          const accRes = await api.get("/admin/accounts");
+          const allAccounts = Array.isArray(accRes.data) ? accRes.data :
+                              Array.isArray(accRes.data?.accounts) ? accRes.data.accounts : [];
+          const eligible = allAccounts
+            .filter(a => a.account?.acc_type_id === 1 || a.account?.acc_type_id === 2)
+            .map(a => a.emp_name || a.account?.username)
+            .filter(Boolean);
+          const uniqueNames = [...new Set(eligible)].sort();
+          if (uniqueNames.length > 0) {
+            setRequestorList(uniqueNames);
+            setRequestorVPList(uniqueNames);
+          } else {
+            // Fallback to employees endpoint
+            const empRes = await api.get("/resources/employees");
+            const allEmps = Array.isArray(empRes.data) ? empRes.data : [];
+            const allNames = [...new Set(allEmps.map(e => e.emp_name).filter(Boolean))].sort();
+            setRequestorList(allNames.length > 0 ? allNames : (data.requestors || []));
+            setRequestorVPList(allNames.length > 0 ? allNames : (data.requestor_vp || []));
+          }
+        } catch {
+          setRequestorList(data.requestors     || []);
+          setRequestorVPList(data.requestor_vp || []);
+        }
       } catch (err) {
         console.error("Failed to load activity filters:", err);
       }
@@ -420,9 +556,21 @@ export default function Report() {
      Shown while session validation and initial data fetch are in progress.
      Prevents table headers from rendering with empty month arrays.
   --------------------------------------------------------------------------- */
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (viewDropdownRef.current && !viewDropdownRef.current.contains(e.target))
+        setShowViewDropdown(false);
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(e.target))
+        setShowMonthDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   if (!user || loadingMonths || loadingSummary) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div
           className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]"
           role="status"
@@ -450,6 +598,9 @@ export default function Report() {
     // -----------------------------------------------------------------------
     if (viewMode === "activity") {
       const activeMonths = reportMonths; // Month headers for this view
+      const filteredRows = pageSearch
+        ? rows.filter(r => r.activity?.toLowerCase().includes(pageSearch.toLowerCase()))
+        : rows;
 
       if (activeMonths.length === 0) {
         return (
@@ -465,7 +616,7 @@ export default function Report() {
 
       return (
         <tbody>
-          {rows.map((row, idx) => (
+          {filteredRows.map((row, idx) => (
             <tr key={row.activity} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
               <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium border border-black text-black" style={styles.outfitFont}>
                 {row.activity}
@@ -484,7 +635,7 @@ export default function Report() {
               Grand Total
             </td>
             {activeMonths.map((m) => {
-              const total = rows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+              const total = filteredRows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
               return (
                 <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-white border border-black" style={styles.outfitFont}>
                   {fmt(total)}
@@ -501,6 +652,9 @@ export default function Report() {
     // -----------------------------------------------------------------------
     if (viewMode === "person") {
       const activeMonths = reportMonths;
+      const filteredEmployees = pageSearch
+        ? employees.filter(e => e.emp_name?.toLowerCase().includes(pageSearch.toLowerCase()))
+        : employees;
 
       if (activeMonths.length === 0) {
         return (
@@ -516,14 +670,28 @@ export default function Report() {
 
       return (
         <tbody>
-          {employees.map((emp, idx) => (
+          {filteredEmployees.map((emp, idx) => (
             <tr key={emp.emp_name} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
               <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium border border-black text-black" style={styles.outfitFont}>
                 {emp.emp_name}
               </td>
               {activeMonths.map((m) => {
                 const value = emp.months?.[m] || 0;
-                const isOver = value > 1; // Over capacity — allocation exceeds 1 FTE
+                // m is the month key from reportMonths — could be "202603" or "Jun 2026" format
+                // capacity collection stores as numeric YYYYMM, so try both
+                // m is a label like "Mar-26" — convert to numeric YYYYMM (202603)
+                // Convert "Mar-26" or "Mar 26" → "202603" to match capacity c.date format
+                const _monthMap = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
+                const _parts = String(m).split(/[-\s]/);
+                const _mNum = _monthMap[_parts[0]];
+                const _mYear = _parts[1] ? parseInt(_parts[1]) + (_parts[1].length === 2 ? 2000 : 0) : null;
+                const _numKey = (_mNum && _mYear) ? String(_mYear * 100 + _mNum) : null;
+
+                // Try both numeric and string emp_id as key
+                const capByKey = employeeCapacities[emp.emp_id] || employeeCapacities[String(emp.emp_id)] || employeeCapacities[Number(emp.emp_id)] || null;
+                const capAmount = (capByKey && _numKey) ? capByKey[_numKey] : undefined;
+                const maxCap = (capAmount !== undefined && !isNaN(Number(capAmount))) ? Number(capAmount) : 1;
+                const isOver = value > maxCap;
 
                 return (
                   <td
@@ -546,7 +714,7 @@ export default function Report() {
               Grand Total
             </td>
             {activeMonths.map((m) => {
-              const total = employees.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
+              const total = filteredEmployees.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
               return (
                 <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-white border border-black" style={styles.outfitFont}>
                   {fmt(total)}
@@ -629,7 +797,7 @@ export default function Report() {
      • Heading: text-xl sm:text-3xl — scales fluidly with viewport.
   --------------------------------------------------------------------------- */
   return (
-    <div className="h-[600px] bg-white">
+    <div className="min-h-screen bg-white">
       <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
         {/* ----------------------------------------------------------------- */}
@@ -668,46 +836,96 @@ export default function Report() {
         </button>
           </div>
 
+          {/* CENTER: Page search bar */}
+          <div className="flex-1 flex justify-center">
+            <input
+              type="text"
+              placeholder={
+                viewMode === "activity" ? "Search activities..." :
+                viewMode === "person"   ? "Search employees..." :
+                "Search categories..."
+              }
+              value={pageSearch}
+              onChange={(e) => setPageSearch(e.target.value)}
+              className="px-3 py-2 border border-gray-500 bg-gray-100 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-[#017ACB]/40"
+              style={styles.outfitFont}
+            />
+          </div>
+
           {/* RIGHT: View selector + Month selector + Export button */}
           {/* flex-wrap — wraps to a second line on narrow screens */}
           <div className="flex flex-wrap items-center gap-3">
 
-            {/* View mode selector */}
+            {/* View mode selector — custom dropdown */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 whitespace-nowrap" style={styles.outfitFont}>
+              <label className="text-sm text-gray-700 whitespace-nowrap" style={styles.outfitFont}>
                 View:
               </label>
-              <select
-                value={viewMode}
-                onChange={(e) => setViewMode(e.target.value)}
-                className={`w-full sm:w-auto ${dropClass}`}
-                style={styles.outfitFont}
-              >
-                <option value="month">Allocation per Category</option>
-                <option value="person">Allocation per Person</option>
-                <option value="activity">Allocation per Activity</option>
-              </select>
+              <div className="relative" ref={viewDropdownRef}>
+                <div
+                  className={`${dropClass} flex justify-between items-center cursor-pointer min-w-[220px]`}
+                  onClick={() => { setShowViewDropdown(o => !o); setShowMonthDropdown(false); }}
+                  style={styles.outfitFont}
+                >
+                  <span>
+                    {{ month: "Allocation per Category", person: "Allocation per Person", activity: "Allocation per Activity" }[viewMode]}
+                  </span>
+                  <svg className={`w-4 h-4 ml-2 flex-shrink-0 transition-transform ${showViewDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+                {showViewDropdown && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 min-w-full">
+                    {[
+                      { value: "month",    label: "Allocation per Category" },
+                      { value: "person",   label: "Allocation per Person" },
+                      { value: "activity", label: "Allocation per Activity" },
+                    ].map((opt) => (
+                      <div
+                        key={opt.value}
+                        onClick={() => { setViewMode(opt.value); setShowViewDropdown(false); }}
+                        className={`px-3 py-2 cursor-pointer text-sm text-black hover:bg-[#017ACB]/20 transition ${viewMode === opt.value ? "bg-[#CDE6F7]" : ""}`}
+                        style={styles.outfitFont}
+                      >
+                        {opt.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Start month selector
-                Number() coercion on onChange — prevents string-typed YYYYMM
-                from reaching API calls that expect a number */}
+            {/* Start month selector — custom dropdown */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 whitespace-nowrap" style={styles.outfitFont}>
+              <label className="text-sm text-gray-700 whitespace-nowrap" style={styles.outfitFont}>
                 Start Month:
               </label>
-              <select
-                value={startMonth}
-                onChange={(e) => setStartMonth(Number(e.target.value))}
-                className={`w-full sm:w-auto ${dropClass}`}
-                style={styles.outfitFont}
-              >
-                {selectableMonths.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
+              <div className="relative" ref={monthDropdownRef}>
+                <div
+                  className={`${dropClass} flex justify-between items-center cursor-pointer`}
+                  onClick={() => { setShowMonthDropdown(o => !o); setShowViewDropdown(false); }}
+                  style={styles.outfitFont}
+                >
+                  <span>{selectableMonths.find(m => m.value === startMonth)?.label || "Select month"}</span>
+                  <svg className={`w-4 h-4 ml-2 flex-shrink-0 transition-transform ${showMonthDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+                {showMonthDropdown && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-60 overflow-y-auto min-w-full">
+                    {selectableMonths.map((m) => (
+                      <div
+                        key={m.value}
+                        onClick={() => { setStartMonth(m.value); setShowMonthDropdown(false); }}
+                        className={`px-3 py-2 cursor-pointer text-sm text-black hover:bg-[#017ACB]/20 transition ${startMonth === m.value ? "bg-[#CDE6F7]" : ""}`}
+                        style={styles.outfitFont}
+                      >
+                        {m.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Export CSV — same neumorphic style as Back to Dashboard */}
@@ -735,7 +953,7 @@ export default function Report() {
               {
                 label: "Activity Category:",
                 value: activityCategory,
-                onChange: setActivityCategory,
+                setValue: setActivityCategory,
                 options: [
                   { value: "all", label: "All" },
                   { value: "Vacation", label: "Vacation" },
@@ -747,43 +965,38 @@ export default function Report() {
               {
                 label: "Leader:",
                 value: leader,
-                onChange: setLeader,
+                setValue: setLeader,
                 options: [{ value: "all", label: "All" }, ...leaderList.map((m) => ({ value: m, label: m }))],
               },
               {
                 label: "Requesting Dept:",
                 value: requestingDept,
-                onChange: setRequestingDept,
+                setValue: setRequestingDept,
                 options: [{ value: "all", label: "All" }, ...deptList.map((m) => ({ value: m, label: m }))],
               },
               {
                 label: "Requestor:",
                 value: requestor,
-                onChange: setRequestor,
+                setValue: setRequestor,
                 options: [{ value: "all", label: "All" }, ...requestorList.map((m) => ({ value: m, label: m }))],
+                searchable: true,
               },
               {
                 label: "Requestor VP:",
                 value: requestorVP,
-                onChange: setRequestorVP,
+                setValue: setRequestorVP,
                 options: [{ value: "all", label: "All" }, ...requestorVPList.map((m) => ({ value: m, label: m }))],
+                searchable: true,
               },
             ].map((filter) => (
-              <div key={filter.label} className="flex-1 min-w-[150px]">
-                <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
-                  {filter.label}
-                </label>
-                <select
-                  value={filter.value}
-                  onChange={(e) => filter.onChange(e.target.value)}
-                  className={`w-full ${dropClass}`}
-                  style={styles.outfitFont}
-                >
-                  {filter.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
+              <ActivityFilterDropdown
+                key={filter.label}
+                label={filter.label}
+                value={filter.value}
+                setValue={filter.setValue}
+                options={filter.options}
+                searchable={filter.searchable || false}
+              />
             ))}
           </div>
         )}
