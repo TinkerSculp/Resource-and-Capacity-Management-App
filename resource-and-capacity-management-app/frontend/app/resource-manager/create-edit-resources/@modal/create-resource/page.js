@@ -297,6 +297,20 @@ export default function CreateResourceModal() {
     if (containsBlockedWords(formData.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
     if (!formData.emp_id.trim())        return setError('Employee ID is required.');
     if (!formData.emp_name.trim())      return setError('Name is required.');
+
+    // Duplicate check — ensure emp_id and name don't already exist
+    try {
+      const checkRes = await fetch(`${API_BASE}/resources/employees`);
+      if (checkRes.ok) {
+        const existing = await checkRes.json();
+        const empIdTaken = existing.some(e => String(e.emp_id) === String(formData.emp_id.trim()));
+        if (empIdTaken) return setError(`Employee ID ${formData.emp_id.trim()} is already in use. Please use a different ID.`);
+        const nameTaken = existing.some(e => e.emp_name?.toLowerCase().trim() === formData.emp_name.toLowerCase().trim());
+        if (nameTaken) return setError(`An employee named "${formData.emp_name.trim()}" already exists. Please check the name.`);
+      }
+    } catch {
+      // Non-fatal — let backend handle it if check fails
+    }
     if (!formData.emp_title.trim())     return setError('Title is required.');
     if (!formData.dept_no)              return setError('Department is required.');
     if (!formData.reports_to)           return setError('Reports To is required.');
@@ -552,7 +566,17 @@ export default function CreateResourceModal() {
                 type="button"
                 onClick={() => router.back()}
                 disabled={loading}
-                className={`${btnGrayClass} w-full sm:w-auto`}
+                className="
+                px-4 py-2 rounded text-sm
+                bg-[#003A5C] text-white border border-black/50
+                hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                relative before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                w-full sm:w-auto
+              "
                 style={styles.outfitFont}
               >
                 Cancel
