@@ -50,7 +50,7 @@
      • next/navigation     — useRouter for programmatic navigation
    ============================================================================= */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Bar } from 'react-chartjs-2';
@@ -102,13 +102,8 @@ const btnClass = `
 `;
 
 /* -----------------------------------------------------------------------------
-   SHARED DROPDOWN CLASS
-   Matches the dropdown style in Report.jsx — same border, shadow, and hover
-   tint so all dropdowns across the app feel consistent.
-     • border-black/50  — semi-transparent black border, same weight as buttons
-     • shadow           — subtle lift in the same shadow family as buttons
-     • hover tint       — #017ACB/20 brand tint used on buttons and tiles
-     • focus:ring       — visible keyboard focus ring for accessibility
+   SHARED DROPDOWN TRIGGER CLASS
+   Matches the neumorphic button style — same border, shadow, and hover tint.
 ----------------------------------------------------------------------------- */
 const dropClass = `
   border border-black/50 rounded px-2 py-1.5 text-sm
@@ -146,13 +141,13 @@ export default function CapacitySummary() {
   const [remainingCapacity, setRemainingCapacity] = useState([]);
   const [loadingMonths, setLoadingMonths]         = useState(true);
   const [loadingSummary, setLoadingSummary]       = useState(true);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const monthDropdownRef                          = useRef(null);
 
   const router = useRouter();
 
   /* ---------------------------------------------------------------------------
      EFFECT 1: LOAD USER SESSION ON MOUNT
-     Runs client-side only — localStorage is a browser-only API.
-     Malformed JSON is caught and the session is cleared.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
@@ -167,8 +162,6 @@ export default function CapacitySummary() {
 
   /* ---------------------------------------------------------------------------
      EFFECT 2: LOAD SELECTABLE MONTHS (runs when user is set)
-     Skips if user is null — prevents API calls before JWT is available.
-     Defaults startMonth to current month, or most recent if not found.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
@@ -204,8 +197,6 @@ export default function CapacitySummary() {
 
   /* ---------------------------------------------------------------------------
      EFFECT 3: LOAD SUMMARY DATA (runs when user or startMonth changes)
-     encodeURIComponent guards the URL param.
-     All response arrays default to [] to protect Chart.js from undefined.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user || !startMonth) return;
@@ -234,8 +225,19 @@ export default function CapacitySummary() {
   }, [user, startMonth]);
 
   /* ---------------------------------------------------------------------------
+     EFFECT 4: CLOSE MONTH DROPDOWN ON OUTSIDE CLICK
+  --------------------------------------------------------------------------- */
+  useEffect(() => {
+    const handler = (e) => {
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(e.target))
+        setShowMonthDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  /* ---------------------------------------------------------------------------
      LOADING STATE
-     Prevents charts and tables from rendering before data arrays are populated.
   --------------------------------------------------------------------------- */
   if (!user || loadingMonths || loadingSummary) {
     return (
@@ -251,7 +253,6 @@ export default function CapacitySummary() {
 
   /* ---------------------------------------------------------------------------
      CHART DATA
-     All datasets use validated state arrays — Chart.js never receives undefined.
   --------------------------------------------------------------------------- */
   const chartData = {
     labels: months,
@@ -276,9 +277,6 @@ export default function CapacitySummary() {
     ]
   };
 
-  // aspectRatio controls the height relative to width.
-  // Lower value = taller chart. 1 on mobile gives a square-ish chart
-  // that's easy to read; 2 on larger screens keeps the standard wide look.
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
   const chartOptions = {
@@ -294,25 +292,12 @@ export default function CapacitySummary() {
 
   /* ---------------------------------------------------------------------------
      RENDER
-     ---------------------------------------------------------------------------
-     RESPONSIVENESS STRATEGY:
-     • Header: flex-col on mobile (stacks title, button, selector vertically),
-       sm:flex-row on larger screens (single horizontal row).
-     • Title + back button: flex-col on mobile, sm:flex-row on larger screens.
-     • Month selector: full-width on mobile (w-full via dropClass), auto on sm+.
-     • Table: overflow-x-auto — scrolls horizontally on mobile.
-     • Chart: w-full, responsive:true — scales to container at all sizes.
-     • All font sizes and padding have sm: variants for comfortable mobile reading.
   --------------------------------------------------------------------------- */
   return (
     <div className="w-full bg-white">
       <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4">
 
-        {/* -----------------------------------------------------------------
-           HEADER
-           On mobile: stacks as title → button → month selector (flex-col)
-           On sm+: title + button on left, month selector on right (flex-row)
-        ----------------------------------------------------------------- */}
+        {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
 
           {/* LEFT: Title + Back Button */}
@@ -324,60 +309,74 @@ export default function CapacitySummary() {
               Capacity Summary
             </h2>
 
-            {/* Back to Dashboard — neumorphic style via btnClass */}
-                    <button
-          onClick={() => router.back()}
-          className="
-            px-4 py-2 rounded text-sm
-            bg-[#003A5C] text-white border border-black/50
-            hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
-            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-            relative
-            before:content-[''] before:absolute before:inset-0 before:rounded
-            before:pointer-events-none
-            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-          "
-          style={styles.outfitFont}
-        >
-          Back to Dashboard
-        </button>
+            <button
+              onClick={() => router.back()}
+              className="
+                px-4 py-2 rounded text-sm
+                bg-[#003A5C] text-white border border-black/50
+                hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
+                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                relative
+                before:content-[''] before:absolute before:inset-0 before:rounded
+                before:pointer-events-none
+                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+              "
+              style={styles.outfitFont}
+            >
+              Back to Dashboard
+            </button>
           </div>
 
-          {/* RIGHT: Month selector — uses dropClass, same as Report.jsx dropdowns */}
+          {/* RIGHT: Start Month custom dropdown */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label
-              htmlFor="start-month-select"
               className="text-sm font-medium text-gray-700 whitespace-nowrap"
               style={styles.outfitFont}
             >
               Start Month:
             </label>
 
-            {/* dropClass gives the same border-black/50 + shadow as Report.jsx.
-                No extra wrapper div needed — the shadow lives on the select itself. */}
-            <select
-              id="start-month-select"
-              className={dropClass}
-              value={startMonth}
-              onChange={(e) => setStartMonth(Number(e.target.value))}
-              style={styles.outfitFont}
-            >
-              {selectableMonths.map((m) => (
-                <option key={m.value} value={m.value} className="bg-white text-black">
-                  {m.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative w-full sm:w-auto" ref={monthDropdownRef}>
+              {/* Trigger */}
+              <div
+                className={`${dropClass} flex justify-between items-center cursor-pointer`}
+                onClick={() => setShowMonthDropdown((o) => !o)}
+                style={styles.outfitFont}
+              >
+                <span>
+                  {selectableMonths.find((m) => m.value === startMonth)?.label || 'Select month'}
+                </span>
+                <svg
+                  className={`w-4 h-4 ml-2 transition-transform flex-shrink-0 ${showMonthDropdown ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+
+              {/* Options */}
+              {showMonthDropdown && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-60 overflow-y-auto min-w-full">
+                  {selectableMonths.map((m) => (
+                    <div
+                      key={m.value}
+                      onClick={() => { setStartMonth(m.value); setShowMonthDropdown(false); }}
+                      className={`px-3 py-2 cursor-pointer text-sm text-black transition font-semibold
+                        hover:bg-[#017ACB]/20
+                        ${startMonth === m.value ? 'bg-[#CDE6F7] font-bold' : ''}`}
+                      style={styles.outfitFont}
+                    >
+                      {m.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* -----------------------------------------------------------------
-           CAPACITY TABLE
-           overflow-x-auto — scrolls horizontally on mobile so the table
-           never breaks the page layout on narrow screens.
-           min-w-max — prevents columns from collapsing below readable width.
-        ----------------------------------------------------------------- */}
+        {/* CAPACITY TABLE */}
         <div className="overflow-x-auto border rounded-lg shadow bg-white mb-6 -mx-3 sm:mx-0">
           <table className="min-w-max w-full border-collapse text-xs sm:text-sm text-gray-700">
 
@@ -451,12 +450,7 @@ export default function CapacitySummary() {
           </table>
         </div>
 
-        {/* -----------------------------------------------------------------
-           CHART
-           responsive:true + maintainAspectRatio:true — scales naturally.
-           w-full ensures it fills the container at all screen widths.
-           max-w-5xl prevents it from becoming too wide on large screens.
-        ----------------------------------------------------------------- */}
+        {/* CHART */}
         <div className="bg-white p-3 sm:p-4 rounded-lg shadow mb-6 flex justify-center">
           <div className="w-full max-w-5xl">
             <Bar data={chartData} options={chartOptions} />
