@@ -518,7 +518,7 @@ export default function EditResourceModal() {
 
               {/* DEPARTMENT */}
               <StyledDropdown
-                label="Department"
+                label="Department *"
                 value={formData.dept_no}
                 onChange={(val) => setFormData((prev) => ({ ...prev, dept_no: val }))}
                 options={departments.filter((d) => d.dept_name === "Data Mgmt").map((d) => d.dept_name)}
@@ -526,7 +526,7 @@ export default function EditResourceModal() {
 
               {/* REPORTS TO */}
               <SearchableDropdown
-                label="Reports To"
+                label="Reports To *"
                 value={formData.reports_to}
                 onChange={(val) => setFormData((prev) => ({ ...prev, reports_to: val }))}
                 list={managers}
@@ -534,7 +534,7 @@ export default function EditResourceModal() {
 
               {/* MANAGER LEVEL */}
               <SearchableDropdown
-                label="Manager Level"
+                label="Manager Level *"
                 value={formData.manager_level}
                 onChange={(val) => setFormData((prev) => ({ ...prev, manager_level: val }))}
                 list={managers}
@@ -542,7 +542,7 @@ export default function EditResourceModal() {
 
               {/* DIRECTOR LEVEL */}
               <SearchableDropdown
-                label="Director Level"
+                label="Director Level *"
                 value={formData.director_level}
                 onChange={(val) => setFormData((prev) => ({ ...prev, director_level: val }))}
                 list={managers}
@@ -550,7 +550,7 @@ export default function EditResourceModal() {
 
               {/* VP */}
               <SearchableDropdown
-                label="VP"
+                label="VP *"
                 value={formData.requestor_vp}
                 onChange={(val) => setFormData((prev) => ({ ...prev, requestor_vp: val }))}
                 list={managers}
