@@ -452,7 +452,7 @@ export default function EditAllocationModal() {
           <h2 className="text-xl font-bold mb-4">Error</h2>
           <p className="text-sm">{error || "Unable to load allocation"}</p>
           <button
-            className={`mt-4 ${btnClass} bg-gray-200 text-black`}
+            className={`mt-4 ${btnClass} bg-[#003A5C] text-white`}
             onClick={() => router.back()}
           >
             Close
@@ -573,7 +573,7 @@ export default function EditAllocationModal() {
           <button
             type="button"
             onClick={() => router.back()}
-            className={`${btnClass} bg-gray-200 text-black`}
+            className={`${btnClass} bg-[#003A5C] text-white`}
           >
             Close
           </button>
