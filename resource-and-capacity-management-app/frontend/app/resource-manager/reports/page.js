@@ -797,7 +797,7 @@ export default function Report() {
      • Heading: text-xl sm:text-3xl — scales fluidly with viewport.
   --------------------------------------------------------------------------- */
   return (
-    <div className="min-h-screen bg-white">
+    <div className="h-[600px] bg-white">
       <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
         {/* ----------------------------------------------------------------- */}
