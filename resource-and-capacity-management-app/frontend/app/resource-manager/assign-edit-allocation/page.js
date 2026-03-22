@@ -214,6 +214,7 @@ export default function AssignmentsAllocationsPage() {
   // Confirm dialog — shown when clearing the last allocation on a row
   // Shape: { row, m, index } — held until user confirms or cancels
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [overAllocConfirm, setOverAllocConfirm] = useState(null); // { row, m, index, newValue }
 
   // Filter selections — all default to [] meaning "show all"
   const [selectedResources, setSelectedResources]           = useState([]);
@@ -392,6 +393,41 @@ export default function AssignmentsAllocationsPage() {
         setMine(clearEditing);
         setFilteredRows(clearEditing);
         return; // Don't save yet — wait for confirmation
+      }
+    }
+
+    // Over-allocation check — fetch the employee's capacity for this month,
+    // then compare total allocations against that capacity threshold.
+    if (newValue !== null && !isNaN(newValue)) {
+      try {
+        const capRes = await fetch(
+          `${apiUrl}/api/resources/employees/${row.employee.emp_id}/capacity`
+        );
+        const capData = await capRes.json().catch(() => []);
+        const capEntry = Array.isArray(capData)
+          ? capData.find((c) => String(c.date) === String(m.key))
+          : null;
+        const maxCapacity = capEntry ? parseFloat(capEntry.amount) : 1;
+
+        // Sum all other allocations for this employee in this month
+        const allEmpRows = allRows.filter(
+          (r) => r.employee?.emp_id === row.employee?.emp_id
+        );
+        const otherTotal = allEmpRows
+          .filter((r) => r.assignment?.project_name !== row.assignment?.project_name)
+          .reduce((sum, r) => {
+            const val = parseFloat(r.allocations?.[m.key]);
+            return sum + (isNaN(val) ? 0 : val);
+          }, 0);
+        const newTotal = otherTotal + newValue;
+
+        if (newTotal > maxCapacity) {
+          setOverAllocConfirm({ row, m, index, newValue, maxCapacity });
+          return; // Wait for user confirmation
+        }
+      } catch (err) {
+        console.error("Failed to fetch capacity for over-allocation check:", err);
+        // If fetch fails, fall through and save anyway
       }
     }
 
@@ -692,6 +728,42 @@ export default function AssignmentsAllocationsPage() {
   };
 
   /* ---------------------------------------------------------------------------
+     HANDLER: handleOverAllocConfirm
+     Called when user clicks "Yes" on the over-allocation warning.
+     Proceeds with saving the value as normal.
+  --------------------------------------------------------------------------- */
+  const handleOverAllocConfirm = async () => {
+    const { row, m, index, newValue } = overAllocConfirm;
+    setOverAllocConfirm(null);
+
+    const updateAllocations = (prev) =>
+      prev.map((r) =>
+        r.employee?.emp_id === row.employee?.emp_id &&
+        r.assignment?.project_name === row.assignment?.project_name
+          ? { ...r, allocations: { ...r.allocations, [m.key]: newValue }, editing: null }
+          : r
+      );
+    setAllRows(updateAllocations);
+    setMine(updateAllocations);
+
+    try {
+      await fetch(`${apiUrl}/api/assignments-allocations/${row.employee.emp_id}/amount`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emp_id:   row.employee.emp_id,
+          month:    m.key,
+          amount:   newValue,
+          activity: row.assignment.project_name,
+          category: row.assignment.category
+        })
+      });
+    } catch (err) {
+      console.error("Failed to update allocation:", err);
+    }
+  };
+
+  /* ---------------------------------------------------------------------------
      HANDLER: handleConfirmDelete
      Called when the user clicks "Yes" in the confirm dialog.
      Performs the actual DELETE for the last allocation on a row,
@@ -769,7 +841,7 @@ export default function AssignmentsAllocationsPage() {
             {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
               <div
                 key={val}
-                className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${resourceSort === val ? "font-semibold" : ""}`}
+                className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${resourceSort === val ? "font-bold" : ""}`}
                 onClick={() => setResourceSort(resourceSort === val ? "" : val)}
               >
                 <Checkbox checked={resourceSort === val} />
@@ -796,7 +868,7 @@ export default function AssignmentsAllocationsPage() {
 
         {/* "All" clears the filter */}
         <div
-          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? "font-semibold" : ""}`}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? "font-bold" : ""}`}
           onClick={() => setSelected([])}
         >
           <Checkbox checked={selected.length === 0} />
@@ -807,7 +879,7 @@ export default function AssignmentsAllocationsPage() {
         {displayList.map((name) => (
           <div
             key={name}
-            className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(name) ? "font-semibold" : ""}`}
+            className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(name) ? "font-bold" : ""}`}
             onClick={() => toggleSelection(name, setSelected, selected)}
           >
             <Checkbox checked={selected.includes(name)} />
@@ -857,8 +929,8 @@ export default function AssignmentsAllocationsPage() {
                 onClick={() => setConfirmDialog(null)}
                 className="
                   px-4 py-2 rounded text-sm
-                  bg-[#003A5C] text-white border border-black/50
-                  hover:bg-[#017ACB]/20 transition hover:text-gray-700
+                  bg-gray-200 text-black border border-black/50
+                  hover:bg-[#017ACB]/20 transition
                   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
                   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
                   relative
@@ -880,6 +952,54 @@ export default function AssignmentsAllocationsPage() {
                   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
                   relative
                   before:content-[''] before:absolute before:inset-0 before:rounded
+                  before:pointer-events-none
+                  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                "
+                style={styles.outfitFont}
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OVER-ALLOCATION WARNING DIALOG */}
+      {overAllocConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-lg font-bold text-black mb-2" style={styles.outfitFont}>
+              Over-Allocation Warning
+            </h2>
+            <p className="text-sm text-gray-700 mb-6" style={styles.outfitFont}>
+              This allocation will bring <strong>{overAllocConfirm.row.employee?.emp_name}</strong>'s total for <strong>{overAllocConfirm.m.label}</strong> above their capacity of <strong>{overAllocConfirm.maxCapacity}</strong>. Are you sure you want to do this?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setOverAllocConfirm(null)}
+                className="
+                  px-4 py-2 rounded text-sm
+                  bg-[#003A5C] text-white border border-black/50
+                  hover:bg-[#017ACB]/20 transition hover:text-gray-700
+                  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                  relative before:content-[''] before:absolute before:inset-0 before:rounded
+                  before:pointer-events-none
+                  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                "
+                style={styles.outfitFont}
+              >
+                No
+              </button>
+              <button
+                onClick={handleOverAllocConfirm}
+                className="
+                  px-4 py-2 rounded text-sm
+                  bg-[#017ACB] text-white border border-black/50
+                  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                  relative before:content-[''] before:absolute before:inset-0 before:rounded
                   before:pointer-events-none
                   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
                 "
@@ -1144,7 +1264,7 @@ export default function AssignmentsAllocationsPage() {
                             <div
                               key={m}
                               data-month={m}
-                              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${startMonth === m ? "font-semibold" : ""}`}
+                              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${startMonth === m ? "font-bold" : ""}`}
                               onClick={() => { setStartMonth(m); setShowStartMonthMenu(false); }}
                             >
                               <Checkbox checked={startMonth === m} />
@@ -1268,6 +1388,7 @@ export default function AssignmentsAllocationsPage() {
                               min="0"
                               defaultValue={row.allocations?.[m.key] ?? ""}
                               className="w-16 border border-black/50 rounded text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40"
+                              onInput={(e) => { if (e.target.value.length > 4) e.target.value = e.target.value.slice(0, 4); }}
                               onBlur={(e) => handleAllocationBlur(e, row, m, index)}
                               onKeyDown={(e) => handleAllocationKey(e, index)}
                             />

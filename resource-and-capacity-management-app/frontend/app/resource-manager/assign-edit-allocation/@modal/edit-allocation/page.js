@@ -148,7 +148,8 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
                 key={opt[valueKey]}
                 className={`p-2 cursor-pointer text-sm text-black hover:bg-[#017ACB]/20 transition ${String(opt[valueKey]) === String(value) ? "bg-[#017ACB]/10 font-medium" : ""}`}
                 onClick={() => {
-                  onChange(opt[valueKey]);
+                  const raw = opt[valueKey];
+                  onChange(typeof raw === 'number' || (raw !== null && !isNaN(Number(raw)) && raw !== '') ? Number(raw) : raw);
                   setOpen(false);
                   setSearch("");
                 }}
@@ -367,6 +368,30 @@ export default function EditAllocationModal() {
     if (oldEmpId === newEmpId && oldProject === newProject) {
       router.back();
       return;
+    }
+
+    // Duplicate check — if employee or project changed, make sure the new
+    // combination doesn't already exist in the assignments table
+    if (newEmpId !== oldEmpId || newProject !== oldProject) {
+      try {
+        const dupRes = await fetch(
+          `${apiUrl}/api/assignments-allocations?emp_id=${encodeURIComponent(newEmpId)}&project=${encodeURIComponent(newProject)}`
+        );
+        if (dupRes.ok) {
+          const dupJson = await dupRes.json();
+          const alreadyExists = (dupJson.allAssignments || []).some(
+            (r) =>
+              String(r.employee?.emp_id) === String(newEmpId) &&
+              r.assignment?.project_name === newProject
+          );
+          if (alreadyExists) {
+            setError("This employee is already assigned to this project.");
+            return;
+          }
+        }
+      } catch {
+        // Non-fatal — let backend handle it if check fails
+      }
     }
 
     try {

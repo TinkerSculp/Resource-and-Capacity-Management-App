@@ -102,7 +102,8 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
   const ref                 = useRef(null);
 
   // Find the display label for the currently selected value
-  const selectedLabel = options.find((o) => o[valueKey] === value)?.[displayKey] || "";
+  // Use String comparison to avoid Int32 vs Number type mismatch
+  const selectedLabel = options.find((o) => String(o[valueKey]) === String(value))?.[displayKey] || "";
 
   // Filter options by the search string — case-insensitive substring match
   const filtered = options.filter((opt) =>
@@ -178,14 +179,16 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
               <div
                 key={opt[valueKey]}
                 role="option"
-                aria-selected={opt[valueKey] === value}
+                aria-selected={String(opt[valueKey]) === String(value)}
                 className={`
                   p-2 cursor-pointer text-sm text-black transition
                   hover:bg-[#017ACB]/20
-                  ${opt[valueKey] === value ? "bg-[#017ACB]/10 font-medium" : ""}
+                  ${String(opt[valueKey]) === String(value) ? "bg-[#017ACB]/10 font-medium" : ""}
                 `}
                 onClick={() => {
-                  onChange(opt[valueKey]);
+                  // Coerce to Number if numeric — prevents Int32 type mismatch
+                  const raw = opt[valueKey];
+                  onChange(typeof raw === 'number' || (raw !== null && !isNaN(Number(raw)) && raw !== '') ? Number(raw) : raw);
                   setOpen(false);
                   setSearch("");
                 }}
@@ -382,6 +385,27 @@ export default function AddAllocationModal() {
     if (!selectedProject || !selectedEmployee) {
       setError("Please select both a project and an employee.");
       return;
+    }
+
+    // Duplicate check — verify this employee is not already assigned to this project
+    try {
+      const dupRes = await fetch(
+        `${apiUrl}/api/assignments-allocations?emp_id=${encodeURIComponent(selectedEmployee)}&project=${encodeURIComponent(selectedProject)}`
+      );
+      if (dupRes.ok) {
+        const dupJson = await dupRes.json();
+        const alreadyExists = (dupJson.allAssignments || []).some(
+          (r) =>
+            String(r.employee?.emp_id) === String(selectedEmployee) &&
+            r.assignment?.project_name === selectedProject
+        );
+        if (alreadyExists) {
+          setError("This employee is already assigned to this project.");
+          return;
+        }
+      }
+    } catch {
+      // Non-fatal — if check fails, allow save to proceed and let backend handle it
     }
 
     setLoading(true);
