@@ -253,6 +253,7 @@ export default function LoginPage() {
                 hover:bg-[#017ACB]/20 transition
               "
               autoComplete="username"
+              maxLength={50}
               required // Client-side UX guard — backend validates authoritatively
             />
           </div>
@@ -285,6 +286,7 @@ export default function LoginPage() {
                   hover:bg-[#017ACB]/20 transition
                 "
                 autoComplete="current-password" // Enables password manager autofill
+                maxLength={100}
                 required // Client-side UX guard — backend validates authoritatively
               />
 
