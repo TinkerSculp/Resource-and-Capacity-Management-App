@@ -145,10 +145,11 @@ function containsBlockedWords(text) {
   return BLOCKED_WORDS.some(w => new RegExp(`\\b${w}\\b`, 'i').test(text));
 }
 
-function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions }) {
-  const isStakeholder = Number(accTypeId) === 2;
-  const isTeamMember  = Number(accTypeId) === 3;
-  if (!isStakeholder && !isTeamMember) return null;
+function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, managerEmpOptions }) {
+  const isStakeholder    = Number(accTypeId) === 2;
+  const isTeamMember     = Number(accTypeId) === 3;
+  const isResourceManager = Number(accTypeId) === 1;
+  if (!isStakeholder && !isTeamMember && !isResourceManager) return null;
 
   // Filter dept options to Data Mgmt only (matches Create Resource modal)
 
@@ -195,22 +196,22 @@ function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions }) {
 
         {/* STAKEHOLDER: Requestor VP * */}
         {isStakeholder && (
-          <SearchableDropdown label="Requestor VP *" value={form.requestor_vp} onChange={val => update('requestor_vp', val)} options={empOptions} placeholder="Select Requestor VP" />
+          <SearchableDropdown label="Requestor VP *" value={form.requestor_vp} onChange={val => update('requestor_vp', val)} options={managerEmpOptions || empOptions} placeholder="Select Requestor VP" />
         )}
 
         {/* TEAM MEMBER: Reports To *, Manager Level *, Director Level *, VP * */}
-        {isTeamMember && (
+        {(isTeamMember || isResourceManager) && (
           <>
-            <SearchableDropdown label="Reports To *"     value={form.reports_to}     onChange={val => update('reports_to', val)}     options={empOptions} placeholder="Select Reports To" />
-            <SearchableDropdown label="Manager Level *"  value={form.manager_level}  onChange={val => update('manager_level', val)}  options={empOptions} placeholder="Select Manager Level" />
-            <SearchableDropdown label="Director Level *" value={form.director_level} onChange={val => update('director_level', val)} options={empOptions} placeholder="Select Director Level" />
-            <SearchableDropdown label="VP *"             value={form.requestor_vp}   onChange={val => update('requestor_vp', val)}   options={empOptions} placeholder="Select VP" />
+            <SearchableDropdown label="Reports To *"     value={form.reports_to}     onChange={val => update('reports_to', val)}     options={managerEmpOptions || empOptions} placeholder="Select Reports To" />
+            <SearchableDropdown label="Manager Level *"  value={form.manager_level}  onChange={val => update('manager_level', val)}  options={managerEmpOptions || empOptions} placeholder="Select Manager Level" />
+            <SearchableDropdown label="Director Level *" value={form.director_level} onChange={val => update('director_level', val)} options={managerEmpOptions || empOptions} placeholder="Select Director Level" />
+            <SearchableDropdown label="VP *"             value={form.requestor_vp}   onChange={val => update('requestor_vp', val)}   options={managerEmpOptions || empOptions} placeholder="Select VP" />
           </>
         )}
       </div>
 
       {/* TEAM MEMBER: Other Info + Status */}
-      {isTeamMember && (
+      {(isTeamMember || isResourceManager) && (
         <>
           <div className="flex flex-col mt-4">
             <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Other Information</label>
@@ -255,11 +256,15 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
 
   const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
   const accTypeId     = Number(form.acc_type_id);
-  const needsEmployee = accTypeId === 2 || accTypeId === 3;
+  const needsEmployee = accTypeId === 1 || accTypeId === 2 || accTypeId === 3;
 
   const accountTypeOptions = (dropdowns.accountTypes || []).map(t => ({ value: t.acc_type_id, label: `${t.acc_type_id} — ${t.acc_type}` }));
   const deptOptions        = (dropdowns.departments  || []).map(d => ({ value: d.dept_no,     label: `${d.dept_no} — ${d.dept_name}` }));
   const empOptions         = (dropdowns.employees    || []).map(e => ({ value: e.emp_id,      label: `${e.emp_name} (${e.emp_id})` }));
+  // Reports To, Manager Level, Director Level, VP — only acc_type_id 1 or 2
+  const managerEmpOptions  = (dropdowns.employees    || [])
+    .filter(e => e.acc_type_id === 1 || e.acc_type_id === 2)
+    .map(e => ({ value: e.emp_id, label: `${e.emp_name} (${e.emp_id})` }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -278,10 +283,10 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
     if (needsEmployee && !form.emp_name.trim())  return setError('Name is required.');
     if (needsEmployee && !form.emp_title.trim()) return setError('Title is required.');
     if (needsEmployee && !form.dept_no)          return setError('Department is required.');
-    if (Number(form.acc_type_id) === 3 && !form.reports_to)     return setError('Reports To is required.');
-    if (Number(form.acc_type_id) === 3 && !form.manager_level)  return setError('Manager Level is required.');
-    if (Number(form.acc_type_id) === 3 && !form.director_level) return setError('Director Level is required.');
-    if (Number(form.acc_type_id) === 3 && !form.requestor_vp)   return setError('VP is required.');
+    if ((Number(form.acc_type_id) === 3 || Number(form.acc_type_id) === 1) && !form.reports_to)     return setError('Reports To is required.');
+    if ((Number(form.acc_type_id) === 3 || Number(form.acc_type_id) === 1) && !form.manager_level)  return setError('Manager Level is required.');
+    if ((Number(form.acc_type_id) === 3 || Number(form.acc_type_id) === 1) && !form.director_level) return setError('Director Level is required.');
+    if ((Number(form.acc_type_id) === 3 || Number(form.acc_type_id) === 1) && !form.requestor_vp)   return setError('VP is required.');
     if (Number(form.acc_type_id) === 2 && !form.requestor_vp)   return setError('Requestor VP is required.');
 
     try {
@@ -345,7 +350,7 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
                 <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Min 8 chars, must include a special character (e.g. ! @ # $)</span>
               </div>
             </div>
-            <EmployeeSection accTypeId={form.acc_type_id} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} />
+            <EmployeeSection accTypeId={form.acc_type_id} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} managerEmpOptions={managerEmpOptions} />
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
               <button type="button" onClick={onClose} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Creating...' : 'Create'}</button>
@@ -383,11 +388,15 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
 
   const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
   const accTypeId     = account.acc_type_id;
-  const needsEmployee = accTypeId === 2 || accTypeId === 3;
+  const needsEmployee = accTypeId === 1 || accTypeId === 2 || accTypeId === 3;
 
   const accountTypeOptions = (dropdowns.accountTypes || []).map(t => ({ value: t.acc_type_id, label: `${t.acc_type_id} — ${t.acc_type}` }));
   const deptOptions        = (dropdowns.departments  || []).map(d => ({ value: d.dept_no,     label: `${d.dept_no} — ${d.dept_name}` }));
   const empOptions         = (dropdowns.employees    || []).map(e => ({ value: e.emp_id,      label: `${e.emp_name} (${e.emp_id})` }));
+  // Reports To, Manager Level, Director Level, VP — only acc_type_id 1 or 2
+  const managerEmpOptions  = (dropdowns.employees    || [])
+    .filter(e => e.acc_type_id === 1 || e.acc_type_id === 2)
+    .map(e => ({ value: e.emp_id, label: `${e.emp_name} (${e.emp_id})` }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -402,10 +411,10 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
     if (needsEmployee && !form.emp_name.trim())  return setError('Name is required.');
     if (needsEmployee && !form.emp_title.trim()) return setError('Title is required.');
     if (needsEmployee && !form.dept_no)          return setError('Department is required.');
-    if (accTypeId === 3 && !form.reports_to)     return setError('Reports To is required.');
-    if (accTypeId === 3 && !form.manager_level)  return setError('Manager Level is required.');
-    if (accTypeId === 3 && !form.director_level) return setError('Director Level is required.');
-    if (accTypeId === 3 && !form.requestor_vp)   return setError('VP is required.');
+    if ((accTypeId === 3 || accTypeId === 1) && !form.reports_to)     return setError('Reports To is required.');
+    if ((accTypeId === 3 || accTypeId === 1) && !form.manager_level)  return setError('Manager Level is required.');
+    if ((accTypeId === 3 || accTypeId === 1) && !form.director_level) return setError('Director Level is required.');
+    if ((accTypeId === 3 || accTypeId === 1) && !form.requestor_vp)   return setError('VP is required.');
     if (accTypeId === 2 && !form.requestor_vp)   return setError('Requestor VP is required.');
 
     const payload = {
@@ -480,7 +489,7 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
                 <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Min 8 chars, must include a special character (e.g. ! @ # $)</span>
               </div>
             </div>
-            <EmployeeSection accTypeId={accTypeId} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} />
+            <EmployeeSection accTypeId={accTypeId} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} managerEmpOptions={managerEmpOptions} />
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
               <button type="button" onClick={onClose} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
