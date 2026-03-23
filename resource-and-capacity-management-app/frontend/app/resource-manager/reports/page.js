@@ -847,7 +847,7 @@ export default function Report() {
               }
               value={pageSearch}
               onChange={(e) => setPageSearch(e.target.value)}
-              className="px-3 py-2 border border-gray-500 bg-gray-100 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-[#017ACB]/40"
+              className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-black"
               style={styles.outfitFont}
             />
           </div>
