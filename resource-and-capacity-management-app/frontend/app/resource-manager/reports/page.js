@@ -142,7 +142,7 @@ function ActivityFilterDropdown({ label, value, setValue, options, searchable = 
           </svg>
         </div>
         {open && (
-          <div className="absolute left-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-60 overflow-y-auto min-w-full">
+          <div className="absolute left-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full">
             {searchable && (
               <div className="px-2 pt-1 pb-1 border-b border-gray-200">
                 <input
@@ -570,7 +570,7 @@ export default function Report() {
 
   if (!user || loadingMonths || loadingSummary) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="h-[600px] flex items-center justify-center bg-white">
         <div
           className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]"
           role="status"
@@ -912,10 +912,19 @@ export default function Report() {
                   </svg>
                 </div>
                 {showMonthDropdown && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-60 overflow-y-auto min-w-full">
+                  <div
+                    className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full"
+                    ref={el => {
+                      if (el) {
+                        const selected = el.querySelector('[data-selected="true"]');
+                        if (selected) selected.scrollIntoView({ block: "center" });
+                      }
+                    }}
+                  >
                     {selectableMonths.map((m) => (
                       <div
                         key={m.value}
+                        data-selected={startMonth === m.value ? "true" : "false"}
                         onClick={() => { setStartMonth(m.value); setShowMonthDropdown(false); }}
                         className={`px-3 py-2 cursor-pointer text-sm text-black hover:bg-[#017ACB]/20 transition ${startMonth === m.value ? "bg-[#CDE6F7]" : ""}`}
                         style={styles.outfitFont}
