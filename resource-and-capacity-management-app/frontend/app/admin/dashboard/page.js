@@ -133,47 +133,102 @@ function SearchableDropdown({ label, value, onChange, options, placeholder }) {
 /* =============================================================================
    EmployeeSection
    ============================================================================= */
+const BLOCKED_WORDS = [
+  "kill","murder","stab","shoot","die","death","dead","attack","hate","sucks",
+  "stupid","idiot","moron","dumb","loser","trash","ass","bastard","bitch","damn",
+  "hell","crap","shit","fuck","cunt","dick","cock","pussy","whore","slut",
+  "nigger","faggot","retard","rape","bomb","terror","threat","hurt","harm",
+  "destroy","beat","punch","fight","abuse","violent","violence","weapon","knife","gun",
+];
+function containsBlockedWords(text) {
+  if (!text) return false;
+  return BLOCKED_WORDS.some(w => new RegExp(`\\b${w}\\b`, 'i').test(text));
+}
+
 function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions }) {
   const isStakeholder = Number(accTypeId) === 2;
   const isTeamMember  = Number(accTypeId) === 3;
   if (!isStakeholder && !isTeamMember) return null;
 
+  // Filter dept options to Data Mgmt only (matches Create Resource modal)
+
   return (
     <div className="border-t border-gray-200 pt-4 mb-4">
       <p className="text-sm font-semibold text-[#017ACB] mb-3" style={styles.outfitFont}>Employee Details</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        {/* NAME * */}
         <div className="flex flex-col">
           <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Name *</label>
-          <input value={form.emp_name} onChange={e => update('emp_name', e.target.value.replace(/[^a-zA-Z0-9 .,'\-]/g, ''))} placeholder="e.g. Jane Smith" className={inputClass} style={styles.outfitFont} />
+          <input
+            value={form.emp_name}
+            onChange={e => update('emp_name', e.target.value.replace(/[^a-zA-Z .'\-]/g, ''))}
+            placeholder="e.g. Jane Smith"
+            maxLength={100}
+            className={inputClass}
+            style={styles.outfitFont}
+          />
         </div>
+
+        {/* TITLE * */}
         <div className="flex flex-col">
           <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Title *</label>
-          <input value={form.emp_title} onChange={e => update('emp_title', e.target.value.replace(/[^a-zA-Z0-9 .,'\-]/g, ''))} placeholder="e.g. VP, IT" className={inputClass} style={styles.outfitFont} />
+          <input
+            value={form.emp_title}
+            onChange={e => update('emp_title', e.target.value.replace(/[^a-zA-Z .,\-]/g, ''))}
+            placeholder="e.g. Solution Analyst II"
+            maxLength={100}
+            className={inputClass}
+            style={styles.outfitFont}
+          />
         </div>
-        <StyledDropdown label="Department" value={form.dept_no} onChange={val => update('dept_no', val)} options={deptOptions} placeholder="Select Department" required />
+
+        {/* DEPARTMENT * */}
+        <StyledDropdown
+          label="Department"
+          value={form.dept_no}
+          onChange={val => update('dept_no', val)}
+          options={deptOptions}
+          placeholder="Select Department"
+          required
+        />
+
+        {/* STAKEHOLDER: Requestor VP * */}
         {isStakeholder && (
-          <SearchableDropdown label="Requestor VP" value={form.requestor_vp} onChange={val => update('requestor_vp', val)} options={empOptions} placeholder="Select Requestor VP" />
+          <SearchableDropdown label="Requestor VP *" value={form.requestor_vp} onChange={val => update('requestor_vp', val)} options={empOptions} placeholder="Select Requestor VP" />
         )}
+
+        {/* TEAM MEMBER: Reports To *, Manager Level *, Director Level *, VP * */}
         {isTeamMember && (
           <>
-            <SearchableDropdown label="Reports To"     value={form.reports_to}     onChange={val => update('reports_to', val)}     options={empOptions} placeholder="Select Reports To" />
-            <SearchableDropdown label="Manager Level"  value={form.manager_level}  onChange={val => update('manager_level', val)}  options={empOptions} placeholder="Select Manager Level" />
-            <SearchableDropdown label="Director Level" value={form.director_level} onChange={val => update('director_level', val)} options={empOptions} placeholder="Select Director Level" />
+            <SearchableDropdown label="Reports To *"     value={form.reports_to}     onChange={val => update('reports_to', val)}     options={empOptions} placeholder="Select Reports To" />
+            <SearchableDropdown label="Manager Level *"  value={form.manager_level}  onChange={val => update('manager_level', val)}  options={empOptions} placeholder="Select Manager Level" />
+            <SearchableDropdown label="Director Level *" value={form.director_level} onChange={val => update('director_level', val)} options={empOptions} placeholder="Select Director Level" />
+            <SearchableDropdown label="VP *"             value={form.requestor_vp}   onChange={val => update('requestor_vp', val)}   options={empOptions} placeholder="Select VP" />
           </>
         )}
       </div>
+
+      {/* TEAM MEMBER: Other Info + Status */}
       {isTeamMember && (
         <>
           <div className="flex flex-col mt-4">
             <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Other Information</label>
-            <textarea value={form.other_info} onChange={e => update('other_info', e.target.value.replace(/[^a-zA-Z0-9 .,]/g, ''))} rows={2} className={inputClass} style={styles.outfitFont} />
+            <textarea
+              value={form.other_info}
+              onChange={e => update('other_info', e.target.value.replace(/[^a-zA-Z0-9 .,]/g, ''))}
+              rows={2}
+              maxLength={500}
+              className={inputClass}
+              style={styles.outfitFont}
+            />
           </div>
           <div className="mt-4">
             <label className="text-xs text-black mb-2 font-semibold block" style={styles.outfitFont}>Status</label>
             <div className="flex gap-3">
               {['Active', 'Inactive'].map(s => (
                 <button key={s} type="button" onClick={() => update('current_status', s)}
-                  className={`px-4 py-1.5 rounded text-sm border border-black/50 font-semibold transition shadow-[2px_2px_6px_rgba(0,0,0,0.2),-2px_-2px_6px_rgba(255,255,255,0.4)] ${form.current_status === s ? (s === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700') : 'bg-white text-gray-500 hover:bg-gray-100'}`}
+                  className={`px-4 py-1.5 rounded text-sm border border-black/50 font-semibold transition shadow-[2px_2px_6px_rgba(0,0,0,0.2),-2px_-2px_6px_rgba(255,255,255,0.4)] ${form.current_status === s ? (s === 'Active' ? 'bg-green-100 text-black' : 'bg-red-100 text-black') : 'bg-white text-black hover:bg-gray-100'}`}
                   style={styles.outfitFont}>{s}</button>
               ))}
             </div>
@@ -212,10 +267,22 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
     if (!form.acc_type_id)          return setError('Account type is required.');
     if (!form.account_id.trim())    return setError('Account ID is required.');
     if (!form.username.trim())      return setError('Username is required.');
-    if (!form.password.trim())      return setError('Password is required.');
+    if (!form.password.trim())             return setError('Password is required.');
+    if (form.password.trim().length < 8)  return setError('Password must be at least 8 characters.');
+    if (!/[!@#$%^&*()_+=\[\]{};:',.|~`]/.test(form.password)) return setError('Password must contain at least one special character (e.g. ! @ # $ %).');
+    if (form.password.trim() && form.password.trim().length < 8)
+      return setError('Password must be at least 8 characters.');
+    if (form.password.trim() && !/[!@#$%^&*()_+=\[\]{};:',.|~`]/.test(form.password))
+      return setError('Password must contain at least one special character (e.g. ! @ # $ %).');
+    if (needsEmployee && containsBlockedWords(form.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
     if (needsEmployee && !form.emp_name.trim())  return setError('Name is required.');
     if (needsEmployee && !form.emp_title.trim()) return setError('Title is required.');
     if (needsEmployee && !form.dept_no)          return setError('Department is required.');
+    if (Number(form.acc_type_id) === 3 && !form.reports_to)     return setError('Reports To is required.');
+    if (Number(form.acc_type_id) === 3 && !form.manager_level)  return setError('Manager Level is required.');
+    if (Number(form.acc_type_id) === 3 && !form.director_level) return setError('Director Level is required.');
+    if (Number(form.acc_type_id) === 3 && !form.requestor_vp)   return setError('VP is required.');
+    if (Number(form.acc_type_id) === 2 && !form.requestor_vp)   return setError('Requestor VP is required.');
 
     try {
       setLoading(true);
@@ -256,11 +323,11 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
               </div>
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Account ID *</label>
-                <input value={form.account_id} onChange={e => update('account_id', e.target.value.replace(/[^a-zA-Z0-9]/g, ''))} placeholder="e.g. 000112" className={inputClass} style={styles.outfitFont} />
+                <input value={form.account_id} onChange={e => update('account_id', e.target.value.replace(/[^0-9]/g, ''))} placeholder="e.g. 000112" className={inputClass} style={styles.outfitFont} />
               </div>
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Username *</label>
-                <input value={form.username} onChange={e => update('username', e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))} placeholder="e.g. jmulligan" className={inputClass} style={styles.outfitFont} />
+                <input value={form.username} onChange={e => update('username', e.target.value.replace(/[^a-zA-Z]/g, ''))} placeholder="e.g. jmulligan" className={inputClass} style={styles.outfitFont} />
               </div>
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Password *</label>
@@ -268,13 +335,14 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
-                    onChange={e => update('password', e.target.value)}
+                    onChange={e => update('password', e.target.value.replace(/[<>\/\-"]/g, ''))}
                     placeholder="Enter password"
                     className={`${inputClass} pr-8`}
                     style={styles.outfitFont}
                   />
                   <EyeToggle show={showPassword} onToggle={() => setShowPassword(p => !p)} />
                 </div>
+                <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Min 8 chars, must include a special character (e.g. ! @ # $)</span>
               </div>
             </div>
             <EmployeeSection accTypeId={form.acc_type_id} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} />
@@ -326,9 +394,19 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
     setError('');
     if (!form.username.trim())   return setError('Username is required.');
     if (!form.account_id.trim()) return setError('Account ID is required.');
+    if (form.password.trim() && form.password.trim().length < 8)
+      return setError('Password must be at least 8 characters.');
+    if (form.password.trim() && !/[!@#$%^&*()_+=\[\]{};:',.|~`]/.test(form.password))
+      return setError('Password must contain at least one special character (e.g. ! @ # $ %).');
+    if (needsEmployee && containsBlockedWords(form.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
     if (needsEmployee && !form.emp_name.trim())  return setError('Name is required.');
     if (needsEmployee && !form.emp_title.trim()) return setError('Title is required.');
     if (needsEmployee && !form.dept_no)          return setError('Department is required.');
+    if (accTypeId === 3 && !form.reports_to)     return setError('Reports To is required.');
+    if (accTypeId === 3 && !form.manager_level)  return setError('Manager Level is required.');
+    if (accTypeId === 3 && !form.director_level) return setError('Director Level is required.');
+    if (accTypeId === 3 && !form.requestor_vp)   return setError('VP is required.');
+    if (accTypeId === 2 && !form.requestor_vp)   return setError('Requestor VP is required.');
 
     const payload = {
       account_id:  form.account_id,
@@ -380,11 +458,11 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
               </div>
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Account ID *</label>
-                <input value={form.account_id} onChange={e => update('account_id', e.target.value.replace(/[^a-zA-Z0-9]/g, ''))} className={inputClass} style={styles.outfitFont} />
+                <input value={form.account_id} onChange={e => update('account_id', e.target.value.replace(/[^0-9]/g, ''))} className={inputClass} style={styles.outfitFont} />
               </div>
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Username *</label>
-                <input value={form.username} onChange={e => update('username', e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))} className={inputClass} style={styles.outfitFont} />
+                <input value={form.username} onChange={e => update('username', e.target.value.replace(/[^a-zA-Z]/g, ''))} className={inputClass} style={styles.outfitFont} />
               </div>
               <div className="flex flex-col sm:col-span-2">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>New Password</label>
@@ -392,13 +470,14 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
-                    onChange={e => update('password', e.target.value)}
+                    onChange={e => update('password', e.target.value.replace(/[<>\/\-"]/g, ''))}
                     placeholder="Leave blank to keep current password"
                     className={`${inputClass} pr-8`}
                     style={styles.outfitFont}
                   />
                   <EyeToggle show={showPassword} onToggle={() => setShowPassword(p => !p)} />
                 </div>
+                <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Min 8 chars, must include a special character (e.g. ! @ # $)</span>
               </div>
             </div>
             <EmployeeSection accTypeId={accTypeId} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} />
