@@ -2,31 +2,34 @@
    calendarViewController.js
    -----------------------------------------------------------------------------
    PURPOSE:
-     Handles all business logic for the Calendar View feature:
-       • getAvailableMonths   — Returns all YYYYMM months that have activity data
-       • getActivitiesByMonth — Returns unique activities for a selected month range
+     Handles business logic for the Calendar View feature, which shows which
+     projects/activities are active in each month. Supports two modes:
+       • All mode   — shows all allocation data across all employees
+       • Just Mine  — filters by the requesting user's role and identity
 
    JUST MINE SCOPING BY ROLE:
-     Type 1 (Resource Manager) — assignments where leader === emp_name,
-                                  grouped by completion_date month
-     Type 2 (Stakeholder)      — assignments where requestor or requestor_vp
-                                  === emp_name, grouped by completion_date month
-     Type 3 (Team Member)      — allocation records for the employee
-     All mode / no emp_id      — all allocation records for selected months
+     Type 1 (Resource Manager) — allocation records for this employee
+                                  (same query as Team Member)
+     Type 2 (Stakeholder)      — active assignments where requestor or
+                                  requestor_vp matches the employee's name
+     Type 3 (Team Member)      — allocation records for this employee
+     No emp_id (All mode)      — all allocation records for selected months
+
+   KEY DESIGN DECISION — STAKEHOLDER SCOPING:
+     Stakeholders see assignments they requested, not allocation records.
+     This is intentional — stakeholders care about project status, not
+     individual FTE amounts. The same project list is shown across all
+     selected months since there is no per-month allocation record to filter on.
 
    SECURITY MODEL:
-     • getAvailableMonths uses no user input in DB queries — eliminates injection
-       risk entirely for the month list fetch.
-     • getActivitiesByMonth validates the months array before any DB query runs —
-       malformed or missing input is rejected with a 400 before touching the DB.
+     • getAvailableMonths uses no user input in DB queries — zero injection risk
+     • getActivitiesByMonth validates the months array before any DB query
      • emp_id is resolved server-side to acc_type_id and emp_name — role and
-       identity are never trusted from the client directly.
-     • All DB values are validated and formatted server-side before being returned
-       — malformed YYYYMM values cannot reach the frontend.
-     • Only display-safe fields (activity, category) are returned in responses —
-       no raw DB documents or internal fields are exposed.
+       identity are never trusted from the client directly
+     • Only display-safe fields (activity, category) are returned — no raw DB
+       documents or internal fields are exposed
      • Generic error messages are returned on failure — full error detail is
-       logged server-side only, preventing DB structure leakage to the client.
+       logged server-side only to prevent DB structure leakage
 
    DEPENDENCIES:
      • ../config/db.js — MongoDB connection singleton
@@ -34,45 +37,54 @@
 
 import { connectDB } from "../config/db.js";
 
-/* -----------------------------------------------------------------------------
+/* =============================================================================
    UTILITY: formatMonthLabel
    -----------------------------------------------------------------------------
-   Converts a YYYYMM integer or string into a short human-readable label
-   for display in the Calendar View month selector (e.g. 202503 → "Mar-25").
+   Converts a YYYYMM integer or string to a short human-readable label for
+   the Calendar View month selector (e.g. 202503 → "Mar-25").
 
-   PARAM:  yyyymm {number|string} — Month value in YYYYMM format
-   RETURN: {string}               — Formatted label e.g. "Mar-25"
------------------------------------------------------------------------------ */
+   Uses the JavaScript Date constructor with month - 1 to handle month indexing
+   (JS months are 0-indexed). toLocaleString is used for consistent short month
+   names regardless of server locale.
+
+   PARAM:  yyyymm {number|string} — Month in YYYYMM format
+   RETURNS: {string}              — Formatted label e.g. "Mar-25"
+   ============================================================================= */
 function formatMonthLabel(yyyymm) {
-  const s = String(yyyymm);
-  const year = Number(s.slice(0, 4));
-  const month = Number(s.slice(4, 6));
-  const date = new Date(year, month - 1, 1);
+  const s          = String(yyyymm);
+  const year       = Number(s.slice(0, 4));
+  const month      = Number(s.slice(4, 6));
+  const date       = new Date(year, month - 1, 1); // month - 1: JS months are 0-indexed
   const shortMonth = date.toLocaleString("en-US", { month: "short" });
-  const shortYear = String(year).slice(2);
+  const shortYear  = String(year).slice(2); // Last 2 digits of year e.g. "25"
   return `${shortMonth}-${shortYear}`;
 }
 
-/* -----------------------------------------------------------------------------
+/* =============================================================================
    HANDLER: getAvailableMonths
    GET /api/calendar-view
    -----------------------------------------------------------------------------
    Returns all distinct YYYYMM values present in the allocation collection,
-   along with a formatted label for each.
------------------------------------------------------------------------------ */
+   plus a formatted label for each. Used to populate the Calendar View month
+   selector with only months that actually have data.
+
+   No user input is used in the DB query — the distinct() call reads all
+   unique date values from the allocation collection directly.
+   ============================================================================= */
 export const getAvailableMonths = async (req, res) => {
   try {
-    const db = await connectDB();
-    const allocationCol = db.collection("allocation");
+    const db  = await connectDB();
+    const col = db.collection("allocation");
 
-    const rawMonths = await allocationCol.distinct("date");
+    // distinct() returns all unique values for the "date" field across all documents
+    const rawMonths = await col.distinct("date");
 
     return res.json({
-      success: true,
-      months: rawMonths,
-      formatted: rawMonths.map((m) => ({
+      success:   true,
+      months:    rawMonths,
+      formatted: rawMonths.map(m => ({
         yyyymm: m,
-        label: formatMonthLabel(m)
+        label:  formatMonthLabel(m)
       }))
     });
 
@@ -80,16 +92,17 @@ export const getAvailableMonths = async (req, res) => {
     console.error("Error in GET /calendar-view:", err);
     return res.status(500).json({
       success: false,
-      error: "Failed to load available months"
+      error:   "Failed to load available months"
     });
   }
 };
 
-/* -----------------------------------------------------------------------------
+/* =============================================================================
    HANDLER: getActivitiesByMonth
    POST /api/calendar-view
    -----------------------------------------------------------------------------
-   Returns the unique activities for each month in the provided selection.
+   Returns the unique activities for each month in the provided selection,
+   scoped by the requesting user's role if emp_id is provided.
 
    REQUEST BODY:
      {
@@ -105,64 +118,72 @@ export const getAvailableMonths = async (req, res) => {
          ...
        ]
      }
------------------------------------------------------------------------------ */
+
+   DEDUPLICATION STRATEGY:
+     A Set keyed by "activity__category" is used within each month to ensure
+     each project appears only once per month, even if multiple allocation
+     records exist for the same project (e.g. multiple employees on the same project).
+   ============================================================================= */
 export const getActivitiesByMonth = async (req, res) => {
   try {
     const { months, emp_id } = req.body;
 
-    // Validate months array — must be present, an array, and non-empty
+    // months is required and must be a non-empty array
     if (!months || !Array.isArray(months) || months.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "Months array is required"
+        error:   "Months array is required"
       });
     }
 
-    const db = await connectDB();
-    const allocationCol = db.collection("allocation");
+    const db  = await connectDB();
+    const col = db.collection("allocation");
 
-    /* -------------------------------------------------------------------------
+    /* =========================================================================
        ALL MODE — no emp_id provided
-       Reads from allocation collection exactly as before.
-    ------------------------------------------------------------------------- */
+       Fetches all allocation records for the selected months and deduplicates
+       by activity+category within each month.
+       ========================================================================= */
     if (!emp_id) {
-      const query = { date: { $in: months } };
-      const results = await allocationCol.find(query).toArray();
+      const results = await col.find({ date: { $in: months } }).toArray();
 
-      const activitiesByMonth = months.map((yyyymm) => {
-        const monthRows = results.filter(
-          (r) => Number(r.date) === Number(yyyymm)
-        );
+      const activitiesByMonth = months.map(yyyymm => {
+        const monthRows = results.filter(r => Number(r.date) === Number(yyyymm));
+
+        // Deduplicate by "activity__category" key — each project appears once per month
         const unique = [];
-        const seen = new Set();
-        monthRows.forEach((r) => {
+        const seen   = new Set();
+        monthRows.forEach(r => {
           const key = `${r.activity}__${r.category}`;
           if (!seen.has(key)) {
             seen.add(key);
             unique.push({ activity: r.activity, category: r.category });
           }
         });
+
         return { yyyymm, label: formatMonthLabel(yyyymm), activities: unique };
       });
 
       return res.json({ success: true, activitiesByMonth });
     }
 
-    /* -------------------------------------------------------------------------
+    /* =========================================================================
        JUST MINE MODE — emp_id provided
-       Resolve acc_type_id and emp_name server-side, then scope by role.
-    ------------------------------------------------------------------------- */
+       Resolve acc_type_id and emp_name server-side from the DB.
+       Role and identity are never trusted directly from the client.
+       ========================================================================= */
     const accountDoc = await db.collection("account").findOne({
       emp_id: Number(emp_id)
     });
 
-    // No account found — return empty activities rather than error
+    // No account found — return empty activities rather than an error
+    // This handles edge cases like deleted accounts gracefully
     if (!accountDoc) {
       return res.json({
         success: true,
-        activitiesByMonth: months.map((yyyymm) => ({
+        activitiesByMonth: months.map(yyyymm => ({
           yyyymm,
-          label: formatMonthLabel(yyyymm),
+          label:      formatMonthLabel(yyyymm),
           activities: []
         }))
       });
@@ -170,31 +191,27 @@ export const getActivitiesByMonth = async (req, res) => {
 
     const accTypeId = accountDoc.account?.acc_type_id;
 
-    const employeeDoc = await db.collection("employee").findOne({
-      emp_id: Number(emp_id)
-    });
-    const empName = employeeDoc?.emp_name || null;
+    // Fetch the employee record for emp_name (needed for type 2 scoping)
+    const employeeDoc = await db.collection("employee").findOne({ emp_id: Number(emp_id) });
+    const empName     = employeeDoc?.emp_name || null;
 
-    /* -----------------------------------------------------------------------
+    /* =========================================================================
        TYPE 1 — Resource Manager
-       Allocation records for this employee in the selected months (same as
-       Team Member) — unchanged from original behaviour.
-    ----------------------------------------------------------------------- */
+       Shows allocation records for this employee only — same query as Type 3.
+       Resource Managers see their own allocations in Just Mine mode, not
+       all allocations they manage (that is the All mode).
+       ========================================================================= */
     if (accTypeId === 1) {
-      const query = {
-        date: { $in: months },
-        emp_id: Number(emp_id)
-      };
+      const results = await col.find({
+        emp_id: Number(emp_id),
+        date:   { $in: months }
+      }).toArray();
 
-      const results = await allocationCol.find(query).toArray();
-
-      const activitiesByMonth = months.map((yyyymm) => {
-        const monthRows = results.filter(
-          (r) => Number(r.date) === Number(yyyymm)
-        );
+      const activitiesByMonth = months.map(yyyymm => {
+        const monthRows = results.filter(r => Number(r.date) === Number(yyyymm));
         const unique = [];
         const seen   = new Set();
-        monthRows.forEach((r) => {
+        monthRows.forEach(r => {
           const key = `${r.activity}__${r.category}`;
           if (!seen.has(key)) {
             seen.add(key);
@@ -207,26 +224,29 @@ export const getActivitiesByMonth = async (req, res) => {
       return res.json({ success: true, activitiesByMonth });
     }
 
-    /* -----------------------------------------------------------------------
+    /* =========================================================================
        TYPE 2 — Stakeholder
-       Assignments where requestor or requestor_vp === emp_name.
-       Returns all matching assignments regardless of completion_date —
-       the project is shown in every selected month so the stakeholder
-       can always see their projects in the calendar.
-    ----------------------------------------------------------------------- */
+       Shows assignments where requestor or requestor_vp === emp_name.
+       Only active statuses are included — Completed and Cancelled are excluded
+       since those projects are no longer relevant to the stakeholder.
+
+       The same deduplicated project list is shown in every selected month
+       because stakeholders have no per-month allocation records to filter on.
+       ========================================================================= */
     if (accTypeId === 2) {
-      // If emp_name not found, return empty
+      // If emp_name is missing, we cannot scope by name — return empty
       if (!empName) {
         return res.json({
           success: true,
-          activitiesByMonth: months.map((yyyymm) => ({
+          activitiesByMonth: months.map(yyyymm => ({
             yyyymm,
-            label: formatMonthLabel(yyyymm),
+            label:      formatMonthLabel(yyyymm),
             activities: []
           }))
         });
       }
 
+      // Find all active assignments where this stakeholder is requestor or requestor_vp
       const assignments = await db.collection("assignment")
         .find(
           {
@@ -237,10 +257,10 @@ export const getActivitiesByMonth = async (req, res) => {
         )
         .toArray();
 
-      // Deduplicate across all assignments for this stakeholder
+      // Deduplicate across all assignments — a project may appear in multiple records
       const unique = [];
       const seen   = new Set();
-      assignments.forEach((a) => {
+      assignments.forEach(a => {
         const key = `${a.project_name}__${a.category}`;
         if (!seen.has(key)) {
           seen.add(key);
@@ -248,35 +268,32 @@ export const getActivitiesByMonth = async (req, res) => {
         }
       });
 
-      // Show the same deduplicated list in every selected month
-      const activitiesByMonth = months.map((yyyymm) => ({
+      // Show the same list for every selected month — no per-month filtering for stakeholders
+      const activitiesByMonth = months.map(yyyymm => ({
         yyyymm,
-        label: formatMonthLabel(yyyymm),
+        label:      formatMonthLabel(yyyymm),
         activities: unique
       }));
 
       return res.json({ success: true, activitiesByMonth });
     }
 
-    /* -----------------------------------------------------------------------
+    /* =========================================================================
        TYPE 3 — Team Member
-       Allocation records for this employee in the selected months.
-    ----------------------------------------------------------------------- */
+       Shows only allocation records assigned to this employee.
+       emp_id is cast to Number — allocation emp_id is stored as an integer.
+       ========================================================================= */
     if (accTypeId === 3) {
-      // Cast emp_id to Number — allocation emp_id is stored as an integer
-      const empIdNum = Number(emp_id);
-      const results = await allocationCol.find({
-        emp_id: empIdNum,
+      const results = await col.find({
+        emp_id: Number(emp_id),
         date:   { $in: months }
       }).toArray();
 
-      const activitiesByMonth = months.map((yyyymm) => {
-        const monthRows = results.filter(
-          (r) => Number(r.date) === Number(yyyymm)
-        );
+      const activitiesByMonth = months.map(yyyymm => {
+        const monthRows = results.filter(r => Number(r.date) === Number(yyyymm));
         const unique = [];
         const seen   = new Set();
-        monthRows.forEach((r) => {
+        monthRows.forEach(r => {
           const key = `${r.activity}__${r.category}`;
           if (!seen.has(key)) {
             seen.add(key);
@@ -289,14 +306,16 @@ export const getActivitiesByMonth = async (req, res) => {
       return res.json({ success: true, activitiesByMonth });
     }
 
-    /* -----------------------------------------------------------------------
-       FALLBACK — unknown account type, return empty
-    ----------------------------------------------------------------------- */
+    /* =========================================================================
+       FALLBACK — unknown or unsupported account type
+       Returns empty activities rather than an error — graceful degradation
+       for any future account types added without updating this controller.
+       ========================================================================= */
     return res.json({
       success: true,
-      activitiesByMonth: months.map((yyyymm) => ({
+      activitiesByMonth: months.map(yyyymm => ({
         yyyymm,
-        label: formatMonthLabel(yyyymm),
+        label:      formatMonthLabel(yyyymm),
         activities: []
       }))
     });
@@ -305,7 +324,7 @@ export const getActivitiesByMonth = async (req, res) => {
     console.error("Error in POST /calendar-view:", err);
     return res.status(500).json({
       success: false,
-      error: "Failed to load activities"
+      error:   "Failed to load activities"
     });
   }
 };
