@@ -2,6 +2,54 @@
 
 /* =============================================================================
    DashboardPage.jsx  (Admin Dashboard)
+   -----------------------------------------------------------------------------
+   PURPOSE:
+     The Admin Dashboard — the only page accessible to account type 4 (Admin).
+     Allows admins to view, create, and edit all user accounts in the system.
+
+   HOW IT WORKS:
+     1. On mount, validates the admin session from localStorage
+     2. Loads all accounts, dropdown data, and the next available emp_id in parallel
+     3. Renders an accounts table with search filtering
+     4. Create Account button opens CreateAccountModal
+     5. Edit button on each row opens EditAccountModal for that account
+
+   SUB-COMPONENTS:
+     • EyeToggle          — Reusable show/hide password button
+     • StyledDropdown     — Custom single-select dropdown (fixed option list)
+     • SearchableDropdown — Custom searchable dropdown (long lists)
+     • EmployeeSection    — Conditional employee fields based on account type
+     • CreateAccountModal — Full-page modal for creating a new account
+     • EditAccountModal   — Full-page modal for editing an existing account
+
+   ACCOUNT TYPE RULES:
+     Type 1 (Resource Manager) — account + full employee doc (hierarchy fields)
+     Type 2 (Stakeholder)      — account + minimal employee doc (requestor_vp only)
+     Type 3 (Team Member)      — account + full employee doc (same as type 1)
+     Type 4 (Admin)            — account only, no employee doc
+
+   SESSION TIMEOUT:
+     Same 30-minute inactivity timeout as the main Header — tracked via
+     localStorage timestamp, checked every minute. On expiry, shows a modal
+     and blocks all interactions until the user clicks Back to Login.
+     The admin dashboard has its own session timeout because it does not use
+     the global Header component (HeaderWrapper suppresses it for /admin routes).
+
+   SECURITY MODEL:
+     • Session is validated on mount — missing token or user redirects to /login.
+     • All API calls use the shared api instance which injects the JWT
+       automatically via the Axios interceptor.
+     • All numeric ID fields (emp_id, reports_to, etc.) are coerced to Number()
+       before the POST/PUT — prevents string-typed IDs reaching the backend.
+     • Password is only included in the edit payload if a new one was entered —
+       blank password field = keep existing password, not overwrite with blank.
+     • Blocked words are checked on Other Information before submit.
+     • All text inputs strip dangerous characters on keystroke — not just on submit.
+
+   DEPENDENCIES:
+     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
+     • next/navigation  — useRouter for login redirect
+     • next/image       — Optimised logo image
    ============================================================================= */
 
 import { useEffect, useState, useTransition, useLayoutEffect, useRef } from 'react';
@@ -11,11 +59,20 @@ import api from '@/lib/api';
 
 const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
+/* -----------------------------------------------------------------------------
+   SESSION TIMEOUT CONSTANTS
+   Matches the values used in Header.jsx — 30 min timeout, checked every minute.
+   The admin dashboard manages its own timeout because the global Header is
+   suppressed on /admin routes by HeaderWrapper.
+----------------------------------------------------------------------------- */
 const TIMEOUT_MS      = 30 * 60 * 1000;
 const CHECK_EVERY_MS  = 60 * 1000;
 const LAST_ACTIVE_KEY = 'lastActive';
 const LOGIN_PATH      = '/login';
 
+/* -----------------------------------------------------------------------------
+   SHARED BUTTON CLASSES — neumorphic, matches all other pages in the app.
+----------------------------------------------------------------------------- */
 const btnClass = `px-4 py-2 rounded text-sm bg-[#017ACB] text-white border border-black/50
   hover:bg-[#017ACB]/20 hover:text-gray-700 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -32,25 +89,31 @@ const btnDarkClass = `px-4 py-2 rounded text-sm bg-[#003A5C] text-white border b
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]`;
 
-const inputClass = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full text-sm';
+const inputClass    = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full text-sm';
 const readOnlyClass = 'bg-gray-100 text-gray-500 border border-black p-2 rounded cursor-not-allowed w-full text-sm';
 
 /* =============================================================================
-   EyeToggle — reusable show/hide password button
+   COMPONENT: EyeToggle
+   -----------------------------------------------------------------------------
+   Reusable show/hide password button. Renders an eye-off icon when the
+   password is visible and an eye icon when it is masked.
+   type="button" prevents accidental form submission when clicked.
    ============================================================================= */
 function EyeToggle({ show, onToggle }) {
   return (
     <button
-      type="button"
+      type="button" // Prevents form submission on click
       onClick={onToggle}
       className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition"
       aria-label={show ? 'Hide password' : 'Show password'}
     >
       {show ? (
+        // Eye-off icon — shown when password is visible
         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7a9.77 9.77 0 012.168-3.832M6.343 6.343A9.956 9.956 0 0112 5c5 0 9 4 9 7a9.77 9.77 0 01-1.657 2.343M3 3l18 18" />
         </svg>
       ) : (
+        // Eye icon — shown when password is masked
         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -61,30 +124,55 @@ function EyeToggle({ show, onToggle }) {
 }
 
 /* =============================================================================
-   StyledDropdown
+   COMPONENT: StyledDropdown
+   -----------------------------------------------------------------------------
+   Custom single-select dropdown for fixed option lists (e.g. Account Type,
+   Department). Closes on outside click via mousedown listener.
+   Options are { value, label } objects — value is what gets stored, label
+   is what is displayed.
    ============================================================================= */
 function StyledDropdown({ label, value, onChange, options, placeholder, required }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref             = useRef(null);
+
+  // Close on outside click — cleanup runs when open state changes or on unmount
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
-  const selected = options.find((o) => String(o.value) === String(value));
+
+  // Find the selected option to display its label in the trigger
+  const selected = options.find(o => String(o.value) === String(value));
+
   return (
     <div className="flex flex-col relative" ref={ref}>
-      <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>{label}{required && ' *'}</label>
-      <div className="bg-white text-black border border-black p-2 rounded cursor-pointer hover:bg-[#017ACB]/20 transition flex justify-between items-center text-sm" onClick={() => setOpen(o => !o)} style={styles.outfitFont}>
-        <span className={selected ? 'text-black' : 'text-gray-400'}>{selected ? selected.label : (placeholder || `Select ${label}`)}</span>
-        <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+      <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>
+        {label}{required && ' *'}
+      </label>
+      <div
+        className="bg-white text-black border border-black p-2 rounded cursor-pointer hover:bg-[#017ACB]/20 transition flex justify-between items-center text-sm"
+        onClick={() => setOpen(o => !o)}
+        style={styles.outfitFont}
+      >
+        <span className={selected ? 'text-black' : 'text-gray-400'}>
+          {selected ? selected.label : (placeholder || `Select ${label}`)}
+        </span>
+        <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
       {open && (
         <div className="absolute top-full left-0 right-0 bg-white border border-black rounded mt-1 z-50 max-h-48 overflow-y-auto shadow-lg">
-          {options.map((opt) => (
-            <div key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }}
+          {options.map(opt => (
+            <div
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
               className={`p-2 cursor-pointer text-black hover:bg-[#017ACB]/20 transition text-sm font-semibold ${String(value) === String(opt.value) ? 'bg-[#CDE6F7]' : ''}`}
-              style={styles.outfitFont}>{opt.label}</div>
+              style={styles.outfitFont}
+            >
+              {opt.label}
+            </div>
           ))}
         </div>
       )}
@@ -93,36 +181,67 @@ function StyledDropdown({ label, value, onChange, options, placeholder, required
 }
 
 /* =============================================================================
-   SearchableDropdown
+   COMPONENT: SearchableDropdown
+   -----------------------------------------------------------------------------
+   Custom searchable dropdown for long lists (employee names). Includes a
+   search input that filters options as the user types. Closes on outside click.
    ============================================================================= */
 function SearchableDropdown({ label, value, onChange, options, placeholder }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]   = useState(false);
   const [query, setQuery] = useState('');
-  const ref = useRef(null);
+  const ref               = useRef(null);
+
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  // Filter options by the search query — case-insensitive substring match
   const filtered = options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()));
   const selected = options.find(o => String(o.value) === String(value));
+
   return (
     <div className="flex flex-col relative" ref={ref}>
       <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>{label}</label>
-      <div className="bg-white text-black border border-black p-2 rounded cursor-pointer hover:bg-[#017ACB]/20 transition flex justify-between items-center text-sm" onClick={() => setOpen(o => !o)} style={styles.outfitFont}>
-        <span className={selected ? 'text-black' : 'text-gray-400'}>{selected ? selected.label : (placeholder || `Select ${label}`)}</span>
-        <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+      <div
+        className="bg-white text-black border border-black p-2 rounded cursor-pointer hover:bg-[#017ACB]/20 transition flex justify-between items-center text-sm"
+        onClick={() => setOpen(o => !o)}
+        style={styles.outfitFont}
+      >
+        <span className={selected ? 'text-black' : 'text-gray-400'}>
+          {selected ? selected.label : (placeholder || `Select ${label}`)}
+        </span>
+        <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
       {open && (
         <div className="absolute top-full left-0 right-0 bg-white border border-black rounded mt-1 z-50 shadow-lg">
-          <input type="text" placeholder="Search..." value={query} onChange={e => setQuery(e.target.value)} onClick={e => e.stopPropagation()} className="w-full p-2 border-b border-gray-300 text-black focus:outline-none text-sm" style={styles.outfitFont} />
+          {/* stopPropagation prevents the outer click handler from closing the menu */}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onClick={e => e.stopPropagation()}
+            className="w-full p-2 border-b border-gray-300 text-black focus:outline-none text-sm"
+            style={styles.outfitFont}
+          />
           <div className="max-h-40 overflow-y-auto">
             {filtered.map(opt => (
-              <div key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); setQuery(''); }}
+              <div
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); setQuery(''); }}
                 className={`p-2 cursor-pointer text-black hover:bg-[#017ACB]/20 transition text-sm font-semibold ${String(value) === String(opt.value) ? 'bg-[#CDE6F7]' : ''}`}
-                style={styles.outfitFont}>{opt.label}</div>
+                style={styles.outfitFont}
+              >
+                {opt.label}
+              </div>
             ))}
-            {filtered.length === 0 && <div className="p-2 text-gray-400 text-sm" style={styles.outfitFont}>No results</div>}
+            {filtered.length === 0 && (
+              <div className="p-2 text-gray-400 text-sm" style={styles.outfitFont}>No results</div>
+            )}
           </div>
         </div>
       )}
@@ -131,7 +250,8 @@ function SearchableDropdown({ label, value, onChange, options, placeholder }) {
 }
 
 /* =============================================================================
-   EmployeeSection
+   BLOCKED WORDS + HELPER
+   Applied to the Other Information field in EmployeeSection before submit.
    ============================================================================= */
 const BLOCKED_WORDS = [
   "kill","murder","stab","shoot","die","death","dead","attack","hate","sucks",
@@ -140,25 +260,45 @@ const BLOCKED_WORDS = [
   "nigger","faggot","retard","rape","bomb","terror","threat","hurt","harm",
   "destroy","beat","punch","fight","abuse","violent","violence","weapon","knife","gun",
 ];
+
 function containsBlockedWords(text) {
   if (!text) return false;
   return BLOCKED_WORDS.some(w => new RegExp(`\\b${w}\\b`, 'i').test(text));
 }
 
-function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, managerEmpOptions }) {
-  const isStakeholder    = Number(accTypeId) === 2;
-  const isTeamMember     = Number(accTypeId) === 3;
-  const isResourceManager = Number(accTypeId) === 1;
-  if (!isStakeholder && !isTeamMember && !isResourceManager) return null;
+/* =============================================================================
+   COMPONENT: EmployeeSection
+   -----------------------------------------------------------------------------
+   Renders the employee detail fields for account types 1, 2, and 3.
+   Returns null for type 4 (Admin) — no employee doc is created for admins.
 
-  // Filter dept options to Data Mgmt only (matches Create Resource modal)
+   Field visibility by type:
+     Type 1 & 3: Name, Title, Department, Reports To, Manager Level,
+                 Director Level, VP, Other Info, Status
+     Type 2:     Name, Title, Department, Requestor VP only
+
+   PARAM: accTypeId       — Current account type (controls which fields show)
+   PARAM: form / update   — Form state and updater from the parent modal
+   PARAM: deptOptions     — All departments for the Department dropdown
+   PARAM: empOptions      — All employees for generic dropdowns
+   PARAM: managerEmpOptions — Employees filtered to types 1 & 2 for hierarchy fields
+   ============================================================================= */
+function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, managerEmpOptions }) {
+  const isStakeholder     = Number(accTypeId) === 2;
+  const isTeamMember      = Number(accTypeId) === 3;
+  const isResourceManager = Number(accTypeId) === 1;
+
+  // Return nothing for Admin (type 4) or unset — no employee doc needed
+  if (!isStakeholder && !isTeamMember && !isResourceManager) return null;
 
   return (
     <div className="border-t border-gray-200 pt-4 mb-4">
-      <p className="text-sm font-semibold text-[#017ACB] mb-3" style={styles.outfitFont}>Employee Details</p>
+      <p className="text-sm font-semibold text-[#017ACB] mb-3" style={styles.outfitFont}>
+        Employee Details
+      </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-        {/* NAME * */}
+        {/* NAME — required for all employee-linked types */}
         <div className="flex flex-col">
           <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Name *</label>
           <input
@@ -171,7 +311,7 @@ function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, man
           />
         </div>
 
-        {/* TITLE * */}
+        {/* TITLE — required for all employee-linked types */}
         <div className="flex flex-col">
           <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Title *</label>
           <input
@@ -184,7 +324,7 @@ function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, man
           />
         </div>
 
-        {/* DEPARTMENT * */}
+        {/* DEPARTMENT — required for all employee-linked types */}
         <StyledDropdown
           label="Department"
           value={form.dept_no}
@@ -194,12 +334,18 @@ function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, man
           required
         />
 
-        {/* STAKEHOLDER: Requestor VP * */}
+        {/* STAKEHOLDER ONLY: Requestor VP */}
         {isStakeholder && (
-          <SearchableDropdown label="Requestor VP *" value={form.requestor_vp} onChange={val => update('requestor_vp', val)} options={managerEmpOptions || empOptions} placeholder="Select Requestor VP" />
+          <SearchableDropdown
+            label="Requestor VP *"
+            value={form.requestor_vp}
+            onChange={val => update('requestor_vp', val)}
+            options={managerEmpOptions || empOptions}
+            placeholder="Select Requestor VP"
+          />
         )}
 
-        {/* TEAM MEMBER: Reports To *, Manager Level *, Director Level *, VP * */}
+        {/* RESOURCE MANAGER + TEAM MEMBER: Full hierarchy fields */}
         {(isTeamMember || isResourceManager) && (
           <>
             <SearchableDropdown label="Reports To *"     value={form.reports_to}     onChange={val => update('reports_to', val)}     options={managerEmpOptions || empOptions} placeholder="Select Reports To" />
@@ -210,7 +356,7 @@ function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, man
         )}
       </div>
 
-      {/* TEAM MEMBER: Other Info + Status */}
+      {/* OTHER INFO + STATUS — Resource Manager and Team Member only */}
       {(isTeamMember || isResourceManager) && (
         <>
           <div className="flex flex-col mt-4">
@@ -228,9 +374,15 @@ function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, man
             <label className="text-xs text-black mb-2 font-semibold block" style={styles.outfitFont}>Status</label>
             <div className="flex gap-3">
               {['Active', 'Inactive'].map(s => (
-                <button key={s} type="button" onClick={() => update('current_status', s)}
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => update('current_status', s)}
                   className={`px-4 py-1.5 rounded text-sm border border-black/50 font-semibold transition shadow-[2px_2px_6px_rgba(0,0,0,0.2),-2px_-2px_6px_rgba(255,255,255,0.4)] ${form.current_status === s ? (s === 'Active' ? 'bg-green-100 text-black' : 'bg-red-100 text-black') : 'bg-white text-black hover:bg-gray-100'}`}
-                  style={styles.outfitFont}>{s}</button>
+                  style={styles.outfitFont}
+                >
+                  {s}
+                </button>
               ))}
             </div>
           </div>
@@ -241,7 +393,22 @@ function EmployeeSection({ accTypeId, form, update, deptOptions, empOptions, man
 }
 
 /* =============================================================================
-   CreateAccountModal
+   COMPONENT: CreateAccountModal
+   -----------------------------------------------------------------------------
+   Modal for creating a new user account. Validates all required fields,
+   enforces password strength rules, and POSTs to /admin/accounts.
+
+   VALIDATION ORDER:
+     1. Account type required
+     2. Account ID, username, password required + strength rules
+     3. Employee fields (if type 1/2/3): name, title, dept, hierarchy
+     4. Blocked words check on other_info
+     5. POST to backend — backend performs its own validation as the authority
+
+   PASSWORD RULES:
+     • Minimum 8 characters
+     • Must include at least one special character
+     These are enforced client-side for UX and server-side for security.
    ============================================================================= */
 function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
   const [form, setForm] = useState({
@@ -254,43 +421,48 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
   const [success, setSuccess]           = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
-  const accTypeId     = Number(form.acc_type_id);
+  const update      = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  const accTypeId   = Number(form.acc_type_id);
   const needsEmployee = accTypeId === 1 || accTypeId === 2 || accTypeId === 3;
 
+  // Build dropdown option arrays from the loaded dropdown data
   const accountTypeOptions = (dropdowns.accountTypes || []).map(t => ({ value: t.acc_type_id, label: `${t.acc_type_id} — ${t.acc_type}` }));
   const deptOptions        = (dropdowns.departments  || []).map(d => ({ value: d.dept_no,     label: `${d.dept_no} — ${d.dept_name}` }));
   const empOptions         = (dropdowns.employees    || []).map(e => ({ value: e.emp_id,      label: `${e.emp_name} (${e.emp_id})` }));
-  // Reports To, Manager Level, Director Level, VP — only acc_type_id 1 or 2
-  const managerEmpOptions  = (dropdowns.employees    || [])
+
+  // Hierarchy dropdowns scoped to types 1 and 2 — only Resource Managers and
+  // Stakeholders can be in the reports-to / manager / director / VP chain
+  const managerEmpOptions = (dropdowns.employees || [])
     .filter(e => e.acc_type_id === 1 || e.acc_type_id === 2)
     .map(e => ({ value: e.emp_id, label: `${e.emp_name} (${e.emp_id})` }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!form.acc_type_id)          return setError('Account type is required.');
-    if (!form.account_id.trim())    return setError('Account ID is required.');
-    if (!form.username.trim())      return setError('Username is required.');
-    if (!form.password.trim())             return setError('Password is required.');
-    if (form.password.trim().length < 8)  return setError('Password must be at least 8 characters.');
-    if (!/[!@#$%^&*()_+=\[\]{};:',.|~`]/.test(form.password)) return setError('Password must contain at least one special character (e.g. ! @ # $ %).');
-    if (form.password.trim() && form.password.trim().length < 8)
+
+    // Validate in order — return on first failure with a descriptive message
+    if (!form.acc_type_id)         return setError('Account type is required.');
+    if (!form.account_id.trim())   return setError('Account ID is required.');
+    if (!form.username.trim())     return setError('Username is required.');
+    if (!form.password.trim())     return setError('Password is required.');
+    if (form.password.trim().length < 8)
       return setError('Password must be at least 8 characters.');
-    if (form.password.trim() && !/[!@#$%^&*()_+=\[\]{};:',.|~`]/.test(form.password))
+    if (!/[!@#$%^&*()_+=\[\]{};:',.|~`]/.test(form.password))
       return setError('Password must contain at least one special character (e.g. ! @ # $ %).');
-    if (needsEmployee && containsBlockedWords(form.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
+    if (needsEmployee && containsBlockedWords(form.other_info))
+      return setError('Other Information contains inappropriate language. Please revise.');
     if (needsEmployee && !form.emp_name.trim())  return setError('Name is required.');
     if (needsEmployee && !form.emp_title.trim()) return setError('Title is required.');
     if (needsEmployee && !form.dept_no)          return setError('Department is required.');
-    if ((Number(form.acc_type_id) === 3 || Number(form.acc_type_id) === 1) && !form.reports_to)     return setError('Reports To is required.');
-    if ((Number(form.acc_type_id) === 3 || Number(form.acc_type_id) === 1) && !form.manager_level)  return setError('Manager Level is required.');
-    if ((Number(form.acc_type_id) === 3 || Number(form.acc_type_id) === 1) && !form.director_level) return setError('Director Level is required.');
-    if ((Number(form.acc_type_id) === 3 || Number(form.acc_type_id) === 1) && !form.requestor_vp)   return setError('VP is required.');
-    if (Number(form.acc_type_id) === 2 && !form.requestor_vp)   return setError('Requestor VP is required.');
+    if ((accTypeId === 3 || accTypeId === 1) && !form.reports_to)     return setError('Reports To is required.');
+    if ((accTypeId === 3 || accTypeId === 1) && !form.manager_level)  return setError('Manager Level is required.');
+    if ((accTypeId === 3 || accTypeId === 1) && !form.director_level) return setError('Director Level is required.');
+    if ((accTypeId === 3 || accTypeId === 1) && !form.requestor_vp)   return setError('VP is required.');
+    if (accTypeId === 2 && !form.requestor_vp) return setError('Requestor VP is required.');
 
     try {
       setLoading(true);
+      // Coerce all numeric ID fields to Number — backend expects integers
       await api.post('/admin/accounts', {
         ...form,
         acc_type_id:    Number(form.acc_type_id),
@@ -312,10 +484,19 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {success && <div role="status" className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 rounded text-sm text-center font-semibold" style={styles.outfitFont}>✓ Account created successfully.</div>}
+        {success && (
+          <div role="status" className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 rounded text-sm text-center font-semibold" style={styles.outfitFont}>
+            ✓ Account created successfully.
+          </div>
+        )}
         <div className="p-6">
           <h2 className="text-2xl font-bold mb-4 text-black" style={styles.outfitFont}>Create Account</h2>
-          {error && <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>{error}<button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button></div>}
+          {error && (
+            <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>
+              {error}
+              <button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button>
+            </div>
+          )}
           <form onSubmit={handleSubmit} noValidate>
             <div className="mb-4">
               <StyledDropdown label="Account Type" value={form.acc_type_id} onChange={val => update('acc_type_id', val)} options={accountTypeOptions} placeholder="Select Account Type" required />
@@ -350,7 +531,17 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
                 <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Min 8 chars, must include a special character (e.g. ! @ # $)</span>
               </div>
             </div>
-            <EmployeeSection accTypeId={form.acc_type_id} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} managerEmpOptions={managerEmpOptions} />
+
+            {/* Employee fields — only rendered for types 1, 2, 3 */}
+            <EmployeeSection
+              accTypeId={form.acc_type_id}
+              form={form}
+              update={update}
+              deptOptions={deptOptions}
+              empOptions={empOptions}
+              managerEmpOptions={managerEmpOptions}
+            />
+
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
               <button type="button" onClick={onClose} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Creating...' : 'Create'}</button>
@@ -363,17 +554,28 @@ function CreateAccountModal({ onClose, onSuccess, dropdowns, nextEmpId }) {
 }
 
 /* =============================================================================
-   EditAccountModal
+   COMPONENT: EditAccountModal
+   -----------------------------------------------------------------------------
+   Modal for editing an existing account. emp_id and acc_type_id are read-only —
+   they cannot be changed after creation. Password field is optional — if left
+   blank the existing password is kept unchanged.
+
+   SECURITY:
+   • Password is only included in the payload if a non-empty value was entered —
+     prevents accidentally overwriting the password with a blank string.
+   • emp_id is read-only in the UI and taken from account.emp_id in the URL —
+     never from form state, preventing accidental ID changes.
    ============================================================================= */
 function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
   const [form, setForm] = useState({
     acc_type_id:    account.acc_type_id   || '',
     account_id:     account.account_id    || '',
     username:       account.username      || '',
-    password:       '',
+    password:       '', // Blank by default — only sent if the admin enters a new one
     emp_name:       account.emp_name      || '',
     emp_title:      account.emp_title     || '',
     dept_no:        account.dept_no       || '',
+    // Coerce numeric foreign keys to strings for controlled inputs
     requestor_vp:   account.requestor_vp   != null ? String(account.requestor_vp)   : '',
     reports_to:     account.reports_to     != null ? String(account.reports_to)     : '',
     manager_level:  account.manager_level  != null ? String(account.manager_level)  : '',
@@ -386,14 +588,13 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
   const [success, setSuccess]           = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
-  const accTypeId     = account.acc_type_id;
+  const update        = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  const accTypeId     = account.acc_type_id; // Always from the existing account — not editable
   const needsEmployee = accTypeId === 1 || accTypeId === 2 || accTypeId === 3;
 
   const accountTypeOptions = (dropdowns.accountTypes || []).map(t => ({ value: t.acc_type_id, label: `${t.acc_type_id} — ${t.acc_type}` }));
   const deptOptions        = (dropdowns.departments  || []).map(d => ({ value: d.dept_no,     label: `${d.dept_no} — ${d.dept_name}` }));
   const empOptions         = (dropdowns.employees    || []).map(e => ({ value: e.emp_id,      label: `${e.emp_name} (${e.emp_id})` }));
-  // Reports To, Manager Level, Director Level, VP — only acc_type_id 1 or 2
   const managerEmpOptions  = (dropdowns.employees    || [])
     .filter(e => e.acc_type_id === 1 || e.acc_type_id === 2)
     .map(e => ({ value: e.emp_id, label: `${e.emp_name} (${e.emp_id})` }));
@@ -401,12 +602,16 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
     if (!form.username.trim())   return setError('Username is required.');
     if (!form.account_id.trim()) return setError('Account ID is required.');
+
+    // Password validation only runs if a new password was entered
     if (form.password.trim() && form.password.trim().length < 8)
       return setError('Password must be at least 8 characters.');
     if (form.password.trim() && !/[!@#$%^&*()_+=\[\]{};:',.|~`]/.test(form.password))
       return setError('Password must contain at least one special character (e.g. ! @ # $ %).');
+
     if (needsEmployee && containsBlockedWords(form.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
     if (needsEmployee && !form.emp_name.trim())  return setError('Name is required.');
     if (needsEmployee && !form.emp_title.trim()) return setError('Title is required.');
@@ -417,17 +622,20 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
     if ((accTypeId === 3 || accTypeId === 1) && !form.requestor_vp)   return setError('VP is required.');
     if (accTypeId === 2 && !form.requestor_vp)   return setError('Requestor VP is required.');
 
+    // Build payload — only include password if a new one was entered
     const payload = {
       account_id:  form.account_id,
       username:    form.username,
       acc_type_id: Number(form.acc_type_id),
+      // Spread password only if non-blank — blank = keep existing password unchanged
       ...(form.password.trim() ? { password: form.password } : {}),
       ...(needsEmployee ? { emp_name: form.emp_name, emp_title: form.emp_title, dept_no: form.dept_no } : {}),
       ...(accTypeId === 2 ? { requestor_vp: form.requestor_vp ? Number(form.requestor_vp) : null } : {}),
-      ...(accTypeId === 3 ? {
+      ...((accTypeId === 1 || accTypeId === 3) ? {
         reports_to:     form.reports_to     ? Number(form.reports_to)     : null,
         manager_level:  form.manager_level  ? Number(form.manager_level)  : null,
         director_level: form.director_level ? Number(form.director_level) : null,
+        requestor_vp:   form.requestor_vp   ? Number(form.requestor_vp)   : null,
         other_info:     form.other_info,
         current_status: form.current_status,
       } : {}),
@@ -435,6 +643,7 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
 
     try {
       setLoading(true);
+      // emp_id from the existing account object — never from form state
       await api.put(`/admin/accounts/${account.emp_id}`, payload);
       setSuccess(true);
       setTimeout(() => { onSuccess(); onClose(); }, 1500);
@@ -448,18 +657,29 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {success && <div role="status" className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 rounded text-sm text-center font-semibold" style={styles.outfitFont}>✓ Changes saved successfully.</div>}
+        {success && (
+          <div role="status" className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 rounded text-sm text-center font-semibold" style={styles.outfitFont}>
+            ✓ Changes saved successfully.
+          </div>
+        )}
         <div className="p-6">
           <h2 className="text-2xl font-bold mb-1 text-black" style={styles.outfitFont}>Edit Account</h2>
           <p className="text-xs text-gray-400 mb-4" style={styles.outfitFont}>Employee ID: {account.emp_id} — cannot be changed</p>
-          {error && <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>{error}<button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button></div>}
+          {error && (
+            <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>
+              {error}
+              <button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button>
+            </div>
+          )}
           <form onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              {/* Employee ID — read-only, cannot be changed after creation */}
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Employee ID</label>
                 <input value={account.emp_id} readOnly className={readOnlyClass} style={styles.outfitFont} />
                 <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Cannot be changed</span>
               </div>
+              {/* Account Type — read-only, cannot be changed after creation */}
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Account Type</label>
                 <input value={`${account.acc_type_id} — ${account.role}`} readOnly className={readOnlyClass} style={styles.outfitFont} />
@@ -473,6 +693,7 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Username *</label>
                 <input value={form.username} onChange={e => update('username', e.target.value.replace(/[^a-zA-Z]/g, ''))} className={inputClass} style={styles.outfitFont} />
               </div>
+              {/* New Password — optional, blank = keep existing */}
               <div className="flex flex-col sm:col-span-2">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>New Password</label>
                 <div className="relative">
@@ -489,7 +710,17 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
                 <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Min 8 chars, must include a special character (e.g. ! @ # $)</span>
               </div>
             </div>
-            <EmployeeSection accTypeId={accTypeId} form={form} update={update} deptOptions={deptOptions} empOptions={empOptions} managerEmpOptions={managerEmpOptions} />
+
+            {/* Employee fields — only rendered for types 1, 2, 3 */}
+            <EmployeeSection
+              accTypeId={accTypeId}
+              form={form}
+              update={update}
+              deptOptions={deptOptions}
+              empOptions={empOptions}
+              managerEmpOptions={managerEmpOptions}
+            />
+
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
               <button type="button" onClick={onClose} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
@@ -502,35 +733,63 @@ function EditAccountModal({ account, onClose, onSuccess, dropdowns }) {
 }
 
 /* =============================================================================
-   DashboardPage (main)
+   COMPONENT: DashboardPage (main)
+   -----------------------------------------------------------------------------
+   The root admin dashboard component. Manages session validation, data loading,
+   search filtering, and renders the accounts table and modals.
    ============================================================================= */
 export default function DashboardPage() {
-  const [user, setUser]               = useState(null);
-  const [hydrated, setHydrated]       = useState(false);
+  const [user, setUser]                   = useState(null);
+  const [hydrated, setHydrated]           = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
-  const [accounts, setAccounts]       = useState([]);
-  const [dropdowns, setDropdowns]     = useState({ departments: [], employees: [], accountTypes: [] });
-  const [nextEmpId, setNextEmpId]     = useState(null);
-  const [loadingData, setLoadingData] = useState(true);
-  const [dataError, setDataError]     = useState('');
-  const [showCreate, setShowCreate]   = useState(false);
-  const [editAccount, setEditAccount] = useState(null);
-  const [searchTerm, setSearchTerm]   = useState('');
+  const [accounts, setAccounts]           = useState([]);
+  const [dropdowns, setDropdowns]         = useState({ departments: [], employees: [], accountTypes: [] });
+  const [nextEmpId, setNextEmpId]         = useState(null);
+  const [loadingData, setLoadingData]     = useState(true);
+  const [dataError, setDataError]         = useState('');
+  const [showCreate, setShowCreate]       = useState(false);
+  const [editAccount, setEditAccount]     = useState(null); // null = no modal, account obj = edit modal
+  const [searchTerm, setSearchTerm]       = useState('');
 
   const [, startTransition] = useTransition();
   const router = useRouter();
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: SESSION VALIDATION
+     Validates that both user and token exist in localStorage.
+     Clears storage and redirects to /login if either is missing.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user');
       const token  = localStorage.getItem('token');
-      if (!stored || !token) { localStorage.removeItem('user'); localStorage.removeItem('token'); router.push(LOGIN_PATH); return; }
+      if (!stored || !token) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        router.push(LOGIN_PATH);
+        return;
+      }
       startTransition(() => setUser(JSON.parse(stored)));
-    } catch { localStorage.removeItem('user'); localStorage.removeItem('token'); router.push(LOGIN_PATH); }
+    } catch {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      router.push(LOGIN_PATH);
+    }
   }, [router]);
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: HYDRATION GATE
+     Marks the component as hydrated after the first client render — prevents
+     the loading spinner from rendering on the server during SSR.
+  --------------------------------------------------------------------------- */
   useLayoutEffect(() => { startTransition(() => setHydrated(true)); }, []);
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: SESSION TIMEOUT
+     Same 30-minute inactivity timeout as the global Header. The admin
+     dashboard manages its own because the global Header is suppressed on
+     /admin routes. Clears localStorage and shows a modal on expiry.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const reset = () => localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
@@ -539,12 +798,19 @@ export default function DashboardPage() {
     events.forEach(e => window.addEventListener(e, reset));
     const iv = setInterval(() => {
       if (Date.now() - parseInt(localStorage.getItem(LAST_ACTIVE_KEY) || '0', 10) >= TIMEOUT_MS) {
-        localStorage.clear(); setSessionExpired(true); clearInterval(iv);
+        localStorage.clear();
+        setSessionExpired(true);
+        clearInterval(iv);
       }
     }, CHECK_EVERY_MS);
     return () => { events.forEach(e => window.removeEventListener(e, reset)); clearInterval(iv); };
   }, []);
 
+  /* ---------------------------------------------------------------------------
+     FUNCTION: loadData
+     Fetches accounts, dropdowns, and next emp_id in parallel. Called on
+     mount and after any create/edit operation to keep the table fresh.
+  --------------------------------------------------------------------------- */
   const loadData = async () => {
     try {
       setLoadingData(true);
@@ -557,15 +823,27 @@ export default function DashboardPage() {
       setDropdowns(d || { departments: [], employees: [], accountTypes: [] });
       setNextEmpId(n?.nextEmpId || '');
       setDataError('');
-    } catch { setDataError('Failed to load data. Please refresh.'); }
-    finally { setLoadingData(false); }
+    } catch {
+      setDataError('Failed to load data. Please refresh.');
+    } finally {
+      setLoadingData(false);
+    }
   };
 
+  // Load data once the user session is confirmed
   useEffect(() => { if (user) loadData(); }, [user]);
 
-  const handleLogout = () => { localStorage.removeItem('user'); localStorage.removeItem('token'); router.push(LOGIN_PATH); };
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    router.push(LOGIN_PATH);
+  };
 
-  // Filter accounts by search term
+  /* ---------------------------------------------------------------------------
+     SEARCH FILTERING
+     Client-side filter across username, account_id, role, and emp_id.
+     Case-insensitive substring match — no server round-trip needed.
+  --------------------------------------------------------------------------- */
   const filteredAccounts = accounts.filter(acc => {
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase();
@@ -577,6 +855,9 @@ export default function DashboardPage() {
     );
   });
 
+  /* ---------------------------------------------------------------------------
+     LOADING STATE
+  --------------------------------------------------------------------------- */
   if (!hydrated || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -585,16 +866,21 @@ export default function DashboardPage() {
     );
   }
 
+  /* ===========================================================================
+     RENDER
+  =========================================================================== */
   return (
     <div className="fixed inset-0 overflow-y-auto flex flex-col bg-white">
 
-      {/* SESSION EXPIRED MODAL */}
+      {/* SESSION EXPIRED MODAL — blocks all interaction until user clicks Back to Login */}
       {sessionExpired && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] px-4" role="alertdialog" aria-modal="true">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
             <div className="flex justify-center mb-4">
               <div className="w-14 h-14 rounded-full bg-[#FEE2E2] flex items-center justify-center">
-                <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
               </div>
             </div>
             <h2 className="text-xl font-bold text-black mb-2" style={styles.outfitFont}>Session Expired</h2>
@@ -604,11 +890,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* MODALS */}
-      {showCreate && <CreateAccountModal onClose={() => setShowCreate(false)} onSuccess={loadData} dropdowns={dropdowns} nextEmpId={nextEmpId} />}
-      {editAccount && <EditAccountModal account={editAccount} onClose={() => setEditAccount(null)} onSuccess={loadData} dropdowns={dropdowns} />}
+      {/* MODALS — rendered above everything else */}
+      {showCreate && (
+        <CreateAccountModal onClose={() => setShowCreate(false)} onSuccess={loadData} dropdowns={dropdowns} nextEmpId={nextEmpId} />
+      )}
+      {editAccount && (
+        <EditAccountModal account={editAccount} onClose={() => setEditAccount(null)} onSuccess={loadData} dropdowns={dropdowns} />
+      )}
 
-      {/* HEADER */}
+      {/* PAGE HEADER — has its own header since global Header is suppressed for /admin */}
       <header className="bg-[#017ACB] shadow-sm w-full sticky top-0 z-40">
         <div className="px-4 sm:px-6 lg:px-8 w-full">
           <div className="grid items-center gap-x-3 h-[clamp(4rem,5vw,5.5rem)]" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
@@ -617,11 +907,15 @@ export default function DashboardPage() {
               <h1 className="hidden lg:block font-bold text-white leading-tight text-[clamp(1rem,1.4vw,1.75rem)] whitespace-nowrap" style={styles.outfitFont}>Capstone Dynamics</h1>
             </div>
             <div className="text-center">
-              <h1 className="font-bold text-white leading-snug text-[clamp(0.8rem,1.6vw,1.6rem)]" style={{ ...styles.outfitFont, maxWidth: '34rem', textAlign: 'center' }}>Resource &amp; Capacity Management Planner</h1>
+              <h1 className="font-bold text-white leading-snug text-[clamp(0.8rem,1.6vw,1.6rem)]" style={{ ...styles.outfitFont, maxWidth: '34rem', textAlign: 'center' }}>
+                Resource &amp; Capacity Management Planner
+              </h1>
             </div>
             <div className="flex items-center gap-3 justify-end">
               <span className="hidden sm:block font-semibold text-white text-[clamp(0.8rem,1.1vw,1.3rem)] whitespace-nowrap" style={styles.outfitFont}>{user.username}</span>
-              <button onClick={handleLogout} className="px-4 py-2 rounded text-sm whitespace-nowrap bg-white text-[#017ACB] font-semibold border border-black/50 hover:bg-[#CCE4F4] transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.14)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.10),inset_0_-1px_2px_rgba(0,0,0,0.10)]" style={styles.outfitFont}>Logout</button>
+              <button onClick={handleLogout} className="px-4 py-2 rounded text-sm whitespace-nowrap bg-white text-[#017ACB] font-semibold border border-black/50 hover:bg-[#CCE4F4] transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.14)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.10),inset_0_-1px_2px_rgba(0,0,0,0.10)]" style={styles.outfitFont}>
+                Logout
+              </button>
             </div>
           </div>
         </div>
@@ -630,11 +924,11 @@ export default function DashboardPage() {
       {/* PAGE CONTENT */}
       <div className="p-6 flex flex-col gap-6">
 
-        {/* PAGE HEADER ROW */}
+        {/* PAGE HEADER ROW: Title + Search + Create button */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h2 className="text-3xl font-bold text-gray-900" style={styles.outfitFont}>Admin Dashboard</h2>
 
-          {/* CENTRE: Search */}
+          {/* Search — client-side filter, no API call needed */}
           <div className="flex-1 flex justify-center px-4">
             <input
               type="text"
@@ -646,13 +940,15 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* RIGHT: Create */}
-          <button onClick={() => setShowCreate(true)} className={btnClass} style={styles.outfitFont}>+ Create Account</button>
+          <button onClick={() => setShowCreate(true)} className={btnClass} style={styles.outfitFont}>
+            + Create Account
+          </button>
         </div>
 
         {dataError && (
           <div role="alert" className="p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>
-            {dataError}<button onClick={() => setDataError('')} className="ml-3 font-bold text-red-900">×</button>
+            {dataError}
+            <button onClick={() => setDataError('')} className="ml-3 font-bold text-red-900">×</button>
           </div>
         )}
 
@@ -674,9 +970,11 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {filteredAccounts.length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500 border-t border-black" style={styles.outfitFont}>
-                      {searchTerm ? `No accounts match "${searchTerm}".` : 'No accounts found.'}
-                    </td></tr>
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500 border-t border-black" style={styles.outfitFont}>
+                        {searchTerm ? `No accounts match "${searchTerm}".` : 'No accounts found.'}
+                      </td>
+                    </tr>
                   ) : filteredAccounts.map((acc, i) => (
                     <tr key={acc.emp_id} className={`border-t border-black hover:bg-[#017ACB]/10 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                       <td className="px-3 py-2 border-r border-black">
@@ -693,7 +991,13 @@ export default function DashboardPage() {
                       <td className="px-4 py-2 text-black border-r border-black" style={styles.outfitFont}>{acc.account_id}</td>
                       <td className="px-4 py-2 text-black border-r border-black" style={styles.outfitFont}>{acc.role}</td>
                       <td className="px-4 py-2">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${acc.acc_type_id === 4 ? 'bg-purple-100 text-purple-800' : acc.acc_type_id === 1 ? 'bg-blue-100 text-blue-800' : acc.acc_type_id === 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                        {/* Colour-coded badge per account type for quick visual scanning */}
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          acc.acc_type_id === 4 ? 'bg-purple-100 text-purple-800' :
+                          acc.acc_type_id === 1 ? 'bg-blue-100   text-blue-800'   :
+                          acc.acc_type_id === 2 ? 'bg-yellow-100 text-yellow-800' :
+                                                  'bg-green-100  text-green-800'
+                        }`}>
                           {acc.acc_type_id} — {acc.role}
                         </span>
                       </td>
@@ -705,6 +1009,7 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* ACCOUNT COUNT — shown below the table when data is loaded */}
         {!loadingData && (
           <p className="text-sm text-gray-500" style={styles.outfitFont}>
             {searchTerm

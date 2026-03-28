@@ -1,12 +1,43 @@
 'use client';
 
 /* =============================================================================
-   StakeholderInitiativesPage.jsx
+   TeamMemberInitiativesPage.jsx
    -----------------------------------------------------------------------------
    PURPOSE:
-     Read-only initiatives view for Stakeholder users. Same table and filters
-     as the Resource Manager page but with no Edit button and no Add Initiative
-     button. Back button routes to the stakeholder dashboard.
+     Read-only initiatives view for Team Member users (acc_type_id === 3).
+     Displays initiatives in a filterable, scrollable table. Supports three tabs
+     (All Initiatives, Completed, Cancelled) with per-column filter dropdowns.
+     Rows can be highlighted by clicking to draw attention to a specific initiative.
+
+   HOW IT WORKS:
+     1. On mount, validates the session from localStorage
+     2. Fetches initiatives from GET /api/initiatives scoped to the user's
+        username — the backend returns only initiatives the stakeholder is
+        associated with (requestor or requestor_vp match)
+     3. When the tab changes, refetches with a status filter param
+     4. Filter dropdowns build option lists from the current tab's data
+     5. Clicking a row highlights it — clicking again unhighlights
+
+   KEY DIFFERENCE FROM RESOURCE MANAGER VIEW:
+     • No Edit button — Team Members cannot modify initiatives
+     • No Add Initiative button — read-only view only
+     • Back button routes to /team-member/dashboard (shared dashboard path)
+     • sanitizeText() and isValidInitiative() guard all API data before render
+
+   SECURITY MODEL:
+     • Session validated on mount — missing user redirects to /login.
+     • isValidUser() checks username is present before any API call.
+     • aborted flag prevents setState from running if the component unmounts
+       or the effect re-runs before the fetch completes — prevents race conditions.
+     • All string fields are passed through sanitizeText() before storing in state.
+     • isValidInitiative() checks for _id presence before mapping — prevents
+       partial or malformed API objects from reaching the render.
+     • All rendered values are plain text — no dangerouslySetInnerHTML.
+     • Filter option lists are built from server response data only.
+
+   DEPENDENCIES:
+     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
+     • next/navigation  — useRouter, useSearchParams
    ============================================================================= */
 
 import { useState, useEffect } from 'react';
@@ -15,14 +46,16 @@ import api from '@/lib/api';
 
 const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
+/* -----------------------------------------------------------------------------
+   SHARED BUTTON + DROPDOWN CLASSES — neumorphic, matches all other pages.
+----------------------------------------------------------------------------- */
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
   bg-[#003A5C] text-white border border-black/50
   hover:bg-[#017ACB]/20 hover:text-gray-700 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-  relative
-  before:content-[''] before:absolute before:inset-0 before:rounded
+  relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
 `;
@@ -35,8 +68,7 @@ const tabClass = (isActive) => `
   }
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-  relative
-  before:content-[''] before:absolute before:inset-0 before:rounded
+  relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
   transition whitespace-nowrap
@@ -44,40 +76,56 @@ const tabClass = (isActive) => `
 
 const colBtnClass = `
   ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
-  border border-black/50
-  hover:bg-[#CDE6F7] transition
+  border border-black/50 hover:bg-[#CDE6F7] transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.14)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.14)]
-  relative
-  before:content-[''] before:absolute before:inset-0 before:rounded
+  relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.10),inset_0_-1px_2px_rgba(0,0,0,0.10)]
 `;
 
 const menuClass = `
-  dropdown-menu
-  fixed bg-white text-black shadow-lg rounded
+  dropdown-menu fixed bg-white text-black shadow-lg rounded
   min-w-[12rem] w-max max-w-xs max-h-[min(60vh,420px)] overflow-y-auto
   z-[30000] border border-gray-300 pointer-events-auto
 `;
 
+/* =============================================================================
+   UTILITY: sanitizeText
+   Strips control characters, HTML tags, and script injection patterns from
+   API response strings before storing in state or rendering.
+   ============================================================================= */
 function sanitizeText(value) {
   if (typeof value !== 'string') return '';
   return value
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/script|onerror|onload|javascript:/gi, '')
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')    // Strip control characters
+    .replace(/<[^>]*>/g, '')                            // Strip HTML tags
+    .replace(/script|onerror|onload|javascript:/gi, '') // Strip script patterns
     .trim();
 }
 
+/* =============================================================================
+   UTILITY: isValidUser
+   Checks that the user object has a non-empty username — minimum requirement
+   for making scoped API calls.
+   ============================================================================= */
 function isValidUser(user) {
   return user && typeof user.username === 'string' && user.username.trim();
 }
 
+/* =============================================================================
+   UTILITY: isValidInitiative
+   Checks that an initiative object has an _id before it is mapped and stored —
+   prevents partial or malformed API objects from reaching the render.
+   ============================================================================= */
 function isValidInitiative(item) {
   return item && item._id;
 }
 
+/* =============================================================================
+   COMPONENT: Checkbox
+   Custom styled checkbox consistent with the rest of the app's design system.
+   ============================================================================= */
 const Checkbox = ({ checked }) => (
   <span className="w-4 h-4 border border-black rounded-sm flex items-center justify-center transition relative overflow-hidden flex-shrink-0">
     <input type="checkbox" checked={checked} readOnly className="opacity-0 absolute w-4 h-4 cursor-pointer" />
@@ -92,28 +140,34 @@ const Checkbox = ({ checked }) => (
   </span>
 );
 
+/* =============================================================================
+   MAIN COMPONENT
+   ============================================================================= */
 export default function TeamMemberInitiativesPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const refresh      = searchParams.get('refresh');
 
+  /* ---------------------------------------------------------------------------
+     STATE
+  --------------------------------------------------------------------------- */
   const [user, setUser]           = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  const [initiatives, setInitiatives]                   = useState([]);
-  const [filteredInitiatives, setFilteredInitiatives]   = useState([]);
+  const [initiatives, setInitiatives]               = useState([]);
+  const [filteredInitiatives, setFilteredInitiatives] = useState([]);
 
-  const [selectedCategories, setSelectedCategories]   = useState([]);
-  const [selectedStatuses, setSelectedStatuses]       = useState([]);
-  const [selectedVPs, setSelectedVPs]                 = useState([]);
-  const [selectedDepts, setSelectedDepts]             = useState([]);
-  const [selectedLeads, setSelectedLeads]             = useState([]);
-  const [selectedRequestors, setSelectedRequestors]   = useState([]);
-  const [selectedProjects, setSelectedProjects]       = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedStatuses, setSelectedStatuses]     = useState([]);
+  const [selectedVPs, setSelectedVPs]               = useState([]);
+  const [selectedDepts, setSelectedDepts]           = useState([]);
+  const [selectedLeads, setSelectedLeads]           = useState([]);
+  const [selectedRequestors, setSelectedRequestors] = useState([]);
+  const [selectedProjects, setSelectedProjects]     = useState([]);
 
-  const [projectSort, setProjectSort] = useState('');
-  const [highlightedId, setHighlightedId] = useState(null);
-  const toggleHighlight = (id) => setHighlightedId((prev) => (prev === id ? null : id));
+  const [projectSort, setProjectSort]     = useState('');
+  const [highlightedId, setHighlightedId] = useState(null); // Row click highlight state
+  const toggleHighlight = (id) => setHighlightedId(prev => prev === id ? null : id);
 
   const [showProjectSortMenu, setShowProjectSortMenu] = useState(false);
   const [showCategoryMenu, setShowCategoryMenu]       = useState(false);
@@ -125,31 +179,33 @@ export default function TeamMemberInitiativesPage() {
 
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
-  const [availableCategories, setAvailableCategories]   = useState([]);
-  const [availableStatuses, setAvailableStatuses]       = useState([]);
-  const [availableVPs, setAvailableVPs]                 = useState([]);
-  const [availableDepts, setAvailableDepts]             = useState([]);
-  const [availableLeads, setAvailableLeads]             = useState([]);
-  const [availableRequestors, setAvailableRequestors]   = useState([]);
-  const [availableProjects, setAvailableProjects]       = useState([]);
+  const [availableCategories, setAvailableCategories] = useState([]);
+  const [availableStatuses, setAvailableStatuses]     = useState([]);
+  const [availableVPs, setAvailableVPs]               = useState([]);
+  const [availableDepts, setAvailableDepts]           = useState([]);
+  const [availableLeads, setAvailableLeads]           = useState([]);
+  const [availableRequestors, setAvailableRequestors] = useState([]);
+  const [availableProjects, setAvailableProjects]     = useState([]);
 
+  // Status dropdown options are scoped to the active tab —
+  // Completed tab only shows "Completed", Cancelled only "Cancelled",
+  // All tab excludes both terminal statuses from the status filter.
   const visibleStatuses =
     activeTab === 'completed' ? ['Completed'] :
     activeTab === 'cancelled' ? ['Cancelled'] :
-    availableStatuses.filter((s) => s !== 'Completed' && s !== 'Cancelled');
+    availableStatuses.filter(s => s !== 'Completed' && s !== 'Cancelled');
 
+  /* ---------------------------------------------------------------------------
+     HELPERS: menu open/close and filter toggle
+  --------------------------------------------------------------------------- */
   const toggleSelection = (value, setFn, current) => {
     if (!value) return;
-    setFn(current.includes(value) ? current.filter((v) => v !== value) : [...current, value]);
+    setFn(current.includes(value) ? current.filter(v => v !== value) : [...current, value]);
   };
 
   const closeAllMenus = () => {
-    setShowProjectSortMenu(false);
-    setShowCategoryMenu(false);
-    setShowStatusMenu(false);
-    setShowVPMenu(false);
-    setShowDeptMenu(false);
-    setShowLeadMenu(false);
+    setShowProjectSortMenu(false); setShowCategoryMenu(false); setShowStatusMenu(false);
+    setShowVPMenu(false); setShowDeptMenu(false); setShowLeadMenu(false);
     setShowRequestorMenu(false);
   };
 
@@ -157,14 +213,17 @@ export default function TeamMemberInitiativesPage() {
     e.stopPropagation();
     if (currentlyOpen) { closeAllMenus(); return; }
     const rect = e.currentTarget.getBoundingClientRect();
-    let x = rect.left;
-    let y = rect.bottom + 4;
+    let x = rect.left, y = rect.bottom + 4;
     if (x + 320 > window.innerWidth) x = window.innerWidth - 320 - 10;
     setMenuPosition({ x, y });
     closeAllMenus();
     setFn(true);
   };
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: SESSION VALIDATION
+     isValidUser() checks username presence before any API call is made.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
       const raw = localStorage.getItem('user');
@@ -172,11 +231,21 @@ export default function TeamMemberInitiativesPage() {
       const parsed = JSON.parse(raw);
       if (!isValidUser(parsed)) return router.push('/login');
       setUser(parsed);
-    } catch {
-      router.push('/login');
-    }
+    } catch { router.push('/login'); }
   }, [router]);
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: FETCH INITIATIVES
+     ---------------------------------------------------------------------------
+     Re-runs when user, refresh param, or activeTab changes. Uses an aborted
+     flag to prevent setState from running if the component unmounts or the
+     effect re-runs before the fetch completes — prevents race conditions.
+
+     Tab-to-status mapping:
+       all       → no status param (backend returns non-terminal statuses)
+       completed → status=Completed
+       cancelled → status=Cancelled
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
     let aborted = false;
@@ -192,9 +261,11 @@ export default function TeamMemberInitiativesPage() {
 
         const data = res.data;
 
+        // sanitizeText() on every string field — XSS defence-in-depth
+        // isValidInitiative() filters out any malformed objects missing _id
         const safeMap = (items) =>
           Array.isArray(items)
-            ? items.filter(isValidInitiative).map((item) => ({
+            ? items.filter(isValidInitiative).map(item => ({
                 id:                     sanitizeText(String(item._id)),
                 project:                sanitizeText(item.project_name),
                 category:               sanitizeText(item.category),
@@ -210,48 +281,51 @@ export default function TeamMemberInitiativesPage() {
               }))
             : [];
 
-        const sourceAll  = data.allAssignments || data.completed || data.cancelled || [];
-        const mappedAll  = safeMap(sourceAll);
-        const mappedMine = safeMap(data.myInitiatives || []);
-
+        // Backend returns different keys depending on the tab/status param
+        const sourceAll = data.allAssignments || data.completed || data.cancelled || [];
         if (aborted) return;
 
-        setInitiatives(mappedAll);
-        setFilteredInitiatives(mappedAll);
+        setInitiatives(safeMap(sourceAll));
+        setFilteredInitiatives(safeMap(sourceAll));
+
       } catch (err) {
         console.error('Fetch error:', err);
       }
     };
 
     fetchInitiatives();
-    return () => { aborted = true; };
+    return () => { aborted = true; }; // Cleanup — prevent setState on stale fetch
   }, [user, refresh, activeTab]);
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: BUILD FILTER LISTS + APPLY FILTERS
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
+    // Scope base rows to the active tab's status group
     const base =
-      activeTab === 'completed' ? initiatives.filter((i) => i.status === 'Completed') :
-      activeTab === 'cancelled' ? initiatives.filter((i) => i.status === 'Cancelled') :
-      initiatives.filter((i) => i.status !== 'Completed' && i.status !== 'Cancelled');
+      activeTab === 'completed' ? initiatives.filter(i => i.status === 'Completed') :
+      activeTab === 'cancelled' ? initiatives.filter(i => i.status === 'Cancelled') :
+      initiatives.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled');
 
     const uniq = (arr) => [...new Set(arr)].filter(Boolean);
-    setAvailableCategories(uniq(base.map((i) => i.category)));
-    setAvailableStatuses(uniq(base.map((i) => i.status)));
-    setAvailableVPs(uniq(base.map((i) => i.requestor_vp)));
-    setAvailableDepts(uniq(base.map((i) => i.requesting_dept)));
-    setAvailableLeads(uniq(base.map((i) => i.lead)));
-    setAvailableRequestors(uniq(base.map((i) => i.requestor)));
-    setAvailableProjects(uniq(base.map((i) => i.project)));
+    setAvailableCategories(uniq(base.map(i => i.category)));
+    setAvailableStatuses(uniq(base.map(i => i.status)));
+    setAvailableVPs(uniq(base.map(i => i.requestor_vp)));
+    setAvailableDepts(uniq(base.map(i => i.requesting_dept)));
+    setAvailableLeads(uniq(base.map(i => i.lead)));
+    setAvailableRequestors(uniq(base.map(i => i.requestor)));
+    setAvailableProjects(uniq(base.map(i => i.project)));
 
-    let filtered = base.filter((i) =>
-      (!selectedCategories.length  || selectedCategories.includes(i.category))  &&
-      (!selectedStatuses.length    || selectedStatuses.includes(i.status))       &&
-      (!selectedVPs.length         || selectedVPs.includes(i.requestor_vp))      &&
-      (!selectedDepts.length       || selectedDepts.includes(i.requesting_dept)) &&
-      (!selectedLeads.length       || selectedLeads.includes(i.lead))            &&
-      (!selectedRequestors.length  || selectedRequestors.includes(i.requestor))  &&
-      (!selectedProjects.length    || selectedProjects.includes(i.project))
+    let filtered = base.filter(i =>
+      (!selectedCategories.length || selectedCategories.includes(i.category))       &&
+      (!selectedStatuses.length   || selectedStatuses.includes(i.status))            &&
+      (!selectedVPs.length        || selectedVPs.includes(i.requestor_vp))           &&
+      (!selectedDepts.length      || selectedDepts.includes(i.requesting_dept))      &&
+      (!selectedLeads.length      || selectedLeads.includes(i.lead))                 &&
+      (!selectedRequestors.length || selectedRequestors.includes(i.requestor))       &&
+      (!selectedProjects.length   || selectedProjects.includes(i.project))
     );
 
     if (projectSort === 'asc')  filtered = [...filtered].sort((a, b) => a.project.localeCompare(b.project));
@@ -265,12 +339,55 @@ export default function TeamMemberInitiativesPage() {
     selectedProjects, projectSort
   ]);
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: CLOSE MENUS ON OUTSIDE CLICK
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     const handler = (e) => { if (!e.target.closest('.dropdown-menu')) closeAllMenus(); };
     window.addEventListener('click', handler);
     return () => window.removeEventListener('click', handler);
   }, []);
 
+  /* ---------------------------------------------------------------------------
+     RENDER HELPER: renderMenuItems
+     Optionally includes sort options (A→Z / Z→A) for the Project column.
+  --------------------------------------------------------------------------- */
+  const renderMenuItems = (available, selected, setSelected, sortOptions = false) => (
+    <>
+      {sortOptions && (
+        <>
+          {[{ val: 'asc', label: 'A → Z' }, { val: 'desc', label: 'Z → A' }].map(({ val, label }) => (
+            <div key={val}
+              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${projectSort === val ? 'font-bold' : ''}`}
+              onClick={() => setProjectSort(projectSort === val ? '' : val)}
+            >
+              <Checkbox checked={projectSort === val} />{label}
+            </div>
+          ))}
+          <div className="border-t my-1 text-xs font-semibold text-gray-500 px-3 py-1">Filter by project</div>
+        </>
+      )}
+      {/* "All" clears the filter for this column */}
+      <div
+        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? 'font-bold' : ''}`}
+        onClick={() => setSelected([])}
+      >
+        <Checkbox checked={selected.length === 0} />All
+      </div>
+      {available.map(val => (
+        <div key={val}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(val) ? 'font-bold' : ''}`}
+          onClick={() => toggleSelection(val, setSelected, selected)}
+        >
+          <Checkbox checked={selected.includes(val)} />{val}
+        </div>
+      ))}
+    </>
+  );
+
+  /* ---------------------------------------------------------------------------
+     LOADING STATE
+  --------------------------------------------------------------------------- */
   if (!user) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -279,46 +396,13 @@ export default function TeamMemberInitiativesPage() {
     );
   }
 
-  const renderMenuItems = (available, selected, setSelected, sortOptions = false) => (
-    <>
-      {sortOptions && (
-        <>
-          {[{ val: 'asc', label: 'A → Z' }, { val: 'desc', label: 'Z → A' }].map(({ val, label }) => (
-            <div
-              key={val}
-              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${projectSort === val ? 'font-bold' : ''}`}
-              onClick={() => setProjectSort(projectSort === val ? '' : val)}
-            >
-              <Checkbox checked={projectSort === val} />
-              {label}
-            </div>
-          ))}
-          <div className="border-t my-1 text-xs font-semibold text-gray-500 px-3 py-1">Filter by project</div>
-        </>
-      )}
-      <div
-        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? 'font-bold' : ''}`}
-        onClick={() => setSelected([])}
-      >
-        <Checkbox checked={selected.length === 0} />
-        All
-      </div>
-      {available.map((val) => (
-        <div
-          key={val}
-          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(val) ? 'font-bold' : ''}`}
-          onClick={() => toggleSelection(val, setSelected, selected)}
-        >
-          <Checkbox checked={selected.includes(val)} />
-          {val}
-        </div>
-      ))}
-    </>
-  );
-
+  /* ===========================================================================
+     RENDER
+     All cell values come from sanitized API data — no dangerouslySetInnerHTML.
+  =========================================================================== */
   return (
     <>
-      {/* HEADER */}
+      {/* PAGE HEADER */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>Initiatives</h2>
@@ -327,8 +411,9 @@ export default function TeamMemberInitiativesPage() {
           </button>
         </div>
 
+        {/* TAB BUTTONS — switching tabs clears all active filters */}
         <div className="flex flex-wrap gap-2 items-center">
-          {['all', 'completed', 'cancelled'].map((tab) => (
+          {['all', 'completed', 'cancelled'].map(tab => (
             <button
               key={tab}
               onClick={() => {
@@ -347,104 +432,104 @@ export default function TeamMemberInitiativesPage() {
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* INITIATIVES TABLE
+          overflow-x-auto — horizontal scroll on narrow screens.
+          max-h-[70vh] + overflow-y-auto — vertical scroll within the viewport.
+          sticky thead — headers stay visible while scrolling down.
+          Row click toggles highlight — bg-inherit on cells so hover works correctly. */}
       <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
 
-                {/* PROJECT */}
+                {/* PROJECT — includes sort options in its dropdown */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Project</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowProjectSortMenu, showProjectSortMenu)}>▼</button>
                   </div>
                   {showProjectSortMenu && (
-                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
                       {renderMenuItems(availableProjects, selectedProjects, setSelectedProjects, true)}
                     </div>
                   )}
                 </th>
 
-                {/* CATEGORY */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Category</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowCategoryMenu, showCategoryMenu)}>▼</button>
                   </div>
                   {showCategoryMenu && (
-                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
                       {renderMenuItems(availableCategories, selectedCategories, setSelectedCategories)}
                     </div>
                   )}
                 </th>
 
-                {/* LEADER */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Leader Accountable</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowLeadMenu, showLeadMenu)}>▼</button>
                   </div>
                   {showLeadMenu && (
-                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
                       {renderMenuItems(availableLeads, selectedLeads, setSelectedLeads)}
                     </div>
                   )}
                 </th>
 
-                {/* STATUS */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Status</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowStatusMenu, showStatusMenu)}>▼</button>
                   </div>
                   {showStatusMenu && (
-                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
+                      {/* visibleStatuses is scoped to the active tab */}
                       {renderMenuItems(visibleStatuses, selectedStatuses, setSelectedStatuses)}
                     </div>
                   )}
                 </th>
 
-                {/* REQUESTOR */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestorMenu, showRequestorMenu)}>▼</button>
                   </div>
                   {showRequestorMenu && (
-                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
                       {renderMenuItems(availableRequestors, selectedRequestors, setSelectedRequestors)}
                     </div>
                   )}
                 </th>
 
-                {/* REQUESTOR VP */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor VP</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowVPMenu, showVPMenu)}>▼</button>
                   </div>
                   {showVPMenu && (
-                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
                       {renderMenuItems(availableVPs, selectedVPs, setSelectedVPs)}
                     </div>
                   )}
                 </th>
 
-                {/* REQUESTING DEPT */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requesting Dept</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowDeptMenu, showDeptMenu)}>▼</button>
                   </div>
                   {showDeptMenu && (
-                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={(e) => e.stopPropagation()}>
+                    <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
                       {renderMenuItems(availableDepts, selectedDepts, setSelectedDepts)}
                     </div>
                   )}
                 </th>
 
+                {/* Static columns — no filter needed */}
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Completion Date</th>
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Target Period</th>
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Description</th>
@@ -467,9 +552,10 @@ export default function TeamMemberInitiativesPage() {
                 return (
                   <tr
                     key={item.id}
-                    onClick={() => toggleHighlight(item.id)}
+                    onClick={() => toggleHighlight(item.id)} // Row click toggles highlight
                     className={`cursor-pointer transition-colors hover:bg-[#017ACB]/20 ${isHighlighted ? 'bg-[#CDE6F7]' : 'bg-white'}`}
                   >
+                    {/* bg-inherit on all cells so row hover/highlight colour shows through */}
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.project}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.category}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.lead}</td>
@@ -478,9 +564,11 @@ export default function TeamMemberInitiativesPage() {
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.requestor_vp}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.requesting_dept}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">
+                      {/* Completion date formatted to locale string — null shown as blank */}
                       {item.completion_date ? new Date(item.completion_date).toLocaleDateString() : ''}
                     </td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.target_period}</td>
+                    {/* Description and Resource Consideration allow wrapping — max-w constrains width */}
                     <td className="px-4 py-2 border text-sm text-black whitespace-normal break-words align-top max-w-[750px] bg-inherit">{item.description}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-normal break-words align-top max-w-[500px] bg-inherit">{item.resource_consideration}</td>
                   </tr>
