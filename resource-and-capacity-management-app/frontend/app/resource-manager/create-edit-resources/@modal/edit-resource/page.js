@@ -1,5 +1,40 @@
 'use client';
 
+/* =============================================================================
+   EditResourceModal.jsx
+   -----------------------------------------------------------------------------
+   PURPOSE:
+     Full-page modal for editing an existing employee record. Navigated to via
+     the Edit button on the Resources table. Loads the employee, validates the
+     form, and PUTs the update to /resources/employees/:id.
+
+   HOW IT WORKS:
+     1. Reads emp_id from the URL search params (?id=)
+     2. Fetches the employee record, departments, and managers in parallel
+     3. Converts stored IDs to display names for the dropdowns
+     4. On submit: validates → checks for duplicate name → PUTs the payload
+     5. On success: navigates back and triggers a refresh on the Resources page
+
+   ID ↔ NAME CONVERSION:
+     The employee record stores IDs for reports_to, manager_level, director_level,
+     requestor_vp. The form displays names. On load, IDs are converted to names
+     via the managers list. On save, names are converted back to IDs via getEmpId().
+     Similarly, dept_no is stored but the form shows dept_name.
+
+   SECURITY MODEL:
+     • emp_id is read from URL params and passed through encodeURIComponent().
+     • Profanity checks applied to emp_name, emp_title, and other_info before submit.
+     • Duplicate name check runs against the employees list (server-sourced) and
+       excludes the current emp_id — prevents false duplicate detection on self.
+     • All numeric fields (emp_id, reports_to, etc.) resolved via ID lookup
+       before sending — no user-typed IDs reach the backend.
+     • API errors are surfaced via an error banner — never exposed as raw errors.
+
+   DEPENDENCIES:
+     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
+     • next/navigation  — useRouter, useSearchParams
+   ============================================================================= */
+
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
@@ -10,14 +45,16 @@ const btnClass = `
   hover:bg-[#017ACB]/20 hover:text-gray-700 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-  relative
-  before:content-[''] before:absolute before:inset-0 before:rounded
+  relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
 `;
 
 const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
+/* -----------------------------------------------------------------------------
+   PROFANITY CHECK — applied to emp_name, emp_title, and other_info before submit.
+----------------------------------------------------------------------------- */
 const BLOCKED_WORDS = [
   "kill","murder","stab","shoot","die","death","dead","attack","hate","sucks",
   "stupid","idiot","moron","dumb","loser","trash","ass","bastard","bitch","damn",
@@ -28,11 +65,15 @@ const BLOCKED_WORDS = [
 
 function containsBlockedWords(text) {
   if (!text) return false;
-  return BLOCKED_WORDS.some((word) => new RegExp(`\\b${word}\\b`, 'i').test(text));
+  return BLOCKED_WORDS.some(word => new RegExp(`\\b${word}\\b`, 'i').test(text));
 }
 
-const inputClass = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full';
+const inputClass    = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full';
 
+/* =============================================================================
+   COMPONENT: StyledDropdown
+   Fixed option list dropdown — used for Department (only "Data Mgmt" allowed).
+   ============================================================================= */
 function StyledDropdown({ label, value, onChange, options }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -59,8 +100,13 @@ function StyledDropdown({ label, value, onChange, options }) {
   );
 }
 
+/* =============================================================================
+   COMPONENT: SearchableDropdown
+   Searchable dropdown for long lists — used for hierarchy fields (Reports To,
+   Manager Level, Director Level, VP). Filters by emp_name as the user types.
+   ============================================================================= */
 function SearchableDropdown({ label, value, onChange, list }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef(null);
   useEffect(() => {
@@ -89,10 +135,13 @@ function SearchableDropdown({ label, value, onChange, list }) {
   );
 }
 
+/* =============================================================================
+   MAIN COMPONENT: EditResourceModal
+   ============================================================================= */
 export default function EditResourceModal() {
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const empId        = searchParams.get('id');
+  const empId        = searchParams.get('id'); // emp_id from URL — not user-typed
 
   const [departments, setDepartments] = useState([]);
   const [managers, setManagers]       = useState([]);
@@ -101,16 +150,24 @@ export default function EditResourceModal() {
   const [error, setError]             = useState('');
   const [success, setSuccess]         = useState(false);
   const [statusValue, setStatusValue] = useState('Active');
-  const [formData, setFormData]       = useState({
+
+  // Form stores display names for dropdowns, dept_name for department
+  const [formData, setFormData] = useState({
     emp_id: '', emp_name: '', emp_title: '', dept_no: '',
     reports_to: '', manager_level: '', director_level: '', requestor_vp: '', other_info: '',
   });
 
+  // ID ↔ name conversion helpers
   const getNameById = (id)   => managers.find(m => m.emp_id === id)?.emp_name || '';
   const getDeptName = (no)   => departments.find(d => d.dept_no === no)?.dept_name || '';
   const getDeptNo   = (name) => departments.find(d => d.dept_name === name)?.dept_no || null;
   const getEmpId    = (name) => managers.find(m => m.emp_name === name)?.emp_id || null;
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: LOAD EMPLOYEE + DROPDOWNS
+     Fetches employee, departments, and managers in parallel.
+     IDs are converted to display names once the managers list is available.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!empId) return;
     const load = async () => {
@@ -129,17 +186,22 @@ export default function EditResourceModal() {
         setManagers(mgrData);
         setStatusValue(empData.current_status || 'Active');
         setFormData({
-          emp_id: empData.emp_id || '', emp_name: empData.emp_name || '',
-          emp_title: empData.emp_title || '', dept_no: empData.dept_no || '',
-          reports_to: empData.reports_to || '', manager_level: empData.manager_level || '',
-          director_level: empData.director_level || '', requestor_vp: empData.requestor_vp || '',
-          other_info: empData.other_info || '',
+          emp_id:         empData.emp_id        || '',
+          emp_name:       empData.emp_name      || '',
+          emp_title:      empData.emp_title     || '',
+          dept_no:        empData.dept_no       || '',
+          reports_to:     empData.reports_to    || '',
+          manager_level:  empData.manager_level || '',
+          director_level: empData.director_level || '',
+          requestor_vp:   empData.requestor_vp  || '',
+          other_info:     empData.other_info    || '',
         });
       } catch { setError('Failed to load employee data. Please try again.'); }
     };
     load();
   }, [empId]);
 
+  // Convert stored IDs to display names once managers are loaded
   useEffect(() => {
     if (!managers.length) return;
     setFormData(prev => ({
@@ -151,6 +213,7 @@ export default function EditResourceModal() {
     }));
   }, [managers]);
 
+  // Convert stored dept_no to display name once departments are loaded
   useEffect(() => {
     if (!departments.length) return;
     setFormData(prev => ({ ...prev, dept_no: getDeptName(prev.dept_no) }));
@@ -160,18 +223,31 @@ export default function EditResourceModal() {
     setFormData(prev => ({ ...prev, [field]: e.target.value.replace(/[^a-zA-Z0-9 .,\-']/g, '') }));
   };
 
+  /* ---------------------------------------------------------------------------
+     HANDLER: handleEdit
+     ---------------------------------------------------------------------------
+     Validates → profanity check → duplicate name check → PUT to backend.
+     Duplicate check excludes the current emp_id to avoid false positives on self.
+  --------------------------------------------------------------------------- */
   const handleEdit = async (e) => {
     e.preventDefault();
     setError('');
+
     if (containsBlockedWords(formData.emp_name))   return setError('Name contains inappropriate language. Please revise.');
     if (containsBlockedWords(formData.emp_title))  return setError('Title contains inappropriate language. Please revise.');
     if (containsBlockedWords(formData.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
     if (!formData.emp_name.trim())  return setError('Name is required.');
+
+    // Duplicate name check — excludes the current employee to avoid false positives
     try {
       const { data: existing } = await api.get('/resources/employees');
-      const nameTaken = existing.some(e => e.emp_name?.toLowerCase().trim() === formData.emp_name.toLowerCase().trim() && String(e.emp_id) !== String(empId));
+      const nameTaken = existing.some(e =>
+        e.emp_name?.toLowerCase().trim() === formData.emp_name.toLowerCase().trim() &&
+        String(e.emp_id) !== String(empId) // Exclude self
+      );
       if (nameTaken) return setError(`An employee named "${formData.emp_name.trim()}" already exists.`);
-    } catch { /* non-fatal */ }
+    } catch { /* non-fatal — skip duplicate check if endpoint unavailable */ }
+
     if (!formData.emp_title.trim()) return setError('Title is required.');
     if (!formData.dept_no)          return setError('Department is required.');
     if (!formData.reports_to)       return setError('Reports To is required.');
@@ -179,24 +255,37 @@ export default function EditResourceModal() {
     if (!formData.director_level)   return setError('Director Level is required.');
     if (!formData.requestor_vp)     return setError('VP is required.');
 
+    // Convert display names back to IDs before sending to backend
     const payload = {
-      emp_id: formData.emp_id, emp_name: formData.emp_name.trim(),
-      emp_title: formData.emp_title.trim(), dept_no: getDeptNo(formData.dept_no),
-      reports_to: getEmpId(formData.reports_to), manager_level: getEmpId(formData.manager_level),
-      director_level: getEmpId(formData.director_level), requestor_vp: getEmpId(formData.requestor_vp),
-      other_info: formData.other_info.trim(), current_status: statusValue,
+      emp_id:         formData.emp_id,
+      emp_name:       formData.emp_name.trim(),
+      emp_title:      formData.emp_title.trim(),
+      dept_no:        getDeptNo(formData.dept_no),
+      reports_to:     getEmpId(formData.reports_to),
+      manager_level:  getEmpId(formData.manager_level),
+      director_level: getEmpId(formData.director_level),
+      requestor_vp:   getEmpId(formData.requestor_vp),
+      other_info:     formData.other_info.trim(),
+      current_status: statusValue,
     };
 
     try {
       setLoading(true);
       await api.put(`/resources/employees/${encodeURIComponent(empId)}`, payload);
       setSuccess(true);
-      setTimeout(() => { router.back(); setTimeout(() => router.replace(`/resource-manager/create-edit-resources?refresh=${Date.now()}`), 50); }, 1500);
+      // Navigate back and trigger a refresh on the Resources page
+      setTimeout(() => {
+        router.back();
+        setTimeout(() => router.replace(`/resource-manager/create-edit-resources?refresh=${Date.now()}`), 50);
+      }, 1500);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to save changes. Please try again.');
     } finally { setLoading(false); }
   };
 
+  /* ---------------------------------------------------------------------------
+     LOADING STATE — shown while employee + dropdowns are loading
+  --------------------------------------------------------------------------- */
   if (!employee || !managers.length || !departments.length) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
@@ -205,15 +294,27 @@ export default function EditResourceModal() {
     );
   }
 
+  /* ===========================================================================
+     RENDER
+  =========================================================================== */
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        {success && <div role="status" className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 rounded text-sm text-center font-semibold" style={styles.outfitFont}>✓ Changes saved successfully.</div>}
+        {success && (
+          <div role="status" className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 rounded text-sm text-center font-semibold" style={styles.outfitFont}>
+            ✓ Changes saved successfully.
+          </div>
+        )}
         <div className="p-6">
           <h2 className="text-2xl font-bold mb-6 text-black" style={styles.outfitFont}>Edit Resource</h2>
-          {error && <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>{error}<button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button></div>}
+          {error && (
+            <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>
+              {error}<button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button>
+            </div>
+          )}
           <form onSubmit={handleEdit} noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Employee ID — read-only, cannot be changed */}
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Employee ID</label>
                 <input type="text" value={formData.emp_id} readOnly className="bg-gray-100 text-gray-500 border border-black p-2 rounded cursor-not-allowed w-full" style={styles.outfitFont} />
@@ -227,6 +328,7 @@ export default function EditResourceModal() {
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Title *</label>
                 <input type="text" value={formData.emp_title} onChange={handleTextField('emp_title')} maxLength={100} required className={inputClass} style={styles.outfitFont} />
               </div>
+              {/* Department scoped to Data Mgmt only */}
               <StyledDropdown label="Department *" value={formData.dept_no} onChange={val => setFormData(prev => ({ ...prev, dept_no: val }))} options={departments.filter(d => d.dept_name === "Data Mgmt").map(d => d.dept_name)} />
               <SearchableDropdown label="Reports To *"     value={formData.reports_to}     onChange={val => setFormData(prev => ({ ...prev, reports_to: val }))}     list={managers} />
               <SearchableDropdown label="Manager Level *"  value={formData.manager_level}  onChange={val => setFormData(prev => ({ ...prev, manager_level: val }))}  list={managers} />
