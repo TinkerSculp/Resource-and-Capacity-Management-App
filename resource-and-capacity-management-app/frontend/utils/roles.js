@@ -8,8 +8,9 @@
 
 export const ROLES = {
   RESOURCE_MANAGER: 1,
-  TEAM_MEMBER: 2,
-  STAKEHOLDER: 3,
+  STAKEHOLDER: 2,
+  TEAM_MEMBER: 3,
+  ADMIN: 4,
 };
 
 /* ---------------------------------------------------------
@@ -52,4 +53,8 @@ export function isTeamMember(role) {
  */
 export function isStakeholder(role) {
   return role === ROLES.STAKEHOLDER;
+}
+
+export function isAdmin(role) {
+  return role === ROLES.ADMIN;
 }

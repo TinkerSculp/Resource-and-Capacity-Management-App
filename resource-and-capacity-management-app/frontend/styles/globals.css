@@ -1,73 +1,25 @@
 /* ---------------------------------------------------------
    TAILWINDCSS IMPORT
-   ---------------------------------------------------------
-   • Loads Tailwind's base, components, and utilities
-   • Ensures all Tailwind classes are available globally
-   • Must remain at the top of the file for proper layering
 --------------------------------------------------------- */
 @import "tailwindcss";
 
-
-/* ---------------------------------------------------------
-   LIGHT MODE THEME VARIABLES (DEFAULT)
-   ---------------------------------------------------------
-   • Defines global CSS variables for background and text
-   • Used by Tailwind theme extensions below
-   • Keeps color definitions centralized and easy to override
---------------------------------------------------------- */
 :root {
-  --background: #ffffff;   /* Global background color */
-  --foreground: #171717;   /* Global text color */
+  --background: #ffffff;
+  --foreground: #171717;
 }
 
-
-/* ---------------------------------------------------------
-   TAILWIND THEME EXTENSIONS (INLINE)
-   ---------------------------------------------------------
-   • Maps CSS variables into Tailwind's design system
-   • Allows dynamic theming without rebuilding Tailwind
-   • Enables consistent use of custom fonts and colors
---------------------------------------------------------- */
 @theme inline {
-  --color-background: var(--background);     /* Tailwind color mapped to CSS variable */
-  --color-foreground: var(--foreground); 
-  
-  --color-brandBlue: #003A5C; /* Custom brand color mapped to Tailwind variable(dark blue) */
-
-  /* Tailwind color mapped to CSS variable */
-  --font-sans: var(--font-geist-sans);       /* Custom sans-serif font variable */
-  --font-mono: var(--font-geist-mono);       /* Custom monospace font variable */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brandBlue: #003A5C;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
+/* Dark mode intentionally disabled — app uses white background throughout */
 
-/* ---------------------------------------------------------
-   DARK MODE OVERRIDES (SYSTEM-BASED)
-   ---------------------------------------------------------
-   • Automatically switches theme based on OS preference
-   • Overrides the root variables defined above
-   • No JS required — fully CSS-driven dark mode
---------------------------------------------------------- */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;  /* Dark mode background */
-    --foreground: #ededed;  /* Dark mode text color */
-  }
-}
-
-
-/* ---------------------------------------------------------
-   GLOBAL BODY STYLING
-   ---------------------------------------------------------
-   • Applies theme variables to the entire document
-   • Provides a fallback font stack for reliability
-   • Keeps global styling minimal to avoid conflicts
-   ---------------------------------------------------------
-   SECURITY NOTE:
-   • Global CSS should never expose sensitive data
-   • Avoid embedding user-specific values in CSS variables
---------------------------------------------------------- */
 body {
-  background: var(--background);  /* Uses theme background variable */
-  color: var(--foreground);        /* Uses theme text variable */
-  font-family: Arial, Helvetica, sans-serif; /* Fallback font stack */
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
 }

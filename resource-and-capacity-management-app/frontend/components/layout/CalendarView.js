@@ -397,7 +397,7 @@ export default function CalendarView() {
   --------------------------------------------------------------------------- */
   if (loadingUser || loadingMonths || loadingCalendar) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="h-[600px] bg-white flex items-center justify-center">
         {/* Accessible spinner — visible during all data fetch operations */}
         <div
           className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"

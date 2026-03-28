@@ -45,6 +45,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import api from "@/lib/api";
 
 /* -----------------------------------------------------------------------------
    REUSABLE CHECKBOX COMPONENT
@@ -182,8 +183,6 @@ export default function AssignmentsAllocationsPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const refresh      = searchParams.get("refresh");
-
-  const apiUrl = "http://localhost:3001";
 
   /* ---------------------------------------------------------------------------
      STATE
@@ -400,10 +399,8 @@ export default function AssignmentsAllocationsPage() {
     // then compare total allocations against that capacity threshold.
     if (newValue !== null && !isNaN(newValue)) {
       try {
-        const capRes = await fetch(
-          `${apiUrl}/api/resources/employees/${row.employee.emp_id}/capacity`
-        );
-        const capData = await capRes.json().catch(() => []);
+        const capRes = await api.get(`/resources/employees/${row.employee.emp_id}/capacity`);
+        const capData = Array.isArray(capRes.data) ? capRes.data : [];
         const capEntry = Array.isArray(capData)
           ? capData.find((c) => String(c.date) === String(m.key))
           : null;
@@ -462,29 +459,10 @@ export default function AssignmentsAllocationsPage() {
     try {
       if (newValue === null) {
         // Empty input → delete the allocation record
-        await fetch(`${apiUrl}/api/assignments-allocations/delete`, {
-          method:  "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            emp_id:   row.employee.emp_id,
-            month:    m.key,
-            activity: row.assignment.project_name,
-            category: row.assignment.category
-          })
-        });
+        await api.delete(`/assignments-allocations/delete`, { data: { emp_id: row.employee.emp_id, month: m.key, activity: row.assignment.project_name, category: row.assignment.category } });
       } else {
         // Numeric input → upsert the allocation record
-        await fetch(`${apiUrl}/api/assignments-allocations/${row.employee.emp_id}/amount`, {
-          method:  "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            emp_id:   row.employee.emp_id,
-            month:    m.key,
-            amount:   newValue,
-            activity: row.assignment.project_name,
-            category: row.assignment.category
-          })
-        });
+        await api.put(`/assignments-allocations/${row.employee.emp_id}/amount`, { emp_id: row.employee.emp_id, month: m.key, amount: newValue, activity: row.assignment.project_name, category: row.assignment.category });
       }
     } catch (err) {
       console.error("Failed to update allocation:", err);
@@ -526,19 +504,9 @@ export default function AssignmentsAllocationsPage() {
       try {
         setLoading(true);
 
-        const res = await fetch(
-          `${apiUrl}/api/assignments-allocations?username=${encodeURIComponent(user.username)}&ts=${Date.now()}`,
-          {
-            cache: "no-store",
-            headers: {
-              "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-              Pragma:  "no-cache",
-              Expires: "0"
-            }
-          }
-        );
+        const res = await api.get(`/assignments-allocations?username=${encodeURIComponent(user.username)}&ts=${Date.now()}`, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate", Pragma: "no-cache", Expires: "0" } });
 
-        const data = await res.json().catch(() => ({}));
+        const data = res?.data || {};
 
         setAllRows(data.allAssignments || []);
         setMine(data.myAssignments     || []);
@@ -747,16 +715,12 @@ export default function AssignmentsAllocationsPage() {
     setMine(updateAllocations);
 
     try {
-      await fetch(`${apiUrl}/api/assignments-allocations/${row.employee.emp_id}/amount`, {
-        method:  "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await api.put(`/assignments-allocations/${row.employee.emp_id}/amount`, {
           emp_id:   row.employee.emp_id,
           month:    m.key,
           amount:   newValue,
           activity: row.assignment.project_name,
           category: row.assignment.category
-        })
       });
     } catch (err) {
       console.error("Failed to update allocation:", err);
@@ -786,16 +750,7 @@ export default function AssignmentsAllocationsPage() {
     setFilteredRows(updateAllocations);
 
     try {
-      await fetch(`${apiUrl}/api/assignments-allocations/delete`, {
-        method:  "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emp_id:   row.employee.emp_id,
-          month:    m.key,
-          activity: row.assignment.project_name,
-          category: row.assignment.category
-        })
-      });
+      await api.delete(`/assignments-allocations/delete`, { data: { emp_id: row.employee.emp_id, month: m.key, activity: row.assignment.project_name, category: row.assignment.category } });
 
       // Refresh so the now-empty row disappears from the table
       router.replace(
@@ -812,7 +767,7 @@ export default function AssignmentsAllocationsPage() {
   --------------------------------------------------------------------------- */
   if (!user || loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="h-[600px] bg-white flex items-center justify-center">
         <div
           className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]"
           role="status"
@@ -1036,12 +991,12 @@ export default function AssignmentsAllocationsPage() {
             px-4 py-2 rounded text-sm
             bg-[#003A5C] text-white border border-black/50
             hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
-  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-  relative
-  before:content-[''] before:absolute before:inset-0 before:rounded
-  before:pointer-events-none
-  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+            relative
+            before:content-[''] before:absolute before:inset-0 before:rounded
+            before:pointer-events-none
+            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
           "
           style={styles.outfitFont}
         >

@@ -219,8 +219,11 @@ export const updateEmployeeStatus = async (req, res) => {
     const emp_id = Number(req.params.emp_id);
     const db = await connectDB();
 
-    // TODO: validate status against an allowed list before writing
+    const ALLOWED_STATUSES = ["Active", "Inactive"];
     const status = req.body.status;
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Invalid status. Must be one of: ${ALLOWED_STATUSES.join(", ")}` });
+    }
 
     // $set scopes the update to current_status only — no other fields affected
     await db.collection("employee").updateOne(
