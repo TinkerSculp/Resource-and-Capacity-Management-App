@@ -531,7 +531,7 @@ export default function ResourcesPage() {
     );
   };
 
-  const dropMenuClass = "dropdown-menu bg-white text-black shadow-lg rounded min-w-[12rem] w-max max-w-xs max-h-[min(60vh,420px)] overflow-y-auto border border-gray-300 pointer-events-auto";
+  const dropMenuClass = "dropdown-menu bg-white text-black shadow-lg rounded min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto border border-gray-300 pointer-events-auto";
 
   /* ---------------------------------------------------------------------------
      LOADING STATE

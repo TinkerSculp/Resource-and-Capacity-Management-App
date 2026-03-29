@@ -124,7 +124,7 @@ const colBtnClass = `
 /* menuClass — fixed-position overlay, z-[30000] floats above sticky headers */
 const menuClass = `
   dropdown-menu fixed bg-white text-black shadow-lg rounded
-  min-w-[12rem] w-max max-w-xs max-h-[min(60vh,420px)] overflow-y-auto
+  min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto
   z-[30000] border border-gray-300 pointer-events-auto
 `;
 
@@ -576,9 +576,9 @@ export default function AssignmentsAllocationsPage() {
         )}
 
         {searchable && (
-          <div className="px-2 pt-1 pb-1 border-b border-gray-200">
-            <input type="text" placeholder="Search name..." value={resourceSearch} onChange={e => setResourceSearch(e.target.value)} className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40 text-black" onClick={e => e.stopPropagation()} />
-          </div>
+        <div className="px-2 pt-1 pb-1 border-b border-gray-300">
+          <input type="text" placeholder="Search name..." value={resourceSearch} onChange={e => setResourceSearch(e.target.value)} className="w-full px-2 py-1 text-sm border border-gray-400 rounded text-black hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black" onClick={e => e.stopPropagation()} />
+        </div>
         )}
 
         {/* "All" clears the filter */}

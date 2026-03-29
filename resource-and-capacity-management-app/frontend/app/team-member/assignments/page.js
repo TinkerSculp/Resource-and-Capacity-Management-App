@@ -90,7 +90,7 @@ const colBtnClass = `
    z-[30000] floats above sticky headers and all other stacking contexts. */
 const menuClass = `
   dropdown-menu fixed bg-white text-black shadow-lg rounded
-  min-w-[12rem] w-max max-w-xs max-h-[min(60vh,420px)] overflow-y-auto
+  min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto
   z-[30000] border border-gray-300 pointer-events-auto
 `;
 

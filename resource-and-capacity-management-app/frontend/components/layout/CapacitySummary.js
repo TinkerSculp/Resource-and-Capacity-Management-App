@@ -350,7 +350,7 @@ export default function CapacitySummary() {
                 </svg>
               </div>
               {showMonthDropdown && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-60 overflow-y-auto min-w-full">
+                <div className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full">
                   {selectableMonths.map(m => (
                     <div
                       key={m.value}
