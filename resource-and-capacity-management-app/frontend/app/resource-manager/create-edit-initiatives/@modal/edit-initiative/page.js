@@ -148,7 +148,7 @@ function StyledDropdown({ label, value, onChange, options }) {
         <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
       </div>
       {open && (
-        <div className="absolute top-full left-0 right-0 bg-white border border-black rounded mt-1 z-50 max-h-48 overflow-y-auto shadow-lg">
+        <div className="absolute top-full left-0 right-0 bg-white border border-black rounded mt-1 z-50 max-h-60 overflow-y-auto shadow-lg">
           {(options || []).map(opt => (
             <div key={opt} onClick={() => { onChange(opt); setOpen(false); }} className={`p-2 cursor-pointer text-black hover:bg-[#017ACB]/20 transition text-sm ${value === opt ? 'font-bold bg-[#CDE6F7]' : ''}`} style={styles.outfitFont}>
               {opt}
