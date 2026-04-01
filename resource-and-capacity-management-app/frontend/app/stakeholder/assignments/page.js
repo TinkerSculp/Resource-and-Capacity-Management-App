@@ -4,11 +4,41 @@
    StakeholderAssignmentsPage.jsx
    -----------------------------------------------------------------------------
    PURPOSE:
-     Read-only assignments view for Stakeholder users. Shows all assignments
-     and their monthly allocations in a filterable, scrollable table.
-     Supports "All Assignments" and "My Assignments" tabs with column filters.
-     Uses the app-wide design system — neumorphic buttons, branded colours,
-     Outfit font, colBtnClass filter buttons, and Checkbox component.
+     Read-only assignments view for Stakeholder users (acc_type_id === 2).
+     Displays assignments and their monthly FTE allocations in a filterable,
+     horizontally scrollable table. Supports "All Assignments" and "My Assignments"
+     tabs with per-column filter dropdowns.
+
+   HOW IT WORKS:
+     1. On mount, validates the session from localStorage
+     2. Fetches the stakeholder's emp_name from the profile endpoint — needed to
+        scope "My Assignments" by requestor name (not emp_id)
+     3. Fetches all assignment rows from the backend
+     4. "All Assignments" tab scopes to the Data Management department only
+     5. "My Assignments" tab scopes to all rows on projects where the stakeholder
+        is the requestor — first finds their requested projects, then shows all
+        resources allocated to those projects
+     6. Column filter dropdowns allow multi-select filtering within visible rows
+
+   KEY DIFFERENCE FROM TEAM MEMBER VIEW:
+     • "All Assignments" scopes to Data Mgmt department (not by project membership)
+     • "My Assignments" scopes by requestor name (not by allocation membership)
+     • Requires an extra profile fetch to resolve emp_name for requestor matching
+     • No Edit button — Stakeholders cannot modify allocations
+
+   SECURITY MODEL:
+     • Session validated on mount — missing token or user redirects to /login.
+     • Profile fetch is non-fatal — empName is "" by default and "My Assignments"
+       returns empty rows rather than crashing if the fetch fails.
+     • All string values from the API are passed through sanitize() before storing
+       in state or rendering — XSS defence-in-depth.
+     • username is passed through encodeURIComponent() in the API URL.
+     • All rendered values are plain text — no dangerouslySetInnerHTML.
+     • Filter option lists are built from server response data only.
+
+   DEPENDENCIES:
+     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
+     • next/navigation  — useRouter, useSearchParams
    ============================================================================= */
 
 import { useEffect, useState, useRef } from "react";
@@ -18,7 +48,7 @@ import api from "@/lib/api";
 const styles = { outfitFont: { fontFamily: "Outfit, sans-serif" } };
 
 /* -----------------------------------------------------------------------------
-   BUTTON CLASSES
+   SHARED BUTTON + DROPDOWN CLASSES — neumorphic, matches all other pages.
 ----------------------------------------------------------------------------- */
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
@@ -64,13 +94,15 @@ const colBtnClass = `
 
 const menuClass = `
   dropdown-menu fixed bg-white text-black shadow-lg rounded
-  min-w-[12rem] w-max max-w-xs max-h-[min(60vh,420px)] overflow-y-auto
+  min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto
   z-[30000] border border-gray-300 pointer-events-auto
 `;
 
-/* -----------------------------------------------------------------------------
-   HELPERS
------------------------------------------------------------------------------ */
+/* =============================================================================
+   UTILITY: sanitize
+   Strips control characters, HTML tags, and script injection patterns from
+   API response strings. Applied to every string field in mapRows.
+   ============================================================================= */
 function sanitize(value) {
   if (typeof value !== "string") return "";
   return value
@@ -80,15 +112,19 @@ function sanitize(value) {
     .trim();
 }
 
+/* =============================================================================
+   UTILITY: formatMonth
+   Converts a YYYYMM string to "Mon-YY" display label (e.g. "202503" → "Mar-25").
+   ============================================================================= */
 function formatMonth(yyyymm) {
-  const s = String(yyyymm);
+  const s    = String(yyyymm);
   const date = new Date(Number(s.slice(0, 4)), Number(s.slice(4, 6)) - 1, 1);
   return date.toLocaleString("default", { month: "short" }) + "-" + s.slice(2, 4);
 }
 
-/* -----------------------------------------------------------------------------
-   COMPONENT: Checkbox
------------------------------------------------------------------------------ */
+/* =============================================================================
+   COMPONENT: Checkbox — custom styled, consistent with app design system.
+   ============================================================================= */
 const Checkbox = ({ checked }) => (
   <span className="w-4 h-4 border border-black rounded-sm flex items-center justify-center relative overflow-hidden flex-shrink-0">
     <input type="checkbox" checked={checked} readOnly className="opacity-0 absolute w-4 h-4 cursor-pointer" />
@@ -111,30 +147,30 @@ export default function StakeholderAssignmentsPage() {
   const searchParams = useSearchParams();
   const refresh      = searchParams.get("refresh");
 
-  const [user, setUser]         = useState(null);
-  const [empName, setEmpName]     = useState("");
+  /* ---------------------------------------------------------------------------
+     STATE
+  --------------------------------------------------------------------------- */
+  const [user, setUser]           = useState(null);
+  const [empName, setEmpName]     = useState(""); // Resolved from profile — used for requestor matching
   const [activeTab, setActiveTab] = useState("all");
 
-  const [allRows, setAllRows]   = useState([]);
-  const [myRows, setMyRows]     = useState([]);
-  const [months, setMonths]     = useState([]);
+  const [allRows, setAllRows]         = useState([]);
+  const [myRows, setMyRows]           = useState([]);
+  const [months, setMonths]           = useState([]);
   const [filteredRows, setFilteredRows] = useState([]);
 
-  // Sort
   const [resourceSort, setResourceSort] = useState("");
 
-  // Filters
-  const [selectedResources, setSelectedResources]         = useState([]);
-  const [selectedDepts, setSelectedDepts]                 = useState([]);
-  const [selectedReportsTo, setSelectedReportsTo]         = useState([]);
-  const [selectedActivities, setSelectedActivities]       = useState([]);
-  const [selectedCategories, setSelectedCategories]       = useState([]);
-  const [selectedLeaders, setSelectedLeaders]             = useState([]);
-  const [selectedRequestors, setSelectedRequestors]       = useState([]);
-  const [selectedRequestorVPs, setSelectedRequestorVPs]   = useState([]);
-  const [selectedReqDepts, setSelectedReqDepts]           = useState([]);
+  const [selectedResources, setSelectedResources]       = useState([]);
+  const [selectedDepts, setSelectedDepts]               = useState([]);
+  const [selectedReportsTo, setSelectedReportsTo]       = useState([]);
+  const [selectedActivities, setSelectedActivities]     = useState([]);
+  const [selectedCategories, setSelectedCategories]     = useState([]);
+  const [selectedLeaders, setSelectedLeaders]           = useState([]);
+  const [selectedRequestors, setSelectedRequestors]     = useState([]);
+  const [selectedRequestorVPs, setSelectedRequestorVPs] = useState([]);
+  const [selectedReqDepts, setSelectedReqDepts]         = useState([]);
 
-  // Available filter options
   const [availableResources, setAvailableResources]       = useState([]);
   const [availableDepts, setAvailableDepts]               = useState([]);
   const [availableReportsTo, setAvailableReportsTo]       = useState([]);
@@ -145,22 +181,20 @@ export default function StakeholderAssignmentsPage() {
   const [availableRequestorVPs, setAvailableRequestorVPs] = useState([]);
   const [availableReqDepts, setAvailableReqDepts]         = useState([]);
 
-  // Month picker
-  const [startMonth, setStartMonth]         = useState(null);
+  const [startMonth, setStartMonth]             = useState(null);
   const [availablePastMonths, setAvailablePastMonths] = useState([]);
 
-  // Dropdown menu state
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
-  const [showResourceMenu, setShowResourceMenu]     = useState(false);
-  const [showDeptMenu, setShowDeptMenu]             = useState(false);
-  const [showReportsToMenu, setShowReportsToMenu]   = useState(false);
-  const [showActivityMenu, setShowActivityMenu]     = useState(false);
-  const [showCategoryMenu, setShowCategoryMenu]     = useState(false);
-  const [showLeaderMenu, setShowLeaderMenu]         = useState(false);
-  const [showRequestorMenu, setShowRequestorMenu]   = useState(false);
-  const [showVPMenu, setShowVPMenu]                 = useState(false);
-  const [showReqDeptMenu, setShowReqDeptMenu]       = useState(false);
-  const [showMonthMenu, setShowMonthMenu]           = useState(false);
+  const [menuPosition, setMenuPosition]         = useState({ x: 0, y: 0 });
+  const [showResourceMenu, setShowResourceMenu] = useState(false);
+  const [showDeptMenu, setShowDeptMenu]         = useState(false);
+  const [showReportsToMenu, setShowReportsToMenu] = useState(false);
+  const [showActivityMenu, setShowActivityMenu] = useState(false);
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showLeaderMenu, setShowLeaderMenu]     = useState(false);
+  const [showRequestorMenu, setShowRequestorMenu] = useState(false);
+  const [showVPMenu, setShowVPMenu]             = useState(false);
+  const [showReqDeptMenu, setShowReqDeptMenu]   = useState(false);
+  const [showMonthMenu, setShowMonthMenu]       = useState(false);
   const monthMenuRef = useRef(null);
 
   /* ---------------------------------------------------------------------------
@@ -190,37 +224,50 @@ export default function StakeholderAssignmentsPage() {
   };
 
   /* ---------------------------------------------------------------------------
-     EFFECT: AUTH
+     EFFECT: SESSION VALIDATION
   --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored = localStorage.getItem("user");
       const token  = localStorage.getItem("token");
-      if (!stored || !token) { localStorage.removeItem("user"); localStorage.removeItem("token"); router.push("/login"); return; }
+      if (!stored || !token) {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        router.push("/login");
+        return;
+      }
       setUser(JSON.parse(stored));
     } catch { router.push("/login"); }
   }, [router]);
 
   /* ---------------------------------------------------------------------------
-     EFFECT: FETCH DATA
+     EFFECT: FETCH EMP_NAME FROM PROFILE
+     ---------------------------------------------------------------------------
+     Stakeholders scope "My Assignments" by requestor name (not emp_id), so we
+     need to resolve the display name from the profile endpoint. This fetch is
+     non-fatal — if it fails, empName stays "" and "My Assignments" returns [].
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
-    // Fetch emp_name from profile — needed to scope "My Assignments" by requestor
     const loadProfile = async () => {
       try {
         const res = await api.get(`/profile?username=${encodeURIComponent(user.username)}`);
         if (res?.data?.name) setEmpName(res.data.name);
-      } catch { /* non-fatal */ }
+      } catch { /* non-fatal — My Assignments returns empty if empName is unresolved */ }
     };
     loadProfile();
   }, [user]);
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: FETCH ASSIGNMENT ROWS
+     sanitize() applied to every string field — XSS defence-in-depth.
+     &ts=Date.now() cache-busts the URL to force a fresh fetch on re-navigation.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       try {
-        const res = await api.get(`/assignments-allocations?username=${encodeURIComponent(user.username)}&ts=${Date.now()}`);
+        const res  = await api.get(`/assignments-allocations?username=${encodeURIComponent(user.username)}&ts=${Date.now()}`);
         const data = res?.data;
         if (!data) return;
 
@@ -240,11 +287,9 @@ export default function StakeholderAssignmentsPage() {
           allocations:     r.allocations || {},
         }));
 
-        const mappedAll  = mapRows(data.allAssignments);
-        const mappedMine = mapRows(data.myAssignments);
+        setAllRows(mapRows(data.allAssignments));
+        setMyRows(mapRows(data.myAssignments));
 
-        setAllRows(mappedAll);
-        setMyRows(mappedMine);
       } catch (err) {
         console.error("Fetch error:", err);
       }
@@ -253,15 +298,13 @@ export default function StakeholderAssignmentsPage() {
   }, [user, refresh]);
 
   /* ---------------------------------------------------------------------------
-     EFFECT: DEFAULT START MONTH
+     EFFECT: DEFAULT START MONTH + PAST MONTHS PICKER
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!months.length || startMonth) return;
-    const now = new Date();
+    const now     = new Date();
     const current = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
     setStartMonth(months.includes(current) ? current : months[0]);
-
-    // Build 12 past months for picker
     const past = [];
     for (let i = 0; i < 12; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -272,21 +315,32 @@ export default function StakeholderAssignmentsPage() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: BUILD FILTER LISTS + APPLY FILTERS
+     ---------------------------------------------------------------------------
+     Tab scoping differs from the Team Member view:
+
+     "All Assignments":
+       Scoped to Data Management department (dept_name === "Data Mgmt") — the
+       stakeholder sees the full DM team's allocations across all projects.
+
+     "My Assignments":
+       1. Find all projects where the stakeholder is the requestor (by emp_name)
+       2. Return all resources allocated to those projects
+       This gives the stakeholder visibility into who is working on their requests.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
-    // All tab — Data Mgmt department (same as Resource Manager page)
-    // Mine tab — all rows on projects where the logged-in stakeholder is the requestor
     const base = activeTab === "mine" ? (() => {
-      if (!empName) return [];
+      if (!empName) return []; // empName not yet resolved — return empty
+      // Find all projects this stakeholder has requested
       const myRequestedProjects = new Set(
         allRows.filter(r => r.requestor === empName).map(r => r.activity)
       );
+      // Return all resources allocated to those projects
       return myRequestedProjects.size
         ? allRows.filter(r => myRequestedProjects.has(r.activity))
         : [];
-    })() : allRows.filter(r => r.department === "Data Mgmt");
+    })() : allRows.filter(r => r.department === "Data Mgmt"); // "All" = Data Mgmt dept only
 
     const uniq = (arr) => [...new Set(arr)].filter(Boolean);
     setAvailableResources(uniq(base.map(r => r.resource_name)));
@@ -300,15 +354,15 @@ export default function StakeholderAssignmentsPage() {
     setAvailableReqDepts(uniq(base.map(r => r.requesting_dept)));
 
     let filtered = base.filter(r =>
-      (!selectedResources.length   || selectedResources.includes(r.resource_name))   &&
-      (!selectedDepts.length       || selectedDepts.includes(r.department))           &&
-      (!selectedReportsTo.length   || selectedReportsTo.includes(r.reports_to))       &&
-      (!selectedActivities.length  || selectedActivities.includes(r.activity))        &&
-      (!selectedCategories.length  || selectedCategories.includes(r.category))        &&
-      (!selectedLeaders.length     || selectedLeaders.includes(r.leader))             &&
-      (!selectedRequestors.length  || selectedRequestors.includes(r.requestor))       &&
-      (!selectedRequestorVPs.length || selectedRequestorVPs.includes(r.requestor_vp)) &&
-      (!selectedReqDepts.length    || selectedReqDepts.includes(r.requesting_dept))
+      (!selectedResources.length    || selectedResources.includes(r.resource_name))    &&
+      (!selectedDepts.length        || selectedDepts.includes(r.department))            &&
+      (!selectedReportsTo.length    || selectedReportsTo.includes(r.reports_to))        &&
+      (!selectedActivities.length   || selectedActivities.includes(r.activity))         &&
+      (!selectedCategories.length   || selectedCategories.includes(r.category))         &&
+      (!selectedLeaders.length      || selectedLeaders.includes(r.leader))              &&
+      (!selectedRequestors.length   || selectedRequestors.includes(r.requestor))        &&
+      (!selectedRequestorVPs.length || selectedRequestorVPs.includes(r.requestor_vp))  &&
+      (!selectedReqDepts.length     || selectedReqDepts.includes(r.requesting_dept))
     );
 
     if (resourceSort === "asc")  filtered.sort((a, b) => a.resource_name.localeCompare(b.resource_name));
@@ -331,7 +385,6 @@ export default function StakeholderAssignmentsPage() {
     return () => window.removeEventListener("click", handler);
   }, []);
 
-  // Scroll month menu to selected item when it opens
   useEffect(() => {
     if (showMonthMenu && monthMenuRef.current) {
       const el = monthMenuRef.current.querySelector(`[data-month="${startMonth}"]`);
@@ -340,7 +393,7 @@ export default function StakeholderAssignmentsPage() {
   }, [showMonthMenu, startMonth]);
 
   /* ---------------------------------------------------------------------------
-     VISIBLE MONTHS — 16 from startMonth
+     VISIBLE MONTHS — 16 columns starting from startMonth
   --------------------------------------------------------------------------- */
   const visibleMonths = (() => {
     if (!months.length || !startMonth) return [];
@@ -352,28 +405,34 @@ export default function StakeholderAssignmentsPage() {
   const monthLabel = (m) => `${monthNames[parseInt(m.slice(4, 6), 10) - 1]} ${m.slice(0, 4)}`;
 
   /* ---------------------------------------------------------------------------
-     RENDER HELPER: dropdown menu items
+     RENDER HELPER: renderMenuItems
   --------------------------------------------------------------------------- */
   const renderMenuItems = (available, selected, setSelected, sortOptions = false) => (
     <>
       {sortOptions && (
         <>
           {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
-            <div key={val} className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${resourceSort === val ? "font-bold" : ""}`}
-              onClick={() => setResourceSort(resourceSort === val ? "" : val)}>
+            <div key={val}
+              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${resourceSort === val ? "font-bold" : ""}`}
+              onClick={() => setResourceSort(resourceSort === val ? "" : val)}
+            >
               <Checkbox checked={resourceSort === val} />{label}
             </div>
           ))}
           <div className="border-t my-1" />
         </>
       )}
-      <div className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? "font-bold" : ""}`}
-        onClick={() => setSelected([])}>
+      <div
+        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? "font-bold" : ""}`}
+        onClick={() => setSelected([])}
+      >
         <Checkbox checked={selected.length === 0} />All
       </div>
       {available.map(val => (
-        <div key={val} className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(val) ? "font-bold" : ""}`}
-          onClick={() => toggleSelection(val, setSelected, selected)}>
+        <div key={val}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(val) ? "font-bold" : ""}`}
+          onClick={() => toggleSelection(val, setSelected, selected)}
+        >
           <Checkbox checked={selected.includes(val)} />{val}
         </div>
       ))}
@@ -385,18 +444,18 @@ export default function StakeholderAssignmentsPage() {
   --------------------------------------------------------------------------- */
   if (!user) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="h-[600px] bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" />
       </div>
     );
   }
 
-  /* ---------------------------------------------------------------------------
-     RENDER
-  --------------------------------------------------------------------------- */
+  /* ===========================================================================
+     RENDER — all cell values from sanitized API data, no dangerouslySetInnerHTML.
+  =========================================================================== */
   return (
     <>
-      {/* HEADER */}
+      {/* PAGE HEADER */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-4xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>Assignments</h2>
@@ -405,15 +464,18 @@ export default function StakeholderAssignmentsPage() {
           </button>
         </div>
 
+        {/* TAB BUTTONS — switching tabs clears all active filters */}
         <div className="flex flex-wrap gap-2 items-center">
           {["all", "mine"].map(tab => (
-            <button key={tab} onClick={() => {
-              setActiveTab(tab);
-              setSelectedResources([]); setSelectedDepts([]); setSelectedReportsTo([]);
-              setSelectedActivities([]); setSelectedCategories([]); setSelectedLeaders([]);
-              setSelectedRequestors([]); setSelectedRequestorVPs([]); setSelectedReqDepts([]);
-              setResourceSort("");
-            }}
+            <button
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab);
+                setSelectedResources([]); setSelectedDepts([]); setSelectedReportsTo([]);
+                setSelectedActivities([]); setSelectedCategories([]); setSelectedLeaders([]);
+                setSelectedRequestors([]); setSelectedRequestorVPs([]); setSelectedReqDepts([]);
+                setResourceSort("");
+              }}
               aria-pressed={activeTab === tab}
               className={tabClass(activeTab === tab)}
               style={styles.outfitFont}
@@ -424,14 +486,13 @@ export default function StakeholderAssignmentsPage() {
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* ASSIGNMENTS TABLE */}
       <div className="table-surface border rounded-lg shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse text-sm">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
 
-                {/* RESOURCE NAME */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Resource Name</span>
@@ -444,7 +505,6 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* DEPARTMENT */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Department</span>
@@ -457,7 +517,6 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* REPORTS TO */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Reports To</span>
@@ -470,7 +529,6 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* ACTIVITY */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Activity</span>
@@ -483,7 +541,6 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* ACTIVITY CATEGORY */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Activity Category</span>
@@ -496,7 +553,6 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* LEADER */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Leader Accountable</span>
@@ -509,7 +565,6 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* REQUESTOR */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor</span>
@@ -522,7 +577,6 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* REQUESTOR VP */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor VP</span>
@@ -535,7 +589,6 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* REQUESTING DEPT */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requesting Dept</span>
@@ -548,7 +601,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                {/* MONTH COLUMNS */}
+                {/* MONTH COLUMNS — 16 visible from startMonth */}
                 {visibleMonths.map((m, idx) => (
                   <th key={m} className="px-2 py-2 text-center text-white border-r border-black min-w-[60px] relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-center items-center gap-1">
@@ -560,14 +613,13 @@ export default function StakeholderAssignmentsPage() {
                   </th>
                 ))}
 
-                {/* Month picker portal */}
                 {showMonthMenu && (
                   <div ref={monthMenuRef} className={menuClass} style={{ position: "fixed", top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
                     {[...availablePastMonths].reverse().map(m => (
-                      <div key={m}
-                        data-month={m}
+                      <div key={m} data-month={m}
                         className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${startMonth === m ? "font-bold" : ""}`}
-                        onClick={() => { setStartMonth(m); }}>
+                        onClick={() => setStartMonth(m)}
+                      >
                         <Checkbox checked={startMonth === m} />
                         {monthLabel(m)}
                       </div>

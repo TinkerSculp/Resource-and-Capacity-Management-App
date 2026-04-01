@@ -4,63 +4,42 @@
    EditAllocationModal.jsx
    -----------------------------------------------------------------------------
    PURPOSE:
-     Full-page modal for editing an existing employee-to-project allocation.
-     Pre-populates with the emp_id and project passed via URL search params.
-     Allows changing the employee or project (a "reassignment"). On save,
-     navigates back and refreshes the assignments table via ?refresh= param.
+     Full-page modal for editing an existing allocation — changing either the
+     employee, the project, or both. Validates the change, checks for
+     duplicates, and POSTs to /api/assignments-allocations/reassign.
 
    HOW IT WORKS:
-     1. Reads emp_id and project from URL search params on mount
-     2. Fetches dropdown lists (projects + employees) in parallel
-     3. Fetches employee details (dept, manager) for the pre-selected employee
-     4. Fetches assignment details for the pre-selected project
-     5. If either dropdown selection changes, re-fetches the relevant details
-     6. On Save, POSTs a reassign request only if something actually changed
-     7. Shows a green success banner for 1.2s then navigates back
+     1. Reads emp_id and project from URL search params
+     2. Fetches dropdown lists (projects, DM employees) in parallel
+     3. Fetches the employee and assignment details for pre-population
+     4. On save: validates → duplicate check → POST to /reassign
+     5. On success: navigates back and triggers a refresh
+
+   REASSIGN VS CREATE:
+     This modal uses a /reassign endpoint rather than a DELETE + POST.
+     The reassign endpoint carries allocation values over from the old
+     assignment to the new one — so FTE values are preserved when the
+     employee or project is changed.
+
+   NO-OP CHECK:
+     If neither the employee nor the project has changed, the modal closes
+     without making an API call — avoids unnecessary database writes.
 
    SECURITY MODEL:
-     • emp_id from URL is coerced with Number() — prevents a string value from
-       reaching the reassign POST body.
-     • All fetch calls are wrapped in try/catch — network failures set an error
-       message rather than crashing the component.
-     • res.ok is checked before reading the JSON body — prevents consuming an
-       error response as valid data.
-     • encodeURIComponent() applied to project names in all API URLs —
-       project names can contain spaces and slashes.
-     • POST body sends only server-sourced primitive values — no user-typed
-       strings reach the reassign endpoint.
-     • Read-only display fields come from backend responses and are rendered
-       as plain text — no dangerouslySetInnerHTML is used.
-     • Error messages from the backend are surfaced in a styled div, not
-       injected into the DOM as HTML.
-
-   RESPONSIVENESS:
-     • Overlay: fixed inset-0 flex items-center justify-center px-4 — modal
-       is always centred; px-4 gives a consistent edge margin on phones.
-     • Modal card: w-full max-w-3xl max-h-[90vh] overflow-y-auto — fills the
-       screen on mobile, caps at 3xl on desktop, scrollable on small phones.
-     • Grid: grid-cols-1 sm:grid-cols-2 — single column on phones, two on sm+.
-     • p-4 sm:p-6 — tighter padding on mobile.
-     • Heading: text-xl sm:text-2xl — readable at all sizes.
-     • Action buttons: flex-col sm:flex-row — stack on mobile, row on sm+.
-     • Buttons: w-full sm:w-auto — full width on mobile for easy tapping.
+     • emp_id and project from URL params — never user-typed.
+     • All URL params passed through encodeURIComponent().
+     • Duplicate check before saving — backend also enforces uniqueness.
+     • API errors surfaced via error banner.
 
    DEPENDENCIES:
-     • next/navigation — useRouter, useSearchParams
+     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
+     • next/navigation  — useSearchParams, useRouter
    ============================================================================= */
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
+import api from "@/lib/api";
 
-/* -----------------------------------------------------------------------------
-   SHARED BUTTON CLASS
-   Neumorphic style — matches all other pages in the app.
-     • border-black/50  — semi-transparent border, consistent across all pages
-     • outer shadow     — lifts the button off the surface
-     • before: pseudo   — inner highlight / shadow for 3D feel
-     • active shadow    — shrinks on press for tactile feedback
-     • w-full sm:w-auto — full width on mobile, auto on desktop
------------------------------------------------------------------------------ */
 const btnClass = `
   px-4 py-2 rounded text-sm
   border border-black/50 dark:border-slate-500/60
@@ -77,36 +56,20 @@ const btnClass = `
   w-full sm:w-auto
 `;
 
-/* -----------------------------------------------------------------------------
-   COMPONENT: SearchableStyledDropdown
-   -----------------------------------------------------------------------------
-   A custom searchable dropdown that replaces the native <select>. Supports
-   option objects with separate value and display keys. Closes on outside click.
-
-   SECURITY:
-     • Search is client-side only — never sent to the server.
-     • onChange only receives a value from the validated options array.
-     • Display values are rendered as plain text, not innerHTML.
------------------------------------------------------------------------------ */
+/* =============================================================================
+   COMPONENT: SearchableStyledDropdown — same as AddAllocationModal.
+   ============================================================================= */
 function SearchableStyledDropdown({ label, value, onChange, options, valueKey, displayKey }) {
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState("");
-  const ref                 = useRef(null);
+  const ref = useRef(null);
+  const selectedLabel = options.find(o => String(o[valueKey]) === String(value))?.[displayKey] || "";
+  const filtered = options.filter(opt => String(opt[displayKey]).toLowerCase().includes(search.toLowerCase()));
 
-  // String comparison — emp_id may be numeric from URL params
-  const selectedLabel = options.find((o) => String(o[valueKey]) === String(value))?.[displayKey] || "";
-
-  const filtered = options.filter((opt) =>
-    String(opt[displayKey]).toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Close on outside click
   useEffect(() => {
-    const handleClick = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   return (
@@ -119,18 +82,8 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
         onClick={() => setOpen(!open)}
       >
         <span className="truncate">{selectedLabel || `Select ${label}`}</span>
-        <svg
-          className={`w-4 h-4 ml-2 flex-shrink-0 transition-transform ${open ? "rotate-180" : "rotate-0"}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        <svg className={`w-4 h-4 ml-2 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
       </div>
-
-      {/* Dropdown menu */}
       {open && (
         <div className="absolute top-full left-0 w-full bg-white dark:bg-[#1f1f1f] border border-gray-500 dark:border-slate-600 rounded shadow-lg dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)] z-50 mt-1">
           {/* Search bar */}
@@ -151,9 +104,9 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
                 key={opt[valueKey]}
                 className={`p-2 cursor-pointer text-sm text-black dark:text-slate-100 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition ${String(opt[valueKey]) === String(value) ? "bg-[#017ACB]/10 dark:bg-[#0A5F8A]/40 font-medium" : ""}`}
                 onClick={() => {
-                  onChange(opt[valueKey]);
-                  setOpen(false);
-                  setSearch("");
+                  const raw = opt[valueKey];
+                  onChange(typeof raw === 'number' || (raw !== null && !isNaN(Number(raw)) && raw !== '') ? Number(raw) : raw);
+                  setOpen(false); setSearch("");
                 }}
               >
                 {opt[displayKey]}
@@ -172,193 +125,103 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
 export default function EditAllocationModal() {
   const searchParams   = useSearchParams();
   const router         = useRouter();
-  const apiUrl         = "http://localhost:3001";
+  const emp_id         = searchParams.get("emp_id");     // Original employee ID from URL
+  const projectFromURL = searchParams.get("project");    // Original project name from URL
 
-  // Read pre-selected values from URL — set by the Edit button in the assignments table
-  const emp_id         = searchParams.get("emp_id");
-  const projectFromURL = searchParams.get("project");
-
-  // Employee details — populated by Effect 2
-  const [employeeData, setEmployeeData]     = useState(null);
-  const [departmentName, setDepartmentName] = useState("");
-  const [managerName, setManagerName]       = useState("");
-
-  // Assignment details — populated by Effect 3 (original) and Effect 4 (on change)
-  const [assignmentData, setAssignmentData]         = useState(null);
-  const [originalAssignment, setOriginalAssignment] = useState(null);
-
-  // Dropdown option lists — populated by Effect 1
-  const [projects, setProjects]   = useState([]);
-  const [employees, setEmployees] = useState([]);
-
-  // Current dropdown selections — pre-seeded from URL params
+  const [employeeData, setEmployeeData]         = useState(null);
+  const [departmentName, setDepartmentName]     = useState("");
+  const [managerName, setManagerName]           = useState("");
+  const [assignmentData, setAssignmentData]     = useState(null);
+  const [originalAssignment, setOriginalAssignment] = useState(null); // Preserved for the reassign payload
+  const [projects, setProjects]     = useState([]);
+  const [employees, setEmployees]   = useState([]);
   const [selectedProject, setSelectedProject]   = useState(projectFromURL || "");
   const [selectedEmployee, setSelectedEmployee] = useState(emp_id ? Number(emp_id) : "");
-
-  // UI state
-  const [error, setError]     = useState("");
+  const [error, setError]   = useState("");
   const [loading, setLoading] = useState(true);
-  const [success, setSuccess] = useState(false); // Shows "Allocation updated" banner before navigating
+  const [success, setSuccess] = useState(false);
 
   /* ---------------------------------------------------------------------------
-     EFFECT 1: LOAD DROPDOWN LISTS
-     ---------------------------------------------------------------------------
-     Fetches project and employee lists in parallel on mount.
-     Both responses validated with res.ok before consuming the body.
+     EFFECT: LOAD DROPDOWN LISTS
   --------------------------------------------------------------------------- */
   useEffect(() => {
     async function loadDropdowns() {
       try {
         const [projRes, empRes] = await Promise.all([
-          fetch(`${apiUrl}/api/assignments-allocations/projects`),
-          fetch(`${apiUrl}/api/assignments-allocations/employees/dm`)
+          api.get('/assignments-allocations/projects'),
+          api.get('/assignments-allocations/employees/dm'),
         ]);
-
-        const [projJson, empJson] = await Promise.all([
-          projRes.json(),
-          empRes.json()
-        ]);
-
-        setProjects(projJson.projects   || []);
-        setEmployees(empJson.employees  || []);
-
-      } catch {
-        setError("Failed to load dropdowns. Please check your connection.");
-      }
+        setProjects(projRes.data?.projects  || []);
+        setEmployees(empRes.data?.employees || []);
+      } catch { setError("Failed to load dropdowns. Please check your connection."); }
     }
-
     loadDropdowns();
   }, []);
 
   /* ---------------------------------------------------------------------------
-     EFFECT 2: LOAD EMPLOYEE DETAILS (runs when selectedEmployee changes)
-     ---------------------------------------------------------------------------
-     Fetches department and manager name for the currently selected employee.
-     Manager name requires a second fetch using the employee's reports_to field.
-
-     SECURITY:
-     • selectedEmployee is a server-sourced emp_id — never user-typed input.
-     • res.ok checked before reading both the employee and manager responses.
+     EFFECT: LOAD EMPLOYEE DETAILS
+     Fetches employee details, department, and manager whenever the selected
+     employee changes.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!selectedEmployee) return;
-
     async function loadEmployee() {
       try {
-        const res  = await fetch(`${apiUrl}/api/assignments-allocations/employee/${selectedEmployee}`);
-        const json = await res.json();
-
-        if (!res.ok) {
-          setError(json.error || "Failed to load employee details.");
-          return;
-        }
-
-        setEmployeeData(json.employee          || null);
-        setDepartmentName(json.department_name || "");
-
-        // Fetch manager name if reports_to is present
-        if (json.employee?.reports_to) {
-          const mgrRes  = await fetch(`${apiUrl}/api/assignments-allocations/employee/${json.employee.reports_to}`);
-          if (mgrRes.ok) {
-            const mgrJson = await mgrRes.json();
-            setManagerName(mgrJson.employee?.emp_name || "");
-          }
-        } else {
-          setManagerName("");
-        }
-
-      } catch {
-        setError("Network error loading employee details.");
-      }
+        const res = await api.get(`/assignments-allocations/employee/${selectedEmployee}`);
+        if (!res.data) { setError("Failed to load employee details."); return; }
+        setEmployeeData(res.data.employee || null);
+        setDepartmentName(res.data.department_name || "");
+        if (res.data.employee?.reports_to) {
+          const mgrRes = await api.get(`/assignments-allocations/employee/${res.data.employee.reports_to}`);
+          setManagerName(mgrRes.data?.employee?.emp_name || "");
+        } else { setManagerName(""); }
+      } catch { setError("Network error loading employee details."); }
     }
-
     loadEmployee();
   }, [selectedEmployee]);
 
   /* ---------------------------------------------------------------------------
-     EFFECT 3: LOAD ORIGINAL ASSIGNMENT (runs once from URL param)
-     ---------------------------------------------------------------------------
-     Fetches assignment details for the project in the URL. Stores both the
-     working copy (assignmentData) and the original (originalAssignment) so
-     the reassign POST can send old_category vs new_category correctly.
+     EFFECT: LOAD ORIGINAL ASSIGNMENT
+     Pre-populates assignment data from the URL project param on initial load.
+     Preserved as originalAssignment for the reassign payload.
   --------------------------------------------------------------------------- */
   useEffect(() => {
-    if (!projectFromURL) {
-      setLoading(false);
-      return;
-    }
-
+    if (!projectFromURL) { setLoading(false); return; }
     async function loadAssignment() {
       try {
-        const res  = await fetch(
-          `${apiUrl}/api/assignments-allocations/projects?project=${encodeURIComponent(projectFromURL)}`
-        );
-        const json = await res.json();
-
-        if (!res.ok) {
-          setError(json.error || "Failed to load assignment details.");
-          return;
-        }
-
-        setAssignmentData(json.assignment     || null);
-        setOriginalAssignment(json.assignment || null); // Kept separate for the reassign POST
-
-      } catch {
-        setError("Network error loading assignment details.");
-      } finally {
-        setLoading(false);
-      }
+        const res = await api.get(`/assignments-allocations/projects?project=${encodeURIComponent(projectFromURL)}`);
+        setAssignmentData(res.data?.assignment || null);
+        setOriginalAssignment(res.data?.assignment || null); // Preserved for the reassign API
+      } catch { setError("Network error loading assignment details."); }
+      finally { setLoading(false); }
     }
-
     loadAssignment();
   }, [projectFromURL]);
 
   /* ---------------------------------------------------------------------------
-     EFFECT 4: RELOAD ASSIGNMENT WHEN PROJECT SELECTION CHANGES
-     ---------------------------------------------------------------------------
-     Re-fetches assignment read-only fields if the user picks a different project.
+     EFFECT: RELOAD ASSIGNMENT WHEN PROJECT CHANGES
+     Fetches the new assignment details if the user changes the selected project.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!selectedProject) return;
-
     async function loadAssignmentForSelected() {
       try {
-        const res  = await fetch(
-          `${apiUrl}/api/assignments-allocations/projects?project=${encodeURIComponent(selectedProject)}`
-        );
-        const json = await res.json();
-
-        if (!res.ok) {
-          setError(json.error || "Failed to load assignment details.");
-          return;
-        }
-
-        setAssignmentData(json.assignment || null);
-
-      } catch {
-        setError("Network error loading assignment details.");
-      }
+        const res = await api.get(`/assignments-allocations/projects?project=${encodeURIComponent(selectedProject)}`);
+        setAssignmentData(res.data?.assignment || null);
+      } catch { setError("Network error loading assignment details."); }
     }
-
     loadAssignmentForSelected();
   }, [selectedProject]);
 
   /* ---------------------------------------------------------------------------
      HANDLER: handleSave
      ---------------------------------------------------------------------------
-     Compares old vs new values. If nothing changed, navigates back silently.
-     Otherwise POSTs a reassign request and shows the success banner.
-
-     SECURITY:
-     • Both selections are validated (non-empty) before the request is made.
-     • emp_id values coerced with Number() — ensures integers reach backend.
-     • category values come from server-sourced assignmentData, not user input.
-     • res.ok checked and backend error message surfaced if the request fails.
+     No-op if nothing changed. Duplicate check before saving.
+     Uses /reassign endpoint — preserves allocation values from old assignment.
   --------------------------------------------------------------------------- */
   async function handleSave() {
     if (!selectedProject || !selectedEmployee) {
-      setError("Please select both a project and an employee.");
-      return;
+      setError("Please select both a project and an employee."); return;
     }
 
     const oldEmpId   = Number(emp_id);
@@ -366,49 +229,39 @@ export default function EditAllocationModal() {
     const oldProject = projectFromURL;
     const newProject = selectedProject;
 
-    // Nothing changed — navigate back without a network request
-    if (oldEmpId === newEmpId && oldProject === newProject) {
-      router.back();
-      return;
-    }
+    // No-op — nothing changed, just close
+    if (oldEmpId === newEmpId && oldProject === newProject) { router.back(); return; }
+
+    // Duplicate check — non-fatal if endpoint unavailable
+    try {
+      const dupRes = await api.get(`/assignments-allocations?emp_id=${encodeURIComponent(newEmpId)}&project=${encodeURIComponent(newProject)}`);
+      const alreadyExists = (dupRes.data?.allAssignments || []).some(r =>
+        String(r.employee?.emp_id) === String(newEmpId) && r.assignment?.project_name === newProject
+      );
+      if (alreadyExists) { setError("This employee is already assigned to this project."); return; }
+    } catch { /* non-fatal */ }
 
     try {
-      const res = await fetch(`${apiUrl}/api/assignments-allocations/reassign`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          old_emp_id:   oldEmpId,
-          new_emp_id:   newEmpId,
-          old_project:  oldProject,
-          new_project:  newProject,
-          old_category: originalAssignment?.category || null,
-          new_category: assignmentData?.category     || null
-        })
+      await api.post('/assignments-allocations/reassign', {
+        old_emp_id:   oldEmpId,
+        new_emp_id:   newEmpId,
+        old_project:  oldProject,
+        new_project:  newProject,
+        old_category: originalAssignment?.category || null, // From the original load
+        new_category: assignmentData?.category     || null, // From the current selection
       });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        setError(json.error || "Failed to update allocation. Please try again.");
-        return;
-      }
-
-      // Show success banner, then navigate back and refresh the assignments table
       setSuccess(true);
       setTimeout(() => {
         router.back();
-        setTimeout(() => {
-          router.replace(`/resource-manager/assign-edit-allocation?refresh=${Date.now()}`);
-        }, 120);
-      }, 1200); // Banner visible for 1.2s before navigating
-
-    } catch {
-      setError("Network error. Please check your connection and try again.");
+        setTimeout(() => router.replace(`/resource-manager/assign-edit-allocation?refresh=${Date.now()}`), 120);
+      }, 1200);
+    } catch (err) {
+      setError(err?.response?.data?.error || "Failed to update allocation. Please try again.");
     }
   }
 
   /* ---------------------------------------------------------------------------
-     LOADING STATE
+     LOADING + ERROR STATES
   --------------------------------------------------------------------------- */
   if (loading) {
     return (
@@ -420,9 +273,6 @@ export default function EditAllocationModal() {
     );
   }
 
-  /* ---------------------------------------------------------------------------
-     ERROR STATE — shown only if employee data failed to load entirely
-  --------------------------------------------------------------------------- */
   if (error && !employeeData) {
     return (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
@@ -440,9 +290,9 @@ export default function EditAllocationModal() {
     );
   }
 
-  /* ---------------------------------------------------------------------------
-     RENDER: MAIN MODAL
-  --------------------------------------------------------------------------- */
+  /* ===========================================================================
+     RENDER
+  =========================================================================== */
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
       <div className="bg-white dark:bg-[#212121] rounded-lg shadow-xl dark:shadow-[0_12px_40px_rgba(0,0,0,0.55)] border border-transparent dark:border-slate-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
@@ -476,10 +326,6 @@ export default function EditAllocationModal() {
           </div>
         )}
 
-        {/* ----------------------------------------------------------------- */}
-        {/* FORM GRID — 1 col on mobile, 2 on sm+                            */}
-        {/* Box sizes and colours preserved exactly from the original        */}
-        {/* ----------------------------------------------------------------- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
           <SearchableStyledDropdown
@@ -543,9 +389,6 @@ export default function EditAllocationModal() {
 
         </div>
 
-        {/* ----------------------------------------------------------------- */}
-        {/* ACTION BUTTONS — flex-col on mobile → flex-row sm:justify-end    */}
-        {/* ----------------------------------------------------------------- */}
         <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
 
           <button
@@ -565,9 +408,7 @@ export default function EditAllocationModal() {
           >
             Save Changes
           </button>
-
         </div>
-
       </div>
     </div>
   );

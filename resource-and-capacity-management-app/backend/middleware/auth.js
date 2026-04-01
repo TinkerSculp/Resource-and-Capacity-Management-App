@@ -38,7 +38,7 @@
      • JWT_SECRET must never be hardcoded — it is always loaded from
        environment variables. If it is ever exposed, rotate it immediately;
        all existing tokens will be invalidated automatically.
-     • Token expiry (7 days, set in generateToken.js) is enforced automatically
+     • Token expiry (1 day, set in authController.js) is enforced automatically
        by jwt.verify() — expired tokens are rejected with a 401.
      • HTTPS enforcement (via httpsRedirect middleware) ensures tokens cannot
        be intercepted in transit.

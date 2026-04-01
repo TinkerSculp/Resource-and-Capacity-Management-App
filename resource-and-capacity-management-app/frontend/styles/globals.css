@@ -1,20 +1,8 @@
 /* ---------------------------------------------------------
    TAILWINDCSS IMPORT
-   ---------------------------------------------------------
-   • Loads Tailwind's base, components, and utilities
-   • Ensures all Tailwind classes are available globally
-   • Must remain at the top of the file for proper layering
 --------------------------------------------------------- */
 @import "tailwindcss";
 
-
-/* ---------------------------------------------------------
-   LIGHT MODE THEME VARIABLES (DEFAULT)
-   ---------------------------------------------------------
-   • Defines global CSS variables for background and text
-   • Used by Tailwind theme extensions below
-   • Keeps color definitions centralized and easy to override
---------------------------------------------------------- */
 :root {
   --background: #ffffff;   /* Global background color */
   --foreground: #171717;   /* Global text color */
@@ -24,7 +12,6 @@
 .page-surface {
   background-color: #ffffff;
 }
-
 
 /* ---------------------------------------------------------
    TAILWIND THEME EXTENSIONS (INLINE)
@@ -107,7 +94,7 @@
    • Avoid embedding user-specific values in CSS variables
 --------------------------------------------------------- */
 body {
-  background: var(--background);  /* Uses theme background variable */
-  color: var(--foreground);        /* Uses theme text variable */
-  font-family: Arial, Helvetica, sans-serif; /* Fallback font stack */
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
 }
