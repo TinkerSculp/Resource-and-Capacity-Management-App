@@ -375,7 +375,7 @@ const nextConfig = {
        during compilation rather than at runtime
      • No runtime behaviour changes — purely a compile-time optimisation
   --------------------------------------------------------------------------- */
-  reactCompiler: true,
+  // reactCompiler: true,
 
   /* ---------------------------------------------------------------------------
      EXPERIMENTAL OPTIONS
