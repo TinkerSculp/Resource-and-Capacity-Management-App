@@ -157,34 +157,5 @@ export default function DashboardPage() {
     ))}
   </div>
 </div>
-      {/* 3×2 TILE GRID
-          grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 — responsive stacking.
-          clamp() on gap and padding provides fluid scaling across all viewports. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[clamp(1.2rem,1.8vw,2.4rem)] w-full">
-        {tiles.map((tile, i) => (
-          <div
-            key={i}
-            onClick={() => router.push(tile.href)} // Hardcoded hrefs only — no user input
-            className="
-              bg-white rounded-lg shadow-sm border text-center border-4 border-gray-400
-              p-[clamp(0.8rem,1.6vw,2.4rem)]
-              hover:shadow-md hover:bg-[#017ACB]/20
-              cursor-pointer transition w-full
-            "
-          >
-            <div className="flex flex-col items-center justify-center gap-1">
-              {tile.icon}
-              <h3
-                className="text-[clamp(1.1rem,1.4vw,1.6rem)] font-semibold text-gray-900"
-                style={styles.outfitFont}
-              >
-                {tile.label}
-              </h3>
-            </div>
-          </div>
-        ))}
-      </div>
-
-    </div>
   );
 }

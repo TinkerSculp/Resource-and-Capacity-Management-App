@@ -61,8 +61,6 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 
-const styles = { outfitFont: { fontFamily: "Outfit, sans-serif" } };
-
 /* =============================================================================
    COMPONENT: Checkbox — used inside all dropdown filter menus.
    ============================================================================= */
@@ -135,8 +133,8 @@ const tabClass = (isActive) => `
   px-4 py-2 rounded text-sm
   border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
-    : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
+    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
   }
   transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -164,9 +162,9 @@ const colBtnClass = `
 
 /* menuClass — fixed-position overlay, z-[30000] floats above sticky headers */
 const menuClass = `
-  dropdown-menu fixed bg-white text-black shadow-lg rounded
+  dropdown-menu fixed bg-white dark:bg-slate-800 text-black dark:text-slate-100 shadow-lg rounded
   min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto
-  z-[30000] border border-gray-300 pointer-events-auto
+  z-[30000] border border-gray-300 dark:border-slate-600 pointer-events-auto
 `;
 
 /* =============================================================================
@@ -606,25 +604,25 @@ export default function AssignmentsAllocationsPage() {
           <>
             {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
               <div key={val}
-                className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${resourceSort === val ? "font-bold" : ""}`}
+                className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${resourceSort === val ? "font-bold" : ""}`}
                 onClick={() => setResourceSort(resourceSort === val ? "" : val)}
               >
                 <Checkbox checked={resourceSort === val} />{label}
               </div>
             ))}
-            <div className="border-t my-2" />
+            <div className="border-t my-2 dark:border-slate-600" />
           </>
         )}
 
         {searchable && (
         <div className="px-2 pt-1 pb-1 border-b border-gray-300">
-          <input type="text" placeholder="Search name..." value={resourceSearch} onChange={e => setResourceSearch(e.target.value)} className="w-full px-2 py-1 text-sm border border-gray-400 rounded text-black hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black" onClick={e => e.stopPropagation()} />
+          <input type="text" placeholder="Search name..." value={resourceSearch} onChange={e => setResourceSearch(e.target.value)} className="w-full px-2 py-1 text-sm border border-gray-400 rounded text-black dark:bg-[#1f1f1f] dark:text-slate-100 dark:border-slate-600 dark:placeholder:text-slate-400 hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-slate-400" onClick={e => e.stopPropagation()} />
         </div>
         )}
 
         {/* "All" clears the filter */}
         <div
-          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? "font-bold" : ""}`}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.length === 0 ? "font-bold" : ""}`}
           onClick={() => setSelected([])}
         >
           <Checkbox checked={selected.length === 0} />All
@@ -632,7 +630,7 @@ export default function AssignmentsAllocationsPage() {
 
         {displayList.map(name => (
           <div key={name}
-            className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(name) ? "font-bold" : ""}`}
+            className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.includes(name) ? "font-bold" : ""}`}
             onClick={() => toggleSelection(name, setSelected, selected)}
           >
             <Checkbox checked={selected.includes(name)} />{name}
@@ -640,7 +638,7 @@ export default function AssignmentsAllocationsPage() {
         ))}
 
         {searchable && resourceSearch && displayList.length === 0 && (
-          <div className="px-3 py-2 text-sm text-gray-400">No results</div>
+          <div className="px-3 py-2 text-sm text-gray-400 dark:text-slate-500">No results</div>
         )}
       </>
     );
@@ -735,12 +733,12 @@ export default function AssignmentsAllocationsPage() {
                 <tr>
 
                   {/* EDIT — sticky left, always visible while scrolling right */}
-                  <th className="sticky left-0 top-0 z-[9999] bg-[#017ACB] px-2 sm:px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle [background-clip:padding-box]" style={styles.outfitFont}>
+                  <th className="sticky left-0 top-0 z-[9999] w-19 min-w-19 bg-[#017ACB] px-2 sm:px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle bg-clip-padding" style={styles.outfitFont}>
                     Edit
                   </th>
 
                   {/* RESOURCE NAME — sort + search + filter */}
-                  <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
+                  <th className="sticky left-19 top-0 z-[9998] px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB] min-w-[150px] bg-clip-padding" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>Resource Name</span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowResourceMenu, showResourceMenu)}>▼</button>
@@ -859,7 +857,7 @@ export default function AssignmentsAllocationsPage() {
                           const label = `${monthNames[parseInt(m.substring(4, 6), 10) - 1]} ${m.substring(0, 4)}`;
                           return (
                             <div key={m} data-month={m}
-                              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${startMonth === m ? "font-bold" : ""}`}
+                              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${startMonth === m ? "font-bold" : ""}`}
                               onClick={() => { setStartMonth(m); setShowStartMonthMenu(false); }}
                             >
                               <Checkbox checked={startMonth === m} />{label}
@@ -897,10 +895,10 @@ export default function AssignmentsAllocationsPage() {
                     <tr
                       key={index}
                       onClick={() => toggleHighlight(empId)}
-                      className={`cursor-pointer transition-colors hover:bg-[#017ACB]/20 ${isHighlighted ? "bg-[#CDE6F7]" : "bg-white"}`}
+                      className={`group cursor-pointer transition-colors hover:bg-[#017ACB]/20 ${isHighlighted ? "bg-[#CDE6F7]" : "bg-white"}`}
                     >
                       {/* EDIT — sticky left, stops row click propagation */}
-                      <td className="sticky left-0 z-30 px-2 sm:px-4 py-2 bg-white border-r border-black text-black whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      <td className={`sticky left-0 z-30 w-19 min-w-19 px-2 sm:px-4 py-2 border-r border-black text-black whitespace-nowrap ${isHighlighted ? "bg-[#CDE6F7]" : "bg-white group-hover:bg-[#017ACB]/20"}`} onClick={e => e.stopPropagation()}>
                         <button
                           onClick={e => { e.stopPropagation(); handleEditAllocation(row); }}
                           className="
@@ -919,7 +917,7 @@ export default function AssignmentsAllocationsPage() {
                       </td>
 
                       {/* DATA CELLS */}
-                      <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.employee?.emp_name}</td>
+                      <td className={`sticky left-19 z-20 px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap min-w-[150px] ${isHighlighted ? "bg-[#CDE6F7]" : "bg-white group-hover:bg-[#017ACB]/20"}`}>{row.employee?.emp_name}</td>
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.employee?.dept_name || ""}</td>
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.employee?.manager_name || ""}</td>
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.assignment?.project_name}</td>

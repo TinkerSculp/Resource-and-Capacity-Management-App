@@ -251,7 +251,7 @@ function SearchableDropdown({ label, value, onChange, options, placeholder }) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onClick={e => e.stopPropagation()}
-            className="w-full p-2 border-b border-gray-300 text-black focus:outline-none focus:ring-1 focus:ring-black text-sm hover:bg-[#017ACB]/20 transition"
+            className="w-full p-2 border-b border-gray-300 bg-[#f5f5f5] text-black placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-black text-sm hover:bg-[#017ACB]/20 transition"
             style={styles.outfitFont}
           />
           <div className="max-h-40 overflow-y-auto">
@@ -929,7 +929,7 @@ export default function DashboardPage() {
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''))}
               placeholder="Search..."
-              className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
+              className="px-3 py-2 border border-gray-500 bg-[#f5f5f5] rounded text-gray-700 placeholder:text-gray-600 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
               style={styles.outfitFont}
             />
           </div>

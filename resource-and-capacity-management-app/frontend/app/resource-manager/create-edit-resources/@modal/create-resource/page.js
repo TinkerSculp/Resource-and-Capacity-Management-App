@@ -55,7 +55,6 @@ const btnClass = `
   dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
-const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
 const BLOCKED_WORDS = [
   "kill","murder","stab","shoot","die","death","dead","attack","hate","sucks",
@@ -70,7 +69,6 @@ function containsBlockedWords(text) {
   return BLOCKED_WORDS.some(word => new RegExp(`\\b${word}\\b`, 'i').test(text));
 }
 
-const inputClass = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:border-black [&:focus]:shadow-[0_0_0_1px_black] w-full';
 const btnGrayClass = `
   px-4 py-2 rounded text-sm
   bg-gray-200 text-black border border-black/50 dark:border-slate-500/60
@@ -307,8 +305,6 @@ export default function CreateResourceModal() {
             <div className="mt-4">
               <label className="text-xs text-black dark:text-slate-100 font-semibold block mb-2" style={styles.outfitFont}>Status</label>
               <div className="flex gap-3 flex-wrap">
-                <button type="button" onClick={() => setFormData(prev => ({ ...prev, current_status: 'Active' }))} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${formData.current_status === 'Active' ? 'bg-green-200 border-green-600' : 'bg-green-50 hover:bg-green-100'}`} style={styles.outfitFont}>Active</button>
-                <button type="button" onClick={() => setFormData(prev => ({ ...prev, current_status: 'Inactive' }))} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${formData.current_status === 'Inactive' ? 'bg-red-200 border-red-600' : 'bg-red-50 hover:bg-red-100'}`} style={styles.outfitFont}>Inactive</button>
 
                 <button
                   type="button"
@@ -345,7 +341,7 @@ export default function CreateResourceModal() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
-              <button type="button" onClick={() => router.back()} disabled={loading} className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] w-full sm:w-auto" style={styles.outfitFont}>Cancel</button>
+              <button type="button" onClick={() => router.back()} disabled={loading} className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] w-full sm:w-auto" style={styles.outfitFont}>Cancel</button>
               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Creating...' : 'Create'}</button>
             </div>
           </form>

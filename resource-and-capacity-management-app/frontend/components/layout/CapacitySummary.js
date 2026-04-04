@@ -385,12 +385,12 @@ export default function CapacitySummary() {
                 </svg>
               </div>
               {showMonthDropdown && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full">
+                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-black dark:border-slate-600 rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full">
                   {selectableMonths.map(m => (
                     <div
                       key={m.value}
                       onClick={() => { setStartMonth(m.value); setShowMonthDropdown(false); }}
-                      className={`px-3 py-2 cursor-pointer text-sm text-black transition font-semibold hover:bg-[#017ACB]/20 ${startMonth === m.value ? 'bg-[#CDE6F7] font-bold' : ''}`}
+                      className={`px-3 py-2 cursor-pointer text-sm text-black dark:text-slate-100 transition font-semibold hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${startMonth === m.value ? 'bg-[#CDE6F7] dark:bg-[#017ACB]/40 font-bold' : ''}`}
                       style={styles.outfitFont}
                     >
                       {m.label}

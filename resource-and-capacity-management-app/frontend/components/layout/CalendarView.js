@@ -89,8 +89,8 @@ const btnDarkClass = `
 const filterTabClass = (isActive) => `
   px-4 py-2 rounded text-sm border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
-    : 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
+    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
   }
   transition-colors
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -686,17 +686,7 @@ export default function CalendarView() {
                           <button
                             key={mode}
                             aria-pressed={filterMode === mode}
-                            className={`
-                              px-4 py-2 rounded text-sm transition-colors border border-[#00263F]/50
-                              ${filterMode === mode
-                                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                                : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'}
-                              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-                              relative before:content-[''] before:absolute before:inset-0 before:rounded
-                              before:pointer-events-none
-                              before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-                            `}
+                            className={filterTabClass(filterMode === mode)}
                             onClick={() => setFilterMode(mode)}
                             style={styles.outfitFont}
                           >

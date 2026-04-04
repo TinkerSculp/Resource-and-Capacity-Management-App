@@ -45,6 +45,29 @@ import api from '@/lib/api';
 
 const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
+/* =============================================================================
+   TAB BUTTON CLASS BUILDER
+   Mirrors the Resources page All/Mine filter active/inactive states with
+   comprehensive styling including dark mode support and 3D button effects.
+   ============================================================================= */
+const tabClass = (isActive) => `
+  px-6 py-2 rounded text-sm
+  border border-[#00263F]/50 dark:border-slate-500/60
+  ${isActive
+    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
+    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
+  }
+  transition whitespace-nowrap
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
+  relative before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+`;
+
 function SummaryCardIcon({ defaultSrc, darkSrc, alt }) {
   return (
     <picture>
@@ -172,19 +195,7 @@ export default function DashboardSummary() {
             onClick={() => setFilter(mode)}
             aria-pressed={filter === mode}
             aria-label={ariaLabel}
-            className={`
-              px-[clamp(0.4rem,0.6vw,0.8rem)] py-[clamp(0.2rem,0.4vw,0.6rem)]
-              w-[clamp(3.5rem,4.5vw,5.5rem)] border border-[#00263F]/50
-              text-center cursor-pointer rounded text-[clamp(0.9rem,1vw,1.1rem)] transition
-              ${filter === mode
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'}
-              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-              relative before:content-[''] before:absolute before:inset-0 before:rounded
-              before:pointer-events-none
-              before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-            `}
+            className={tabClass(filter === mode)}
             style={styles.outfitFont}
           >
             {label}

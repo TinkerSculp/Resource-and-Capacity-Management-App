@@ -93,8 +93,8 @@ const dropClass = `
 ----------------------------------------------------------------------------- */
 const btnClass = `
   px-4 py-2 rounded text-sm
-  bg-[#017ACB] text-white border border-black
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  bg-[#017ACB] text-white border border-black dark:border-slate-500/60
+  hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
   dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
@@ -103,8 +103,26 @@ const btnClass = `
   before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
-
+/* SECONDARY BUTTON CLASS — mirrors the darker button style */
+const btnDarkClass = `
+  px-4 py-2 rounded text-sm
+  border border-black/50 dark:border-slate-500/60
+  bg-[#003A5C] text-white
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
+  shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
+  relative before:content-[''] before:absolute before:inset-0 before:rounded
+  before:pointer-events-none
+  before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
+`;
 /* -----------------------------------------------------------------------------
    UTILITY: fmt
    Safe number formatter — returns "0.00" for any invalid/null/NaN value.
@@ -142,12 +160,12 @@ function ActivityFilterDropdown({ label, value, setValue, options, searchable = 
 
   return (
     <div className="flex-1 min-w-[150px]" ref={ref}>
-      <label className="text-sm font-medium text-gray-700 mb-1 block" style={styles.outfitFont}>
+      <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-1 block" style={styles.outfitFont}>
         {label}
       </label>
       <div className="relative">
         <div
-          className="border border-black/50 rounded px-2 py-1.5 text-sm bg-white text-black cursor-pointer flex justify-between items-center hover:bg-[#017ACB]/20 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]"
+          className="border border-black/50 dark:border-slate-600 rounded px-2 py-1.5 text-sm bg-white dark:bg-[#1f1f1f] text-black dark:text-slate-100 cursor-pointer flex justify-between items-center hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]"
           onClick={() => { setOpen(o => !o); if (open) setSearch(""); }}
           style={styles.outfitFont}
         >
@@ -157,7 +175,7 @@ function ActivityFilterDropdown({ label, value, setValue, options, searchable = 
           </svg>
         </div>
         {open && (
-          <div className="absolute left-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full">
+          <div className="absolute left-0 top-full mt-1 bg-white dark:bg-slate-800 border border-black dark:border-slate-600 rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full">
             {searchable && (
               <div className="px-2 pt-1 pb-1 border-b border-gray-200">
                 <input
@@ -166,7 +184,7 @@ function ActivityFilterDropdown({ label, value, setValue, options, searchable = 
                   value={search}
                   onChange={e => setSearch(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
                   onClick={e => e.stopPropagation()}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#017ACB]/40 text-black"
+                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-[#1f1f1f] text-black dark:text-slate-100 placeholder:dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#017ACB]/40 dark:focus:ring-slate-400"
                   style={styles.outfitFont}
                 />
               </div>
@@ -175,7 +193,7 @@ function ActivityFilterDropdown({ label, value, setValue, options, searchable = 
               <div
                 key={opt.value}
                 onClick={() => { setValue(opt.value); setOpen(false); setSearch(""); }}
-                className={`px-3 py-2 cursor-pointer text-sm text-black hover:bg-[#017ACB]/20 transition ${value === opt.value ? "bg-[#CDE6F7]" : ""}`}
+                className={`px-3 py-2 cursor-pointer text-sm text-black dark:text-slate-100 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition ${value === opt.value ? "bg-[#CDE6F7] dark:bg-[#017ACB]/40" : ""}`}
                 style={styles.outfitFont}
               >
                 {opt.label}
@@ -577,7 +595,7 @@ export default function Report() {
   --------------------------------------------------------------------------- */
   if (!user || loadingMonths || loadingSummary) {
     return (
-      <div className="h-[600px] flex items-center justify-center bg-white">
+      <div className="h-[600px] flex items-center justify-center page-surface">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" aria-label="Loading capacity report" />
       </div>
     );
@@ -624,12 +642,12 @@ export default function Report() {
       return (
         <tbody>
           {filteredRows.map((row, idx) => (
-            <tr key={row.activity} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
-              <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium border border-black text-black" style={styles.outfitFont}>
+            <tr key={row.activity} className={idx % 2 === 0 ? "bg-gray-200 dark:bg-slate-700" : "bg-white dark:bg-[#212121]"}>
+              <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium border border-black dark:border-slate-600 text-black dark:text-slate-100" style={styles.outfitFont}>
                 {row.activity}
               </td>
               {activeMonths.map(m => (
-                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-black border border-black" style={styles.outfitFont}>
+                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-black dark:text-slate-100 border border-black dark:border-slate-600" style={styles.outfitFont}>
                   {fmt(row.months?.[m])}
                 </td>
               ))}
@@ -637,11 +655,11 @@ export default function Report() {
           ))}
           {/* Grand Total row — blue background matches the header */}
           <tr className="bg-[#017ACB] font-semibold">
-            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black text-white" style={styles.outfitFont}>Grand Total</td>
+            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black dark:border-slate-600 text-white" style={styles.outfitFont}>Grand Total</td>
             {activeMonths.map(m => {
               const total = filteredRows.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
               return (
-                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-white border border-black" style={styles.outfitFont}>
+                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-white border border-black dark:border-slate-600" style={styles.outfitFont}>
                   {fmt(total)}
                 </td>
               );
@@ -678,8 +696,8 @@ export default function Report() {
       return (
         <tbody>
           {filteredEmployees.map((emp, idx) => (
-            <tr key={emp.emp_name} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
-              <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium border border-black text-black" style={styles.outfitFont}>
+            <tr key={emp.emp_name} className={idx % 2 === 0 ? "bg-gray-200 dark:bg-slate-700" : "bg-white dark:bg-[#212121]"}>
+              <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium border border-black dark:border-slate-600 text-black dark:text-slate-100" style={styles.outfitFont}>
                 {emp.emp_name}
               </td>
               {activeMonths.map(m => {
@@ -701,8 +719,8 @@ export default function Report() {
                 return (
                   <td
                     key={m}
-                    className={`px-3 sm:px-6 py-2 sm:py-3 text-center border border-black ${
-                      isOver ? "bg-red-400 text-white font-bold" : "text-black"
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-center border border-black dark:border-slate-600 ${
+                      isOver ? "bg-red-400 text-white font-bold" : "text-black dark:text-slate-100"
                     }`}
                     style={styles.outfitFont}
                   >
@@ -714,11 +732,11 @@ export default function Report() {
           ))}
           {/* Grand Total row */}
           <tr className="bg-[#017ACB] font-semibold">
-            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black text-white" style={styles.outfitFont}>Grand Total</td>
+            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black dark:border-slate-600 text-white" style={styles.outfitFont}>Grand Total</td>
             {activeMonths.map(m => {
               const total = filteredEmployees.reduce((sum, r) => sum + (r.months?.[m] || 0), 0);
               return (
-                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-white border border-black" style={styles.outfitFont}>
+                <td key={m} className="px-3 sm:px-6 py-2 sm:py-3 text-center text-white border border-black dark:border-slate-600" style={styles.outfitFont}>
                   {fmt(total)}
                 </td>
               );
@@ -734,10 +752,10 @@ export default function Report() {
     return (
       <tbody>
         {categories.map((cat, idx) => (
-          <tr key={cat.label} className={idx % 2 === 0 ? "bg-gray-200" : "bg-white"}>
-            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black font-medium text-black" style={styles.outfitFont}>{cat.label}</td>
+          <tr key={cat.label} className={idx % 2 === 0 ? "bg-gray-200 dark:bg-slate-700" : "bg-white dark:bg-[#212121]"}>
+            <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black dark:border-slate-600 font-medium text-black dark:text-slate-100" style={styles.outfitFont}>{cat.label}</td>
             {cat.values.map((val, i) => (
-              <td key={i} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black text-black" style={styles.outfitFont}>
+              <td key={i} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black dark:border-slate-600 text-black dark:text-slate-100" style={styles.outfitFont}>
                 {fmt(val)}
               </td>
             ))}
@@ -746,23 +764,23 @@ export default function Report() {
 
         {/* Total Allocated — blue summary row */}
         <tr className="bg-[#017ACB] font-semibold">
-          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black text-white" style={styles.outfitFont}>Total Allocated</td>
+          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black dark:border-slate-600 text-white" style={styles.outfitFont}>Total Allocated</td>
           {totals.map((val, idx) => (
-            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black text-white" style={styles.outfitFont}>{fmt(val)}</td>
+            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black dark:border-slate-600 text-white" style={styles.outfitFont}>{fmt(val)}</td>
           ))}
         </tr>
 
-        <tr className="bg-white">
-          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black font-semibold text-black" style={styles.outfitFont}>Total People Capacity</td>
+        <tr className="bg-white dark:bg-[#212121]">
+          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black dark:border-slate-600 font-semibold text-black dark:text-slate-100" style={styles.outfitFont}>Total People Capacity</td>
           {peopleCapacity.map((val, idx) => (
-            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black text-black" style={styles.outfitFont}>{fmt(val)}</td>
+            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black dark:border-slate-600 text-black dark:text-slate-100" style={styles.outfitFont}>{fmt(val)}</td>
           ))}
         </tr>
 
-        <tr className="bg-gray-200">
-          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black font-semibold text-black" style={styles.outfitFont}>Remaining Capacity</td>
+        <tr className="bg-gray-200 dark:bg-slate-700">
+          <td className="px-3 sm:px-6 py-2 sm:py-3 border border-black dark:border-slate-600 font-semibold text-black dark:text-slate-100" style={styles.outfitFont}>Remaining Capacity</td>
           {remainingCapacity.map((val, idx) => (
-            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black text-black" style={styles.outfitFont}>{fmt(val)}</td>
+            <td key={idx} className="px-3 sm:px-6 py-2 sm:py-3 text-center border border-black dark:border-slate-600 text-black dark:text-slate-100" style={styles.outfitFont}>{fmt(val)}</td>
           ))}
         </tr>
       </tbody>
@@ -783,7 +801,7 @@ export default function Report() {
 
           {/* LEFT: Title + Back button */}
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-xl sm:text-3xl font-bold text-gray-900" style={styles.outfitFont}>
+            <h2 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>
               Capacity Report
             </h2>
 
@@ -808,7 +826,7 @@ export default function Report() {
               }
               value={pageSearch}
               onChange={e => setPageSearch(e.target.value)}
-              className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-black"
+              className="px-3 py-2 border border-gray-500 dark:border-slate-600 bg-[#f5f5f5] dark:bg-[#1f1f1f] rounded text-gray-700 dark:text-slate-100 placeholder:text-gray-600 dark:placeholder:text-slate-400 text-sm w-64 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition-colors focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-slate-400"
               style={styles.outfitFont}
             />
           </div>
@@ -818,7 +836,7 @@ export default function Report() {
 
             {/* VIEW MODE SELECTOR */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-700 whitespace-nowrap" style={styles.outfitFont}>View:</label>
+              <label className="text-sm text-gray-700 dark:text-slate-200 whitespace-nowrap" style={styles.outfitFont}>View:</label>
               <div className="relative" ref={viewDropdownRef}>
                 <div
                   className={`${dropClass} flex justify-between items-center cursor-pointer min-w-[220px]`}
@@ -833,7 +851,7 @@ export default function Report() {
                   </svg>
                 </div>
                 {showViewDropdown && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 min-w-full">
+                  <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-black dark:border-slate-600 rounded shadow-lg z-50 min-w-full">
                     {[
                       { value: "month",    label: "Allocation per Category" },
                       { value: "person",   label: "Allocation per Person"   },
@@ -842,7 +860,7 @@ export default function Report() {
                       <div
                         key={opt.value}
                         onClick={() => { setViewMode(opt.value); setShowViewDropdown(false); }}
-                        className={`px-3 py-2 cursor-pointer text-sm text-black hover:bg-[#017ACB]/20 transition ${viewMode === opt.value ? "bg-[#CDE6F7]" : ""}`}
+                        className={`px-3 py-2 cursor-pointer text-sm text-black dark:text-slate-100 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition ${viewMode === opt.value ? "bg-[#CDE6F7] dark:bg-[#017ACB]/40" : ""}`}
                         style={styles.outfitFont}
                       >
                         {opt.label}
@@ -855,7 +873,7 @@ export default function Report() {
 
             {/* START MONTH SELECTOR */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-700 whitespace-nowrap" style={styles.outfitFont}>Start Month:</label>
+              <label className="text-sm text-gray-700 dark:text-slate-200 whitespace-nowrap" style={styles.outfitFont}>Start Month:</label>
               <div className="relative" ref={monthDropdownRef}>
                 <div
                   className={`${dropClass} flex justify-between items-center cursor-pointer`}
@@ -869,7 +887,7 @@ export default function Report() {
                 </div>
                 {showMonthDropdown && (
                   <div
-                    className="absolute right-0 top-full mt-1 bg-white border border-black rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full"
+                    className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-black dark:border-slate-600 rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full"
                     ref={el => {
                       // Scroll the selected month into view when the dropdown opens
                       if (el) {
@@ -883,7 +901,7 @@ export default function Report() {
                         key={m.value}
                         data-selected={startMonth === m.value ? "true" : "false"}
                         onClick={() => { setStartMonth(m.value); setShowMonthDropdown(false); }}
-                        className={`px-3 py-2 cursor-pointer text-sm text-black hover:bg-[#017ACB]/20 transition ${startMonth === m.value ? "bg-[#CDE6F7]" : ""}`}
+                        className={`px-3 py-2 cursor-pointer text-sm text-black dark:text-slate-100 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition ${startMonth === m.value ? "bg-[#CDE6F7] dark:bg-[#017ACB]/40" : ""}`}
                         style={styles.outfitFont}
                       >
                         {m.label}
@@ -959,16 +977,16 @@ export default function Report() {
             overflow-y-auto + max-h-[70vh] — vertical scroll within viewport.
             sticky thead — header row stays visible while scrolling down.
             Category view uses months; person + activity use reportMonths. */}
-        <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+        <div className="border dark:border-slate-600 rounded-lg shadow-sm bg-white dark:bg-[#212121] overflow-hidden">
           <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
-            <table className="min-w-full text-sm border-collapse border border-black">
+            <table className="min-w-full text-sm border-collapse border border-black dark:border-slate-600">
               <thead className="bg-[#017ACB] text-white sticky top-0 z-10">
                 <tr>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-semibold border border-black whitespace-nowrap" style={styles.outfitFont}>
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-semibold border border-black dark:border-slate-600 whitespace-nowrap" style={styles.outfitFont}>
                     Row Labels
                   </th>
                   {(viewMode === "month" ? months : reportMonths).map(month => (
-                    <th key={month} className="px-3 sm:px-6 py-2 sm:py-3 text-center font-semibold border border-black whitespace-nowrap" style={styles.outfitFont}>
+                    <th key={month} className="px-3 sm:px-6 py-2 sm:py-3 text-center font-semibold border border-black dark:border-slate-600 whitespace-nowrap" style={styles.outfitFont}>
                       {month}
                     </th>
                   ))}

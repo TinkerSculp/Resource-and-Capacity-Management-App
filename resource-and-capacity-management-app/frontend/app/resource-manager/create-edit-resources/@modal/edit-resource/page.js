@@ -363,7 +363,7 @@ export default function EditResourceModal() {
 
                 <button
                   type="button"
-                  onClick={() => handleStatusChange('Active')}
+                  onClick={() => setStatusValue('Active')}
                   className={`
                     px-4 py-2 rounded text-sm text-black dark:text-slate-100 font-semibold border border-black/50 dark:border-slate-600 transition
                     shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -379,7 +379,7 @@ export default function EditResourceModal() {
 
                 <button
                   type="button"
-                  onClick={() => handleStatusChange('Inactive')}
+                  onClick={() => setStatusValue('Inactive')}
                   className={`
                     px-4 py-2 rounded text-sm text-black dark:text-slate-100 font-semibold border border-black/50 dark:border-slate-600 transition
                     shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -393,12 +393,10 @@ export default function EditResourceModal() {
                   Inactive
                 </button>
 
-                <button type="button" onClick={() => setStatusValue('Active')} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Active' ? 'bg-green-200 border-green-600' : 'bg-green-50 hover:bg-green-100'}`} style={styles.outfitFont}>Active</button>
-                <button type="button" onClick={() => setStatusValue('Inactive')} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Inactive' ? 'bg-red-200 border-red-600' : 'bg-red-50 hover:bg-red-100'}`} style={styles.outfitFont}>Inactive</button>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
-              <button type="button" onClick={() => router.back()} disabled={loading} className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] w-full sm:w-auto" style={styles.outfitFont}>Cancel</button>
+              <button type="button" onClick={() => router.back()} disabled={loading} className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition w-full sm:w-auto" style={styles.outfitFont}>Cancel</button>
               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
             </div>
           </form>

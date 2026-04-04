@@ -117,8 +117,8 @@ const tabClass = (isActive) => `
   px-6 py-2 rounded text-sm
   border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
-    : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
+    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
   }
   transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -555,7 +555,7 @@ export default function ResourcesPage() {
     );
   };
 
-  const dropMenuClass = "dropdown-menu bg-white text-black shadow-lg rounded min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto border border-gray-300 pointer-events-auto";
+  const dropMenuClass = "dropdown-menu bg-white dark:bg-slate-800 text-black dark:text-slate-100 shadow-lg rounded min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto border border-gray-300 dark:border-slate-600 pointer-events-auto";
 
   /* ---------------------------------------------------------------------------
      LOADING STATE
@@ -593,7 +593,7 @@ export default function ResourcesPage() {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
             maxLength={100}
-            className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
+            className="px-3 py-2 border border-gray-500 dark:border-slate-600 bg-[#f5f5f5] dark:bg-[#1f1f1f] rounded text-gray-700 dark:text-slate-100 placeholder:text-gray-600 dark:placeholder:text-slate-400 text-sm w-64 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition-colors focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-slate-400"
             style={styles.outfitFont}
           />
         </div>
@@ -645,30 +645,30 @@ export default function ResourcesPage() {
               <tr>
 
                 {/* EDIT — sticky left, always visible when scrolling right */}
-                <th className="sticky left-0 top-0 z-[9999] bg-[#017ACB] px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle [background-clip:padding-box]" style={styles.outfitFont}>
+                <th className="sticky left-0 top-0 z-[9999] w-19 min-w-19 bg-[#017ACB] px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle bg-clip-padding" style={styles.outfitFont}>
                   Edit
                 </th>
 
                 {/* NAME — sort + filter */}
-                <th className="px-2 py-2 text-left font-semibold border-l border-black border-r border-black min-w-[150px] relative" style={styles.outfitFont}>
+                <th className="sticky left-19 top-0 z-[9998] bg-[#017ACB] px-2 py-2 text-left font-semibold border-x border-black min-w-[150px] bg-clip-padding" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Name</span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowNameMenu, showNameMenu)}>▼</button>
                   </div>
                   {showNameMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 text-center">Sort by name</div>
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-slate-400 text-center">Sort by name</div>
                       {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
-                        <div key={val} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setNameSort(prev => prev === val ? "none" : val)}>
+                        <div key={val} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => setNameSort(prev => prev === val ? "none" : val)}>
                           <Checkbox checked={nameSort === val} />{label}
                         </div>
                       ))}
-                      <div className="border-t mt-1 pt-1 px-3 py-2 text-xs font-semibold text-gray-500 text-center">Filter by name</div>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedNames([])}>
+                      <div className="border-t dark:border-slate-600 mt-1 pt-1 px-3 py-2 text-xs font-semibold text-gray-500 dark:text-slate-400 text-center">Filter by name</div>
+                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => setSelectedNames([])}>
                         <Checkbox checked={selectedNames.length === 0} />All
                       </div>
                       {availableNames.map(name => (
-                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(name, setSelectedNames, selectedNames)}>
+                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => toggleSelection(name, setSelectedNames, selectedNames)}>
                           <Checkbox checked={selectedNames.includes(name)} />{name}
                         </div>
                       ))}
@@ -684,11 +684,11 @@ export default function ResourcesPage() {
                   </div>
                   {showTitleMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedTitles([])}>
+                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => setSelectedTitles([])}>
                         <Checkbox checked={selectedTitles.length === 0} />All
                       </div>
                       {availableTitles.map(title => (
-                        <div key={title} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(title, setSelectedTitles, selectedTitles)}>
+                        <div key={title} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => toggleSelection(title, setSelectedTitles, selectedTitles)}>
                           <Checkbox checked={selectedTitles.includes(title)} />{title}
                         </div>
                       ))}
@@ -707,11 +707,11 @@ export default function ResourcesPage() {
                   </div>
                   {showReportsToMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedReportsTo([])}>
+                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => setSelectedReportsTo([])}>
                         <Checkbox checked={selectedReportsTo.length === 0} />All
                       </div>
                       {availableReportsTo.map(name => (
-                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(name, setSelectedReportsTo, selectedReportsTo)}>
+                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => toggleSelection(name, setSelectedReportsTo, selectedReportsTo)}>
                           <Checkbox checked={selectedReportsTo.includes(name)} />{name}
                         </div>
                       ))}
@@ -727,11 +727,11 @@ export default function ResourcesPage() {
                   </div>
                   {showManagerLevelMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedManagerLevels([])}>
+                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => setSelectedManagerLevels([])}>
                         <Checkbox checked={selectedManagerLevels.length === 0} />All
                       </div>
                       {availableManagerLevels.map(name => (
-                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(name, setSelectedManagerLevels, selectedManagerLevels)}>
+                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => toggleSelection(name, setSelectedManagerLevels, selectedManagerLevels)}>
                           <Checkbox checked={selectedManagerLevels.includes(name)} />{name}
                         </div>
                       ))}
@@ -747,11 +747,11 @@ export default function ResourcesPage() {
                   </div>
                   {showDirectorLevelMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedDirectorLevels([])}>
+                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => setSelectedDirectorLevels([])}>
                         <Checkbox checked={selectedDirectorLevels.length === 0} />All
                       </div>
                       {availableDirectorLevels.map(name => (
-                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(name, setSelectedDirectorLevels, selectedDirectorLevels)}>
+                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => toggleSelection(name, setSelectedDirectorLevels, selectedDirectorLevels)}>
                           <Checkbox checked={selectedDirectorLevels.includes(name)} />{name}
                         </div>
                       ))}
@@ -770,11 +770,11 @@ export default function ResourcesPage() {
                   </div>
                   {showCurrentStatusMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedCurrentStatuses([])}>
+                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => setSelectedCurrentStatuses([])}>
                         <Checkbox checked={selectedCurrentStatuses.length === 0} />All
                       </div>
                       {availableCurrentStatuses.map(status => (
-                        <div key={status} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(status, setSelectedCurrentStatuses, selectedCurrentStatuses)}>
+                        <div key={status} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold" onClick={() => toggleSelection(status, setSelectedCurrentStatuses, selectedCurrentStatuses)}>
                           <Checkbox checked={selectedCurrentStatuses.includes(status)} />{status}
                         </div>
                       ))}
@@ -799,7 +799,7 @@ export default function ResourcesPage() {
                   <div ref={monthMenuRef} className={dropMenuClass}>
                     {[...monthOptions].reverse().map(m => (
                       <div key={m.key} data-month-key={m.key}
-                        className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold"
+                        className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold"
                         onClick={() => handleMonthSelect(m)}
                       >
                         <Checkbox checked={selectedMonth?.key === m.key} />
@@ -828,7 +828,7 @@ export default function ResourcesPage() {
                     onClick={() => setSelectedEmpId(isSelected ? null : employee.emp_id)}
                   >
                     {/* EDIT — sticky left */}
-                    <td className="sticky left-0 z-30 px-4 py-2 bg-white border-r border-black text-black whitespace-nowrap">
+                    <td className={`sticky left-0 z-30 w-19 min-w-19 px-4 py-2 border-r border-black text-black whitespace-nowrap ${isSelected ? "bg-[#CDE6F7]" : "bg-white"}`}>
                       <Link
                         href={`/resource-manager/create-edit-resources/edit-resource?id=${employee.emp_id}`}
                         className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:text-white transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(0,0,0,0.15)] inline-block"
@@ -840,7 +840,7 @@ export default function ResourcesPage() {
                     </td>
 
                     {/* DATA CELLS */}
-                    <td className="px-2 py-2 text-black border-l border-black border-r border-black" style={styles.outfitFont}>{employee.emp_name}</td>
+                    <td className={`sticky left-19 z-20 px-2 py-2 text-black border-x border-black min-w-[150px] ${isSelected ? "bg-[#CDE6F7]" : "bg-white"}`} style={styles.outfitFont}>{employee.emp_name}</td>
                     <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{employee.emp_title}</td>
                     <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{getDepartmentName(employee.dept_no)}</td>
                     <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{getReportsToName(employee)}</td>
@@ -856,7 +856,7 @@ export default function ResourcesPage() {
                       </td>
                     {/* STATUS BADGE — background colour only, text always black */}
                     <td className="px-2 py-2 border-r border-black" style={styles.outfitFont}>
-                      <span className={`px-2 py-1 text-xs rounded text-black ${getCurrentStatus(employee) === "Active" ? "bg-green-100" : "bg-red-100"}`}>
+                      <span className={`px-2 py-1 text-xs rounded text-black ${getCurrentStatus(employee) === "Active" ? "bg-green-100 dark:bg-green-900/70" : "bg-red-100 dark:bg-red-900/70"}`}>
                         {getCurrentStatus(employee)}
                       </span>
                     </td>

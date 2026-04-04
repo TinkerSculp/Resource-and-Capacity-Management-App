@@ -67,17 +67,21 @@ const btnDarkClass = `
 `;
 
 const tabClass = (isActive) => `
-  px-4 py-2 rounded text-sm border border-black/50
+  px-6 py-2 rounded text-sm
+  border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-    : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
+    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
   }
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-  transition whitespace-nowrap
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const colBtnClass = `
@@ -91,9 +95,9 @@ const colBtnClass = `
 `;
 
 const menuClass = `
-  dropdown-menu fixed bg-white text-black shadow-lg rounded
+  dropdown-menu fixed bg-white dark:bg-slate-800 text-black dark:text-slate-100 shadow-lg rounded
   min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto
-  z-[30000] border border-gray-300 pointer-events-auto
+  z-[30000] border border-gray-300 dark:border-slate-600 pointer-events-auto
 `;
 
 /* =============================================================================
@@ -364,25 +368,25 @@ export default function TeamMemberInitiativesPage() {
         <>
           {[{ val: 'asc', label: 'A → Z' }, { val: 'desc', label: 'Z → A' }].map(({ val, label }) => (
             <div key={val}
-              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${projectSort === val ? 'font-bold' : ''}`}
+              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${projectSort === val ? 'font-bold' : ''}`}
               onClick={() => setProjectSort(projectSort === val ? '' : val)}
             >
               <Checkbox checked={projectSort === val} />{label}
             </div>
           ))}
-          <div className="border-t my-1 text-xs font-semibold text-gray-500 px-3 py-1">Filter by project</div>
+          <div className="border-t my-1 dark:border-slate-600 text-xs font-semibold text-gray-500 dark:text-slate-400 px-3 py-1">Filter by project</div>
         </>
       )}
       {/* "All" clears the filter for this column */}
       <div
-        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? 'font-bold' : ''}`}
+        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.length === 0 ? 'font-bold' : ''}`}
         onClick={() => setSelected([])}
       >
         <Checkbox checked={selected.length === 0} />All
       </div>
       {available.map(val => (
         <div key={val}
-          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(val) ? 'font-bold' : ''}`}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.includes(val) ? 'font-bold' : ''}`}
           onClick={() => toggleSelection(val, setSelected, selected)}
         >
           <Checkbox checked={selected.includes(val)} />{val}
