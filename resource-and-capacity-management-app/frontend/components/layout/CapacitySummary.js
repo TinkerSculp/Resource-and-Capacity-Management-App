@@ -61,8 +61,8 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  LineElement,    // Required for the mixed line dataset
-  PointElement,   // Required for data points on the line dataset
+  LineElement,
+  PointElement,
   Tooltip,
   Legend
 } from 'chart.js';
@@ -86,13 +86,12 @@ ChartJS.register(
 const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
 /* -----------------------------------------------------------------------------
-   SHARED BUTTON CLASS — neumorphic, matches all other pages in the app.
+   SHARED BUTTON CLASSES — neumorphic, matches all other pages in the app.
 ----------------------------------------------------------------------------- */
 const btnClass = `
   w-full sm:w-auto
   px-4 py-2 rounded text-sm
-  bg-[#017ACB] text-white border border-black/50
-  dark:border-slate-500/60
+  bg-[#017ACB] text-white border border-black/50 dark:border-slate-500/60
   hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100 transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
   dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
@@ -149,16 +148,22 @@ function fmt(n) {
   return Number(n).toFixed(2);
 }
 
+/* =============================================================================
+   COMPONENT: CapacitySummary
+   ============================================================================= */
 export default function CapacitySummary() {
 
+  /* ---------------------------------------------------------------------------
+     STATE
+  --------------------------------------------------------------------------- */
   const [user, setUser]                           = useState(null);
   const [selectableMonths, setSelectableMonths]   = useState([]);
   const [startMonth, setStartMonth]               = useState(null);
-  const [months, setMonths]                       = useState([]);       // Formatted month labels for table headers
-  const [categories, setCategories]               = useState([]);       // { label, values[] } per category
-  const [totals, setTotals]                       = useState([]);       // Total allocated per month
-  const [peopleCapacity, setPeopleCapacity]       = useState([]);       // Total capacity per month
-  const [remainingCapacity, setRemainingCapacity] = useState([]);       // Capacity - allocated
+  const [months, setMonths]                       = useState([]);
+  const [categories, setCategories]               = useState([]);
+  const [totals, setTotals]                       = useState([]);
+  const [peopleCapacity, setPeopleCapacity]       = useState([]);
+  const [remainingCapacity, setRemainingCapacity] = useState([]);
   const [loadingMonths, setLoadingMonths]         = useState(true);
   const [loadingSummary, setLoadingSummary]       = useState(true);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
@@ -169,8 +174,6 @@ export default function CapacitySummary() {
   /* ---------------------------------------------------------------------------
      EFFECT 1: LOAD USER SESSION
      Reads and validates the user from localStorage on mount.
-     Both user and token are cleared on parse failure — prevents a broken
-     session from persisting where one exists and the other doesn't.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
@@ -185,9 +188,8 @@ export default function CapacitySummary() {
 
   /* ---------------------------------------------------------------------------
      EFFECT 2: LOAD SELECTABLE MONTHS
-     Runs once user is confirmed. Fetches months from the backend and
-     auto-selects the current month, or the most recent available if not found.
-     JWT token is attached automatically by the Axios interceptor.
+     Fetches available months from the backend and auto-selects the current
+     month, or falls back to the most recent available.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
@@ -204,7 +206,6 @@ export default function CapacitySummary() {
 
         setSelectableMonths(data.months);
 
-        // Auto-select the current month, or fall back to the most recent available
         const today         = new Date();
         const currentYYYYMM = today.getFullYear() * 100 + (today.getMonth() + 1);
         const match         = data.months.find(m => m.value === currentYYYYMM);
@@ -224,13 +225,7 @@ export default function CapacitySummary() {
   /* ---------------------------------------------------------------------------
      EFFECT 3: LOAD SUMMARY DATA
      Re-runs whenever user or startMonth changes. Fetches the 6-month rolling
-     window of capacity and allocation data starting from startMonth.
-
-     SECURITY:
-     • startMonth is passed through encodeURIComponent() — prevents injection
-       or malformed requests from a non-numeric value reaching the backend.
-     • All arrays default to [] if missing from the response — prevents
-       Chart.js or table renders from receiving undefined datasets.
+     window of capacity and allocation data.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user || !startMonth) return;
@@ -241,7 +236,6 @@ export default function CapacitySummary() {
         const res  = await api.get(`/capacity-summary?start=${encodeURIComponent(startMonth)}&months=6`);
         const data = res?.data || {};
 
-        // Default to [] on missing fields — Chart.js crashes on undefined datasets
         setMonths(data.months                       || []);
         setCategories(data.categories               || []);
         setTotals(data.totals                       || []);
@@ -260,7 +254,6 @@ export default function CapacitySummary() {
 
   /* ---------------------------------------------------------------------------
      EFFECT 4: CLOSE MONTH DROPDOWN ON OUTSIDE CLICK
-     Attaches and removes the listener in sync with dropdown open state.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     const handler = (e) => {
@@ -273,7 +266,6 @@ export default function CapacitySummary() {
 
   /* ---------------------------------------------------------------------------
      LOADING STATE
-     Shown while user session, months, or summary data are still loading.
   --------------------------------------------------------------------------- */
   if (!user || loadingMonths || loadingSummary) {
     return (
@@ -285,23 +277,18 @@ export default function CapacitySummary() {
 
   /* ---------------------------------------------------------------------------
      CHART DATA
-     ---------------------------------------------------------------------------
      Mixed chart: stacked bar datasets per category + a line for total capacity.
-     Colors are assigned by index — matched to the category order from the backend.
-     The line dataset uses yAxisID: 'y' so it shares the same axis as the bars.
   --------------------------------------------------------------------------- */
   const chartData = {
     labels: months,
     datasets: [
-      // One stacked bar dataset per allocation category
       ...categories.map((cat, idx) => ({
         type:            'bar',
         label:           cat.label,
         data:            cat.values || [],
         backgroundColor: ['#FFC000', '#215F9A', '#02D6EC', '#A6A6A6'][idx % 4],
-        stack:           'alloc' // All bars stack into the same group
+        stack:           'alloc',
       })),
-      // Line overlay showing total people capacity — rendered above the bars
       {
         type:            'line',
         label:           'Total People Capacity',
@@ -309,20 +296,19 @@ export default function CapacitySummary() {
         borderColor:     '#BF0000',
         backgroundColor: '#BF0000',
         borderWidth:     2,
-        tension:         0.2, // Slight curve — easier to follow across months
-        yAxisID:         'y'
+        tension:         0.2,
+        yAxisID:         'y',
       }
     ]
   };
 
-  // Detect mobile for aspectRatio — narrower ratio on small screens avoids squishing
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const isMobile  = typeof window !== 'undefined' && window.innerWidth < 640;
   const isDarkMode = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
   const chartOptions = {
     responsive:          true,
     maintainAspectRatio: true,
-    aspectRatio:         isMobile ? 1 : 2, // Square on mobile, 2:1 on desktop
+    aspectRatio:         isMobile ? 1 : 2,
     plugins: {
       legend: {
         position: 'top',
@@ -333,13 +319,13 @@ export default function CapacitySummary() {
       x: {
         stacked: true,
         ticks: { color: isDarkMode ? '#cbd5e1' : '#374151' },
-        grid: { color: isDarkMode ? 'rgba(148,163,184,0.35)' : 'rgba(0,0,0,0.1)' }
+        grid:  { color: isDarkMode ? 'rgba(148,163,184,0.35)' : 'rgba(0,0,0,0.1)' }
       },
       y: {
-        stacked: true,
+        stacked:      true,
         beginAtZero: true,
         ticks: { color: isDarkMode ? '#cbd5e1' : '#374151' },
-        grid: { color: isDarkMode ? 'rgba(148,163,184,0.35)' : 'rgba(0,0,0,0.1)' }
+        grid:  { color: isDarkMode ? 'rgba(148,163,184,0.35)' : 'rgba(0,0,0,0.1)' }
       }
     }
   };
@@ -351,19 +337,17 @@ export default function CapacitySummary() {
     <div className="w-full min-h-screen page-surface">
       <main className="max-w-full mx-auto px-3 sm:px-6 lg:px-8 py-4">
 
-        {/* PAGE HEADER */}
+        {/* =====================================================================
+            PAGE HEADER — title, back button, start month selector
+        ===================================================================== */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>
               Capacity Summary
             </h2>
 
-            {/* Back to Dashboard — neumorphic style via btnClass */}
-            <button
-              onClick={() => router.back()}
-              className={btnDarkClass}
-              style={styles.outfitFont}
-            >
+            <button onClick={() => router.back()} className={btnDarkClass} style={styles.outfitFont}>
               Back to Dashboard
             </button>
           </div>
@@ -373,24 +357,34 @@ export default function CapacitySummary() {
             <label className="text-sm font-medium text-gray-700 dark:text-slate-200 whitespace-nowrap" style={styles.outfitFont}>
               Start Month:
             </label>
+
             <div className="relative w-full sm:w-auto" ref={monthDropdownRef}>
+
+              {/* Dropdown trigger */}
               <div
                 className={`${dropClass} flex justify-between items-center cursor-pointer`}
                 onClick={() => setShowMonthDropdown(o => !o)}
                 style={styles.outfitFont}
               >
                 <span>{selectableMonths.find(m => m.value === startMonth)?.label || 'Select month'}</span>
-                <svg className={`w-4 h-4 ml-2 transition-transform flex-shrink-0 ${showMonthDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <svg
+                  className={`w-4 h-4 ml-2 transition-transform flex-shrink-0 ${showMonthDropdown ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
+
+              {/* Dropdown options — normal weight text, no bold */}
               {showMonthDropdown && (
                 <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-black dark:border-slate-600 rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full">
                   {selectableMonths.map(m => (
                     <div
                       key={m.value}
                       onClick={() => { setStartMonth(m.value); setShowMonthDropdown(false); }}
-                      className={`px-3 py-2 cursor-pointer text-sm text-black dark:text-slate-100 transition font-semibold hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${startMonth === m.value ? 'bg-[#CDE6F7] dark:bg-[#017ACB]/40 font-bold' : ''}`}
+                      className={`px-3 py-2 cursor-pointer text-sm text-black dark:text-slate-100 transition hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${
+                        startMonth === m.value ? 'bg-[#CDE6F7] dark:bg-[#017ACB]/40' : ''
+                      }`}
                       style={styles.outfitFont}
                     >
                       {m.label}
@@ -402,51 +396,91 @@ export default function CapacitySummary() {
           </div>
         </div>
 
-        {/* CAPACITY TABLE
-            overflow-x-auto allows horizontal scrolling on narrow screens.
-            All numeric values pass through fmt() — no NaN or undefined in cells. */}
+        {/* =====================================================================
+            CAPACITY TABLE
+            overflow-x-auto handles horizontal scrolling on narrow screens.
+            All numeric values pass through fmt() — no NaN or undefined in cells.
+        ===================================================================== */}
         <div className="table-surface overflow-x-auto border rounded-lg shadow-sm bg-white mb-6 -mx-3 sm:mx-0">
           <table className="min-w-max w-full border-collapse text-xs sm:text-sm text-gray-700 dark:text-slate-100">
             <thead className="bg-[#017ACB] text-white">
               <tr>
-                <th className="px-3 sm:px-4 py-2 border text-left whitespace-normal" style={{ ...styles.outfitFont, width: '150px', minWidth: '100px' }}>Category</th>
+                <th
+                  className="px-3 sm:px-4 py-2 border text-left whitespace-normal"
+                  style={{ ...styles.outfitFont, width: '150px', minWidth: '100px' }}
+                >
+                  Category
+                </th>
                 {months.map(month => (
-                  <th key={month} className="px-2 py-2 border text-center whitespace-nowrap" style={{ ...styles.outfitFont, width: '85px', minWidth: '75px' }}>{month}</th>
+                  <th
+                    key={month}
+                    className="px-2 py-2 border text-center whitespace-nowrap"
+                    style={{ ...styles.outfitFont, width: '85px', minWidth: '75px' }}
+                  >
+                    {month}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
+
+              {/* Category rows */}
               {categories.map(cat => (
                 <tr key={cat.label}>
-                  <td className="px-3 sm:px-4 py-2 border font-semibold text-black dark:text-slate-100" style={styles.outfitFont}>{cat.label}</td>
+                  <td className="px-3 sm:px-4 py-2 border font-semibold text-black dark:text-slate-100" style={styles.outfitFont}>
+                    {cat.label}
+                  </td>
                   {cat.values.map((val, idx) => (
-                    <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">{fmt(val)}</td>
+                    <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">
+                      {fmt(val)}
+                    </td>
                   ))}
                 </tr>
               ))}
+
+              {/* Total Allocated row */}
               <tr className="bg-[#017ACB]">
-                <td className="px-3 sm:px-4 py-2 border border-black font-bold text-white" style={styles.outfitFont}>Total Allocated</td>
+                <td className="px-3 sm:px-4 py-2 border border-black font-bold text-white" style={styles.outfitFont}>
+                  Total Allocated
+                </td>
                 {totals.map((val, idx) => (
-                  <td key={idx} className="px-3 sm:px-4 py-2 border border-black text-center text-white font-bold">{fmt(val)}</td>
+                  <td key={idx} className="px-3 sm:px-4 py-2 border border-black text-center text-white font-bold">
+                    {fmt(val)}
+                  </td>
                 ))}
               </tr>
-              <tr className="bg-gray-50">
-                <td className="px-3 sm:px-4 py-2 border font-bold text-black dark:text-slate-100" style={styles.outfitFont}>Total People Capacity</td>
+
+              {/* Total People Capacity row */}
+              <tr className="bg-gray-50 dark:bg-slate-800/50">
+                <td className="px-3 sm:px-4 py-2 border font-bold text-black dark:text-slate-100" style={styles.outfitFont}>
+                  Total People Capacity
+                </td>
                 {peopleCapacity.map((val, idx) => (
-                  <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">{fmt(val)}</td>
+                  <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">
+                    {fmt(val)}
+                  </td>
                 ))}
               </tr>
-              <tr className="bg-gray-50">
-                <td className="px-3 sm:px-4 py-2 border font-bold text-black dark:text-slate-100" style={styles.outfitFont}>Remaining Capacity</td>
+
+              {/* Remaining Capacity row */}
+              <tr className="bg-gray-50 dark:bg-slate-800/50">
+                <td className="px-3 sm:px-4 py-2 border font-bold text-black dark:text-slate-100" style={styles.outfitFont}>
+                  Remaining Capacity
+                </td>
                 {remainingCapacity.map((val, idx) => (
-                  <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">{fmt(val)}</td>
+                  <td key={idx} className="px-2 py-2 border text-center text-black dark:text-slate-100">
+                    {fmt(val)}
+                  </td>
                 ))}
               </tr>
+
             </tbody>
           </table>
         </div>
 
-        {/* CHART — stacked bar + capacity line overlay */}
+        {/* =====================================================================
+            CHART — stacked bar + capacity line overlay
+        ===================================================================== */}
         <div className="bg-white dark:bg-[#212121] border border-transparent dark:border-slate-700 p-3 sm:p-4 rounded-lg shadow-sm dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)] mb-6 flex justify-center">
           <div className="w-full max-w-5xl">
             <Bar data={chartData} options={chartOptions} />

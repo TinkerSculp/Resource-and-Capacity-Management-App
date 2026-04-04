@@ -22,6 +22,11 @@
      • Clicking a non-adjacent month resets selection to just that month
      • Attempting an invalid action triggers a CSS shake animation
 
+   FILTER BUTTON COLOUR LOGIC:
+     • Active filter  → Blue  (#017ACB) background, white text
+     • Inactive filter → Grey (gray-200) background, dark text
+     Both buttons are the same width so they stay the same size.
+
    SECURITY MODEL:
      • JWT token is injected into every API request via the Axios interceptor
        in @/lib/api.js — no manual token handling needed here.
@@ -51,7 +56,7 @@ const styles = {
 
 /* -----------------------------------------------------------------------------
    SHARED BUTTON CLASSES
-   Reuses the same neumorphic button language used on the earlier pages.
+   Reuses the same neumorphic button language used on all other pages.
 ----------------------------------------------------------------------------- */
 const btnClass = `
   px-4 py-2 rounded text-sm
@@ -86,11 +91,19 @@ const btnDarkClass = `
   dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
+/* -----------------------------------------------------------------------------
+   FILTER TAB CLASS BUILDER
+   -----------------------------------------------------------------------------
+   Active   = blue (#017ACB) background, white text
+   Inactive = grey (gray-200) background, dark text
+   Both buttons are fixed full-width so they stay the same size.
+----------------------------------------------------------------------------- */
 const filterTabClass = (isActive) => `
-  px-4 py-2 rounded text-sm border border-[#00263F]/50 dark:border-slate-500/60
+  w-full px-4 py-2 rounded text-sm
+  border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
-    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
+    ? 'bg-[#017ACB] text-white dark:bg-[#005a96]'
+    : 'bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-gray-300 dark:hover:bg-slate-600'
   }
   transition-colors
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -115,7 +128,7 @@ const filterTabClass = (isActive) => `
      predictable, and free of edge cases.
 
    EXAMPLE: 202503 → (2025 * 12) + 3 = 24303
-   ============================================================================= */
+----------------------------------------------------------------------------- */
 const monthToIndex = (yyyymm) => {
   const year  = Math.floor(yyyymm / 100);
   const month = yyyymm % 100;
@@ -137,33 +150,31 @@ export default function CalendarView() {
 
   /* ---------------------------------------------------------------------------
      STATE
-     user              — Authenticated user object parsed from localStorage
-     availableMonths   — Full month list returned by GET /calendar-view
-     selectedMonths    — YYYYMM values currently selected (1–3, contiguous)
-     activitiesByMonth — Activities grouped by month from POST /calendar-view
-     filterMode        — 'all' = all employees, 'mine' = current user only
-     showSelector      — Controls visibility of the floating month/filter panel
-     shake             — Triggers CSS shake animation on invalid month selection
-     loading flags     — Prevent rendering before data is ready
+     user                — Authenticated user object parsed from localStorage
+     availableMonths     — Full month list returned by GET /calendar-view
+     selectedMonths      — YYYYMM values currently selected (1–3, contiguous)
+     activitiesByMonth   — Activities grouped by month from POST /calendar-view
+     filterMode          — 'all' = all employees, 'mine' = current user only
+     showSelector        — Controls visibility of the floating month/filter panel
+     shake               — Triggers CSS shake animation on invalid month selection
+     loading flags       — Prevent rendering before data is ready
   --------------------------------------------------------------------------- */
-  const [user, setUser]                         = useState(null);
-  const [availableMonths, setAvailableMonths]   = useState([]);
-  const [selectedMonths, setSelectedMonths]     = useState([]);
+  const [user, setUser]                           = useState(null);
+  const [availableMonths, setAvailableMonths]     = useState([]);
+  const [selectedMonths, setSelectedMonths]       = useState([]);
   const [activitiesByMonth, setActivitiesByMonth] = useState([]);
-  const [filterMode, setFilterMode]             = useState('all');
-  const [showSelector, setShowSelector]         = useState(false);
-  const [shake, setShake]                       = useState(false);
+  const [filterMode, setFilterMode]               = useState('all');
+  const [showSelector, setShowSelector]           = useState(false);
+  const [shake, setShake]                         = useState(false);
 
-  const [loadingUser, setLoadingUser]       = useState(true);
-  const [loadingMonths, setLoadingMonths]   = useState(true);
+  const [loadingUser, setLoadingUser]         = useState(true);
+  const [loadingMonths, setLoadingMonths]     = useState(true);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
 
   /* ---------------------------------------------------------------------------
      EFFECT: Close selector panel on outside click
-     ---------------------------------------------------------------------------
      Attaches a mousedown listener only while the selector is open, then
-     removes it when it closes or the component unmounts. Avoids stale
-     listeners accumulating and leaking memory.
+     removes it when it closes or the component unmounts.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -174,25 +185,17 @@ export default function CalendarView() {
 
     if (showSelector) document.addEventListener('mousedown', handleClickOutside);
 
-    // Cleanup: remove listener when effect re-runs or component unmounts
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSelector]);
 
   /* ---------------------------------------------------------------------------
      EFFECT: Load and validate user session from localStorage
-     ---------------------------------------------------------------------------
-     SECURITY:
-     • Wrapped in try/catch to prevent crashes from corrupted JSON.
-     • Validates presence of emp_id — the minimum required identity field.
-     • On any failure, clears both user and token and redirects to /login,
-       preventing partial or broken session states from persisting.
-     • Only runs on the client — localStorage is not available during SSR.
+     On any failure, clears both user and token and redirects to /login.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user');
 
-      // No session found — redirect to login immediately
       if (!stored) {
         router.push('/login');
         return;
@@ -200,7 +203,6 @@ export default function CalendarView() {
 
       const parsed = JSON.parse(stored);
 
-      // Validate minimum required fields on the parsed user object
       if (!parsed?.emp_id) {
         console.warn('Invalid user object — forcing logout');
         localStorage.removeItem('user');
@@ -212,28 +214,20 @@ export default function CalendarView() {
       setUser(parsed);
 
     } catch (err) {
-      // Malformed JSON or unexpected error — clear storage and redirect
       console.error('LocalStorage parse error:', err);
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       router.push('/login');
 
     } finally {
-      // Always mark user loading complete, even on failure
       setLoadingUser(false);
     }
   }, [router]);
 
   /* ---------------------------------------------------------------------------
      EFFECT: Load available months from the backend
-     ---------------------------------------------------------------------------
-     On success, auto-selects the current month if available, or the closest
-     available month by absolute distance if the current month isn't in the list.
-
-     SECURITY:
-     • JWT token is attached automatically by the Axios interceptor.
-     • Response is validated (checks data.success flag) before use.
-     • Falls back to an empty array on malformed response.
+     Auto-selects the current month, or the closest available month if the
+     current month is not in the list.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     async function loadMonths() {
@@ -250,13 +244,12 @@ export default function CalendarView() {
           const today         = new Date();
           const currentYYYYMM = today.getFullYear() * 100 + (today.getMonth() + 1);
 
-          // Try exact match for the current month
           const match = formatted.find(m => m.yyyymm === currentYYYYMM);
 
           if (match) {
             setSelectedMonths([match.yyyymm]);
           } else {
-            // No exact match — select the closest available month by distance
+            /* No exact match — select the closest available month by distance */
             const closest = formatted.reduce((prev, curr) =>
               Math.abs(curr.yyyymm - currentYYYYMM) < Math.abs(prev.yyyymm - currentYYYYMM)
                 ? curr : prev
@@ -277,19 +270,10 @@ export default function CalendarView() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: Load activities for the selected months
-     ---------------------------------------------------------------------------
-     Re-runs whenever selectedMonths, filterMode, or user changes. Sends a
-     POST with the selected months and optionally the user's emp_id when
-     filtering to "Just Mine".
-
-     SECURITY:
-     • emp_id is only included when filterMode === 'mine' — avoids sending
-       identity data on global requests.
-     • JWT token is attached automatically by the Axios interceptor.
-     • Sorted chronologically after fetch for stable, predictable rendering.
+     Re-runs whenever selectedMonths, filterMode, or user changes.
+     emp_id is only included in the request body when filterMode === 'mine'.
   --------------------------------------------------------------------------- */
   useEffect(() => {
-    // Guard: don't fetch until user is loaded and at least one month is selected
     if (!user || selectedMonths.length === 0) {
       setActivitiesByMonth([]);
       return;
@@ -300,14 +284,13 @@ export default function CalendarView() {
       try {
         const res = await api.post('/calendar-view', {
           months: selectedMonths,
-          // Conditionally include emp_id — only needed when filtering to current user
           ...(filterMode === 'mine' ? { emp_id: user.emp_id } : {})
         });
 
         const data = res?.data;
         if (!data?.success) throw new Error('Failed to load activities');
 
-        // Sort chronologically — backend order is not guaranteed
+        /* Sort chronologically — backend order is not guaranteed */
         const sorted = (data.activitiesByMonth || [])
           .slice()
           .sort((a, b) => a.yyyymm - b.yyyymm);
@@ -326,7 +309,6 @@ export default function CalendarView() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: Auto-close selector if no months are selected
-     Prevents the selector from being open in an empty/invalid state.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (selectedMonths.length === 0 && showSelector) setShowSelector(false);
@@ -335,8 +317,7 @@ export default function CalendarView() {
   /* ---------------------------------------------------------------------------
      FUNCTION: triggerShake
      Fires a brief CSS shake animation on the selector panel to provide visual
-     feedback when the user attempts an invalid month selection. The timeout
-     duration matches the keyframe animation length (150ms).
+     feedback when the user attempts an invalid month selection.
   --------------------------------------------------------------------------- */
   const triggerShake = () => {
     setShake(true);
@@ -352,19 +333,15 @@ export default function CalendarView() {
        3. Only the first or last month can be deselected — not a middle month
        4. Clicking a non-adjacent month resets selection to just that month
        5. Clicking when at max (3) resets selection to the clicked month
-
-     PARAM: yyyymm {number} — The month to toggle e.g. 202503
   --------------------------------------------------------------------------- */
   const toggleMonth = (yyyymm) => {
     const idx = monthToIndex(yyyymm);
 
-    // Nothing selected yet — start fresh with this month
     if (selectedMonths.length === 0) {
       setSelectedMonths([yyyymm]);
       return;
     }
 
-    // Sort to reliably identify the first and last months of the range
     const sorted   = [...selectedMonths].sort((a, b) => a - b);
     const first    = sorted[0];
     const last     = sorted[sorted.length - 1];
@@ -374,14 +351,14 @@ export default function CalendarView() {
 
     if (isSelected) {
       if (yyyymm === first && selectedMonths.length > 1) {
-        setSelectedMonths(sorted.slice(1));   // Remove first month
+        setSelectedMonths(sorted.slice(1));     // Remove the first month
         return;
       }
       if (yyyymm === last && selectedMonths.length > 1) {
-        setSelectedMonths(sorted.slice(0, -1)); // Remove last month
+        setSelectedMonths(sorted.slice(0, -1)); // Remove the last month
         return;
       }
-      // Middle month — cannot deselect, shake to signal invalid action
+      /* Middle month — cannot deselect, shake to signal invalid action */
       triggerShake();
       return;
     }
@@ -389,48 +366,41 @@ export default function CalendarView() {
     const isAdjacentToStart = idx === firstIdx - 1;
     const isAdjacentToEnd   = idx === lastIdx  + 1;
 
-    // Non-adjacent click — reset to just this month
+    /* Non-adjacent click — reset to just this month */
     if (!isAdjacentToStart && !isAdjacentToEnd) {
       setSelectedMonths([yyyymm]);
       return;
     }
 
-    // Already at max (3 months) — reset to just the clicked month
+    /* Already at max (3 months) — reset to just the clicked month */
     if (selectedMonths.length === 3) {
       setSelectedMonths([yyyymm]);
       return;
     }
 
-    // Extend the range by prepending or appending
+    /* Extend the range */
     if (isAdjacentToStart) { setSelectedMonths([yyyymm, ...sorted]); return; }
     if (isAdjacentToEnd)   { setSelectedMonths([...sorted, yyyymm]); return; }
   };
 
   /* ---------------------------------------------------------------------------
      FUNCTION: applyFilters
-     Closes the selector panel when the user clicks "Apply".
-     Filter changes are already live via state — this just dismisses the UI.
+     Closes the selector panel. Filter state is already live via React state
+     so no additional work is needed — this just dismisses the UI.
   --------------------------------------------------------------------------- */
   const applyFilters = () => setShowSelector(false);
 
   /* ---------------------------------------------------------------------------
      FUNCTION: groupByCategory
-     ---------------------------------------------------------------------------
      Organises a flat array of activities into a keyed object grouped by
      category name. Unknown categories are placed under a dynamic key rather
-     than being silently dropped — preserves data if a new category is added
-     to the backend without a frontend update.
-
-     PARAM:  activities {Array} — Raw activities array from backend response
-     RETURNS: {Object}          — { Baseline: [], Strategic: [], ... }
+     than being silently dropped.
   --------------------------------------------------------------------------- */
   const groupByCategory = (activities) => {
-    // Pre-initialise known categories so render order is deterministic
     const groups = { Baseline: [], Strategic: [], Discretionary: [], Vacation: [] };
 
     activities.forEach(a => {
       const cat = a.category || 'Other';
-      // Dynamically create bucket for unknown categories — never silently drop data
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(a.activity);
     });
@@ -441,7 +411,6 @@ export default function CalendarView() {
   /* ---------------------------------------------------------------------------
      LOADING STATE
      Blocks all rendering until user, months, and activities are fully loaded.
-     Prevents flash of unauthenticated UI or incomplete data.
   --------------------------------------------------------------------------- */
   if (loadingUser || loadingMonths || loadingCalendar) {
     return (
@@ -457,13 +426,9 @@ export default function CalendarView() {
 
   /* ---------------------------------------------------------------------------
      RESPONSIVE GRID CONFIGURATION
-     ---------------------------------------------------------------------------
-     Tailwind grid classes determined at render time from selectedMonths count:
-       1 month  → 1 column always
-       2 months → 1 col mobile, 2 col on md+
-       3 months → 1 col mobile, 2 col sm, 3 col lg+
-
-     Grid fills full available width — no artificial max-width constraints.
+     1 month  → 1 column always
+     2 months → 1 col mobile, 2 col on md+
+     3 months → 1 col mobile, 2 col sm, 3 col lg+
   --------------------------------------------------------------------------- */
   const gridCols =
     selectedMonths.length === 1 ? 'grid-cols-1' :
@@ -472,11 +437,9 @@ export default function CalendarView() {
 
   /* ===========================================================================
      RENDER
-     All values rendered here come from validated backend responses or
-     controlled internal state — no raw user input is injected into the DOM.
   =========================================================================== */
   return (
-      <div className="w-full relative min-h-screen page-surface">
+    <div className="w-full relative min-h-screen page-surface">
 
       {/* Shake keyframe — brief left-right animation for invalid month selection */}
       <style>{`
@@ -491,7 +454,9 @@ export default function CalendarView() {
 
       <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 relative">
 
-        {/* PAGE HEADER */}
+        {/* =====================================================================
+            PAGE HEADER — title and Back to Dashboard button
+        ===================================================================== */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div className="flex items-center gap-4">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>
@@ -509,16 +474,17 @@ export default function CalendarView() {
           </div>
         </div>
 
-        {/* GRID + SELECTOR WRAPPER
+        {/* =====================================================================
+            GRID + SELECTOR WRAPPER
             position: relative anchors the floating selector panel to this
-            container rather than the viewport */}
+            container rather than the viewport.
+        ===================================================================== */}
         <div className="relative w-full">
           <div className="flex justify-center w-full relative">
 
             {/* MONTH GRID
                 One column per selected month. Each column has a header bar
-                and a list of activities grouped by category.
-                overflow-hidden clips child borders at the rounded corners. */}
+                and a list of activities grouped by category. */}
             <div
               id="monthGrid"
               className={`
@@ -549,12 +515,12 @@ export default function CalendarView() {
                         ${index === activitiesByMonth.length - 1 ? 'rounded-tr-md' : ''}
                       `}
                     >
-                      {/* Month label — plain text from backend, no injection risk */}
+                      {/* Month label */}
                       <h3 className="text-xl sm:text-2xl font-bold text-white" style={styles.outfitFont}>
                         {month.label}
                       </h3>
 
-                      {/* Hamburger — only on the last column, disabled if no months selected */}
+                      {/* Hamburger icon — only on the last column */}
                       {index === activitiesByMonth.length - 1 && (
                         <div
                           aria-label="Open month and filter selector"
@@ -576,9 +542,7 @@ export default function CalendarView() {
                       )}
                     </div>
 
-                    {/* MONTH CONTENT
-                        Activity text rendered as plain text — no innerHTML,
-                        no XSS risk. Categories rendered in a fixed display order. */}
+                    {/* MONTH CONTENT — activities grouped by category */}
                     <div className="p-4 sm:p-6">
                       {month.activities.length === 0 ? (
                         <p className="text-black dark:text-slate-100 italic text-center" style={styles.outfitFont}>
@@ -615,26 +579,26 @@ export default function CalendarView() {
             {/* FLOATING SELECTOR PANEL
                 Opens when the user clicks the hamburger icon. Allows changing
                 the visible month range and toggling All vs Just Mine.
-                Positioned absolute top-0 right-0 — anchored to the grid wrapper.
-                Outside-click detection via selectorRef closes panel safely. */}
+                Outside-click detection via selectorRef closes the panel. */}
             {showSelector && selectedMonths.length > 0 && (
               <div
                 ref={selectorRef}
                 className={`
                   absolute top-0 right-0 w-full sm:w-[20rem] max-w-full
-                  border border-black dark:border-slate-700 rounded-lg bg-white dark:bg-[#212121] shadow-xl dark:shadow-[0_12px_40px_rgba(0,0,0,0.55)] p-4 z-50
+                  border border-black dark:border-slate-700
+                  rounded-lg bg-white dark:bg-[#212121]
+                  shadow-xl dark:shadow-[0_12px_40px_rgba(0,0,0,0.55)]
+                  p-4 z-50
                   ${shake ? 'animate-[shake_0.15s_ease-in-out]' : ''}
                 `}
               >
                 <div className="flex gap-4">
 
-                  {/* MONTH CHECKBOX LIST
-                      Each checkbox is fully controlled — onChange calls toggleMonth
-                      which enforces contiguity and range rules. Custom styled
-                      checkbox replaces the native input visually while keeping
-                      the hidden input for accessibility. */}
+                  {/* MONTH CHECKBOX LIST */}
                   <div className="flex-1">
-                    <h4 className="font-semibold mb-2 text-black dark:text-white" style={styles.outfitFont}>Months</h4>
+                    <h4 className="font-semibold mb-2 text-black dark:text-white" style={styles.outfitFont}>
+                      Months
+                    </h4>
                     <div className="flex flex-col gap-2 pr-1 mb-3">
                       {availableMonths.map(m => {
                         const isSelected = selectedMonths.includes(m.yyyymm);
@@ -644,11 +608,8 @@ export default function CalendarView() {
                             className="flex items-center gap-2 text-black dark:text-slate-100 text-sm cursor-pointer"
                             style={styles.outfitFont}
                           >
-                            <span className="
-                              w-4 h-4 flex-shrink-0 border border-black dark:border-slate-500 rounded-sm
-                              flex items-center justify-center relative overflow-hidden
-                              transition hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30
-                            ">
+                            {/* Custom styled checkbox */}
+                            <span className="w-4 h-4 flex-shrink-0 border border-black dark:border-slate-500 rounded-sm flex items-center justify-center relative overflow-hidden transition hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30">
                               <input
                                 type="checkbox"
                                 checked={isSelected}
@@ -672,12 +633,13 @@ export default function CalendarView() {
                   </div>
 
                   {/* VIEW FILTER + APPLY BUTTON
-                      "All" → global activities for all employees
-                      "Just Mine" → appends emp_id to the POST request body
-                      Filter is already live via state — Apply just closes panel */}
+                      Active = blue, inactive = grey — matches DashboardSummary.
+                      Filter is already live via state — Apply just closes panel. */}
                   <div className="w-36 flex flex-col justify-between">
                     <div>
-                      <h4 className="font-semibold mb-2 text-black dark:text-white" style={styles.outfitFont}>View</h4>
+                      <h4 className="font-semibold mb-2 text-black dark:text-white" style={styles.outfitFont}>
+                        View
+                      </h4>
                       <div className="flex flex-col gap-2 mb-4">
                         {[
                           { mode: 'all',  label: 'All' },
@@ -696,7 +658,7 @@ export default function CalendarView() {
                       </div>
                     </div>
 
-                    {/* Apply — closes the panel; filter state is already live */}
+                    {/* Apply button — closes the panel */}
                     <button
                       onClick={applyFilters}
                       className={`w-full font-semibold ${btnClass}`}
