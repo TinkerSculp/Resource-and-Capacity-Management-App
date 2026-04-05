@@ -1,3 +1,4 @@
+
 /* =============================================================================
    resourceController.js
    -----------------------------------------------------------------------------
@@ -409,6 +410,42 @@ export const getAllManagers = async (req, res) => {
 
   } catch (err) {
     console.error("getAllManagers error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+/* =============================================================================
+   HANDLER: deleteEmployee
+   DELETE /api/resources/employees/:emp_id
+   -----------------------------------------------------------------------------
+   Deletes an employee record and all associated capacity records for that
+   employee. Capacity records are cleaned up in the same operation to prevent
+   orphaned data from accumulating in the capacity collection.
+
+   SECURITY:
+     • Must be protected by JWT + RBAC — only Resource Managers should delete
+     • emp_id coerced with Number() — prevents string-typed ID matching
+     • Returns 404 if employee not found — no silent no-ops on missing records
+     • Capacity cleanup scoped to emp_id only — no cross-employee deletions
+   ============================================================================= */
+export const deleteEmployee = async (req, res) => {
+  try {
+    const emp_id = Number(req.params.emp_id);
+    const db     = await connectDB();
+
+    const result = await db.collection("employee").deleteOne({ emp_id });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+
+    // Clean up all capacity records for this employee — prevents orphaned data
+    await db.collection("capacity").deleteMany({ emp_id });
+
+    return res.json({ message: "Employee deleted successfully" });
+
+  } catch (err) {
+    console.error("deleteEmployee error:", err);
     return res.status(500).json({ error: "Server error" });
   }
 };
