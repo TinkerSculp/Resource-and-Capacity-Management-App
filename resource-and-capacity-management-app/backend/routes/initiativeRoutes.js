@@ -45,7 +45,8 @@ import {
   getInitiativesByDept,  // GET  /dept/search    — Returns initiatives filtered by dept or DM name
   updateInitiative,      // PUT  /               — Updates an existing initiative record
   getInitiativeDropdowns,// GET  /dropdowns      — Returns dropdown metadata for the UI
-  createInitiative       // POST /               — Creates a new initiative record
+  createInitiative,       // POST /               — Creates a new initiative record
+  deleteInitiative 
 } from "../controllers/initiativeController.js";
 
 const router = express.Router();
@@ -153,5 +154,19 @@ router.put("/", updateInitiative);
      specific initiative before returning it.
 ----------------------------------------------------------------------------- */
 router.get("/:id", getInitiativeById);
+
+// Add before the /:id wildcard GET route:
+
+/* -----------------------------------------------------------------------------
+   DELETE /api/initiatives/:id
+   -----------------------------------------------------------------------------
+   Permanently deletes a single initiative record by its MongoDB _id.
+
+   SECURITY:
+   • MUST require JWT + RBAC — only Resource Managers should delete initiatives.
+   • Controller validates :id as a valid ObjectId before any DB operation.
+   • Returns 404 if no matching record is found.
+----------------------------------------------------------------------------- */
+router.delete("/:id", deleteInitiative);
 
 export default router;
