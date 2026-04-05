@@ -918,3 +918,50 @@ export const reassignAllocation = async (req, res) => {
     return res.status(500).json({ error: "Server error while reassigning" });
   }
 };
+
+/* -----------------------------------------------------------------------------
+   HANDLER: deleteAssignmentRow
+   DELETE /api/assignments-allocations/row
+   -----------------------------------------------------------------------------
+   Deletes ALL allocation records for a given employee/activity/category
+   combination — completely removing that employee's row from the allocations
+   grid. Unlike deleteAllocation (which removes a single cell) and
+   reassignAllocation (which replaces), this fully removes the assignment link.
+
+   REQUEST BODY:
+     { emp_id, activity, category }
+
+   SECURITY:
+     • Must be protected by JWT + RBAC — only Resource Managers should delete rows
+     • emp_id coerced with Number() — prevents string-typed ID matching
+     • Three-field compound match — cannot accidentally delete records for
+       other employees or projects
+     • Returns 404 if no records found — no silent no-ops on missing rows
+     • Generic error message on failure — full error logged server-side only
+----------------------------------------------------------------------------- */
+export const deleteAssignmentRow = async (req, res) => {
+  try {
+    const { emp_id, activity, category } = req.body;
+
+    if (!emp_id || !activity || !category) {
+      return res.status(400).json({ error: "Missing required fields: emp_id, activity, category" });
+    }
+
+    const db     = await connectDB();
+    const result = await db.collection("allocation").deleteMany({
+      emp_id:   Number(emp_id), // Coerce — allocation dates stored as integers
+      activity,
+      category
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "No allocation records found for this row" });
+    }
+
+    return res.json({ success: true, deletedCount: result.deletedCount });
+
+  } catch (err) {
+    console.error("deleteAssignmentRow error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
