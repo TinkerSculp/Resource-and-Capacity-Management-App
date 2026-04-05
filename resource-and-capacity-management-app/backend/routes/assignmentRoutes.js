@@ -52,7 +52,8 @@ import {
   updateAllocation,       // PUT /:id            — Full allocation record update
   getAllocationDropdowns,  // GET /meta/dropdowns — Returns dropdown metadata for the UI
   createAllocation,       // POST /              — Creates a new allocation record
-  reassignAllocation      // POST /reassign      — Reassigns an allocation to a new owner
+  reassignAllocation,      // POST /reassign      — Reassigns an allocation to a new owner
+  deleteAssignmentRow
 } from "../controllers/assignmentController.js";
 
 const router = express.Router();
@@ -126,5 +127,23 @@ router.delete("/:id", deleteAllocation);
    incorrectly treated as ID parameters, breaking those endpoints.
    ============================================================================= */
 router.get("/:id", getAllocationById);
+
+// Add in the DELETE ROUTES section, before the existing DELETE /:id:
+
+/* -----------------------------------------------------------------------------
+   DELETE /api/assignments-allocations/row
+   -----------------------------------------------------------------------------
+   Deletes ALL allocation records for a given employee/activity/category
+   combination — removes the entire row from the allocations grid.
+   Registered before DELETE /:id to prevent Express matching "row" as an ID.
+
+   SECURITY:
+   • MUST require JWT + RBAC — only Resource Managers should delete rows.
+   • Controller validates all three required fields before DB operation.
+----------------------------------------------------------------------------- */
+router.delete("/row", deleteAssignmentRow);
+
+// Existing — keep as-is:
+router.delete("/:id", deleteAllocation);
 
 export default router;
