@@ -68,7 +68,7 @@ function containsBlockedWords(text) {
   return BLOCKED_WORDS.some(word => new RegExp(`\\b${word}\\b`, 'i').test(text));
 }
 
-const inputClass    = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full';
+const inputClass = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full';
 
 /* =============================================================================
    COMPONENT: StyledDropdown
@@ -141,23 +141,23 @@ function SearchableDropdown({ label, value, onChange, list }) {
 export default function EditResourceModal() {
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const empId        = searchParams.get('id'); // emp_id from URL — not user-typed
+  const empId        = searchParams.get('id');
 
-  const [departments, setDepartments] = useState([]);
-  const [managers, setManagers]       = useState([]);
-  const [employee, setEmployee]       = useState(null);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState('');
-  const [success, setSuccess]         = useState(false);
-  const [statusValue, setStatusValue] = useState('Active');
+  const [departments, setDepartments]         = useState([]);
+  const [managers, setManagers]               = useState([]);
+  const [employee, setEmployee]               = useState(null);
+  const [loading, setLoading]                 = useState(false);
+  const [error, setError]                     = useState('');
+  const [success, setSuccess]                 = useState(false);
+  const [statusValue, setStatusValue]         = useState('Active');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting]               = useState(false);
 
-  // Form stores display names for dropdowns, dept_name for department
   const [formData, setFormData] = useState({
     emp_id: '', emp_name: '', emp_title: '', dept_no: '',
     reports_to: '', manager_level: '', director_level: '', requestor_vp: '', other_info: '',
   });
 
-  // ID ↔ name conversion helpers
   const getNameById = (id)   => managers.find(m => m.emp_id === id)?.emp_name || '';
   const getDeptName = (no)   => departments.find(d => d.dept_no === no)?.dept_name || '';
   const getDeptNo   = (name) => departments.find(d => d.dept_name === name)?.dept_no || null;
@@ -165,8 +165,6 @@ export default function EditResourceModal() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: LOAD EMPLOYEE + DROPDOWNS
-     Fetches employee, departments, and managers in parallel.
-     IDs are converted to display names once the managers list is available.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!empId) return;
@@ -186,22 +184,21 @@ export default function EditResourceModal() {
         setManagers(mgrData);
         setStatusValue(empData.current_status || 'Active');
         setFormData({
-          emp_id:         empData.emp_id        || '',
-          emp_name:       empData.emp_name      || '',
-          emp_title:      empData.emp_title     || '',
-          dept_no:        empData.dept_no       || '',
-          reports_to:     empData.reports_to    || '',
-          manager_level:  empData.manager_level || '',
+          emp_id:         empData.emp_id         || '',
+          emp_name:       empData.emp_name       || '',
+          emp_title:      empData.emp_title      || '',
+          dept_no:        empData.dept_no        || '',
+          reports_to:     empData.reports_to     || '',
+          manager_level:  empData.manager_level  || '',
           director_level: empData.director_level || '',
-          requestor_vp:   empData.requestor_vp  || '',
-          other_info:     empData.other_info    || '',
+          requestor_vp:   empData.requestor_vp   || '',
+          other_info:     empData.other_info     || '',
         });
       } catch { setError('Failed to load employee data. Please try again.'); }
     };
     load();
   }, [empId]);
 
-  // Convert stored IDs to display names once managers are loaded
   useEffect(() => {
     if (!managers.length) return;
     setFormData(prev => ({
@@ -213,7 +210,6 @@ export default function EditResourceModal() {
     }));
   }, [managers]);
 
-  // Convert stored dept_no to display name once departments are loaded
   useEffect(() => {
     if (!departments.length) return;
     setFormData(prev => ({ ...prev, dept_no: getDeptName(prev.dept_no) }));
@@ -224,10 +220,24 @@ export default function EditResourceModal() {
   };
 
   /* ---------------------------------------------------------------------------
+     HANDLER: handleDelete
+  --------------------------------------------------------------------------- */
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+      await api.delete(`/resources/employees/${encodeURIComponent(empId)}`);
+      router.back();
+      setTimeout(() => router.replace(`/resource-manager/create-edit-resources?refresh=${Date.now()}`), 50);
+    } catch {
+      setError('Failed to delete employee. Please try again.');
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  /* ---------------------------------------------------------------------------
      HANDLER: handleEdit
-     ---------------------------------------------------------------------------
-     Validates → profanity check → duplicate name check → PUT to backend.
-     Duplicate check excludes the current emp_id to avoid false positives on self.
   --------------------------------------------------------------------------- */
   const handleEdit = async (e) => {
     e.preventDefault();
@@ -238,15 +248,14 @@ export default function EditResourceModal() {
     if (containsBlockedWords(formData.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
     if (!formData.emp_name.trim())  return setError('Name is required.');
 
-    // Duplicate name check — excludes the current employee to avoid false positives
     try {
       const { data: existing } = await api.get('/resources/employees');
       const nameTaken = existing.some(e =>
         e.emp_name?.toLowerCase().trim() === formData.emp_name.toLowerCase().trim() &&
-        String(e.emp_id) !== String(empId) // Exclude self
+        String(e.emp_id) !== String(empId)
       );
       if (nameTaken) return setError(`An employee named "${formData.emp_name.trim()}" already exists.`);
-    } catch { /* non-fatal — skip duplicate check if endpoint unavailable */ }
+    } catch { /* non-fatal */ }
 
     if (!formData.emp_title.trim()) return setError('Title is required.');
     if (!formData.dept_no)          return setError('Department is required.');
@@ -255,7 +264,6 @@ export default function EditResourceModal() {
     if (!formData.director_level)   return setError('Director Level is required.');
     if (!formData.requestor_vp)     return setError('VP is required.');
 
-    // Convert display names back to IDs before sending to backend
     const payload = {
       emp_id:         formData.emp_id,
       emp_name:       formData.emp_name.trim(),
@@ -273,7 +281,6 @@ export default function EditResourceModal() {
       setLoading(true);
       await api.put(`/resources/employees/${encodeURIComponent(empId)}`, payload);
       setSuccess(true);
-      // Navigate back and trigger a refresh on the Resources page
       setTimeout(() => {
         router.back();
         setTimeout(() => router.replace(`/resource-manager/create-edit-resources?refresh=${Date.now()}`), 50);
@@ -284,7 +291,7 @@ export default function EditResourceModal() {
   };
 
   /* ---------------------------------------------------------------------------
-     LOADING STATE — shown while employee + dropdowns are loading
+     LOADING STATE
   --------------------------------------------------------------------------- */
   if (!employee || !managers.length || !departments.length) {
     return (
@@ -314,7 +321,7 @@ export default function EditResourceModal() {
           )}
           <form onSubmit={handleEdit} noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Employee ID — read-only, cannot be changed */}
+              {/* Employee ID — read-only */}
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Employee ID</label>
                 <input type="text" value={formData.emp_id} readOnly className="bg-gray-100 text-gray-500 border border-black p-2 rounded cursor-not-allowed w-full" style={styles.outfitFont} />
@@ -328,28 +335,104 @@ export default function EditResourceModal() {
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Title *</label>
                 <input type="text" value={formData.emp_title} onChange={handleTextField('emp_title')} maxLength={100} required className={inputClass} style={styles.outfitFont} />
               </div>
-              {/* Department scoped to Data Mgmt only */}
               <StyledDropdown label="Department *" value={formData.dept_no} onChange={val => setFormData(prev => ({ ...prev, dept_no: val }))} options={departments.filter(d => d.dept_name === "Data Mgmt").map(d => d.dept_name)} />
               <SearchableDropdown label="Reports To *"     value={formData.reports_to}     onChange={val => setFormData(prev => ({ ...prev, reports_to: val }))}     list={managers} />
               <SearchableDropdown label="Manager Level *"  value={formData.manager_level}  onChange={val => setFormData(prev => ({ ...prev, manager_level: val }))}  list={managers} />
               <SearchableDropdown label="Director Level *" value={formData.director_level} onChange={val => setFormData(prev => ({ ...prev, director_level: val }))} list={managers} />
               <SearchableDropdown label="VP *"             value={formData.requestor_vp}   onChange={val => setFormData(prev => ({ ...prev, requestor_vp: val }))}   list={managers} />
             </div>
+
+            {/* Other Information */}
             <div className="flex flex-col mt-4">
               <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Other Information</label>
               <textarea value={formData.other_info} onChange={e => setFormData(prev => ({ ...prev, other_info: e.target.value.replace(/[^a-zA-Z0-9 .,]/g, '') }))} rows={3} maxLength={500} className={inputClass} style={styles.outfitFont} />
             </div>
-            <div className="mt-4">
-              <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Status</label>
-              <div className="flex gap-3 flex-wrap">
-                <button type="button" onClick={() => setStatusValue('Active')} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Active' ? 'bg-green-200 border-green-600' : 'bg-green-50 hover:bg-green-100'}`} style={styles.outfitFont}>Active</button>
-                <button type="button" onClick={() => setStatusValue('Inactive')} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Inactive' ? 'bg-red-200 border-red-600' : 'bg-red-50 hover:bg-red-100'}`} style={styles.outfitFont}>Inactive</button>
+
+            {/* STATUS + DELETE side by side */}
+            <div className="mt-4 flex gap-8 flex-wrap items-start">
+
+              {/* Status */}
+              <div>
+                <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Status</label>
+                <div className="flex gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setStatusValue('Active')}
+                    className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Active' ? 'bg-green-200 border-green-600' : 'bg-green-50 hover:bg-green-100'}`}
+                    style={styles.outfitFont}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusValue('Inactive')}
+                    className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Inactive' ? 'bg-red-200 border-red-600' : 'bg-red-50 hover:bg-red-100'}`}
+                    style={styles.outfitFont}
+                  >
+                    Inactive
+                  </button>
+                </div>
               </div>
+
+              {/* Delete */}
+              <div>
+                <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Delete</label>
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]"
+                    style={styles.outfitFont}
+                  >
+                    Delete Resource
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-red-700 font-semibold" style={styles.outfitFont}>Are you sure?</span>
+                    <button
+                      type="button"
+                      disabled={deleting}
+                      onClick={handleDelete}
+                      className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]"
+                      style={styles.outfitFont}
+                    >
+                      {deleting ? 'Deleting...' : 'Yes, Delete'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition"
+                      style={styles.outfitFont}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
             </div>
+
+            {/* Cancel + Save */}
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
-              <button type="button" onClick={() => router.back()} disabled={loading} className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] w-full sm:w-auto" style={styles.outfitFont}>Cancel</button>
-              <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                disabled={loading}
+                className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] w-full sm:w-auto"
+                style={styles.outfitFont}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || success}
+                className={`${btnClass} w-full sm:w-auto`}
+                style={styles.outfitFont}
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
             </div>
+
           </form>
         </div>
       </div>
