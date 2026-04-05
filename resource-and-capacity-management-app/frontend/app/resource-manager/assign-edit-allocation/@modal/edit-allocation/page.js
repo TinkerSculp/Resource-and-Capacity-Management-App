@@ -52,7 +52,7 @@ const btnClass = `
 `;
 
 /* =============================================================================
-   COMPONENT: SearchableStyledDropdown — same as AddAllocationModal.
+   COMPONENT: SearchableStyledDropdown
    ============================================================================= */
 function SearchableStyledDropdown({ label, value, onChange, options, valueKey, displayKey }) {
   const [open, setOpen]     = useState(false);
@@ -104,21 +104,23 @@ function SearchableStyledDropdown({ label, value, onChange, options, valueKey, d
 export default function EditAllocationModal() {
   const searchParams   = useSearchParams();
   const router         = useRouter();
-  const emp_id         = searchParams.get("emp_id");     // Original employee ID from URL
-  const projectFromURL = searchParams.get("project");    // Original project name from URL
+  const emp_id         = searchParams.get("emp_id");
+  const projectFromURL = searchParams.get("project");
 
-  const [employeeData, setEmployeeData]         = useState(null);
-  const [departmentName, setDepartmentName]     = useState("");
-  const [managerName, setManagerName]           = useState("");
-  const [assignmentData, setAssignmentData]     = useState(null);
-  const [originalAssignment, setOriginalAssignment] = useState(null); // Preserved for the reassign payload
-  const [projects, setProjects]     = useState([]);
-  const [employees, setEmployees]   = useState([]);
-  const [selectedProject, setSelectedProject]   = useState(projectFromURL || "");
-  const [selectedEmployee, setSelectedEmployee] = useState(emp_id ? Number(emp_id) : "");
-  const [error, setError]   = useState("");
-  const [loading, setLoading] = useState(true);
-  const [success, setSuccess] = useState(false);
+  const [employeeData, setEmployeeData]             = useState(null);
+  const [departmentName, setDepartmentName]         = useState("");
+  const [managerName, setManagerName]               = useState("");
+  const [assignmentData, setAssignmentData]         = useState(null);
+  const [originalAssignment, setOriginalAssignment] = useState(null);
+  const [projects, setProjects]                     = useState([]);
+  const [employees, setEmployees]                   = useState([]);
+  const [selectedProject, setSelectedProject]       = useState(projectFromURL || "");
+  const [selectedEmployee, setSelectedEmployee]     = useState(emp_id ? Number(emp_id) : "");
+  const [error, setError]                           = useState("");
+  const [loading, setLoading]                       = useState(true);
+  const [success, setSuccess]                       = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false);
+  const [deleting, setDeleting]                     = useState(false);
 
   /* ---------------------------------------------------------------------------
      EFFECT: LOAD DROPDOWN LISTS
@@ -139,8 +141,6 @@ export default function EditAllocationModal() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: LOAD EMPLOYEE DETAILS
-     Fetches employee details, department, and manager whenever the selected
-     employee changes.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!selectedEmployee) return;
@@ -161,8 +161,6 @@ export default function EditAllocationModal() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: LOAD ORIGINAL ASSIGNMENT
-     Pre-populates assignment data from the URL project param on initial load.
-     Preserved as originalAssignment for the reassign payload.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!projectFromURL) { setLoading(false); return; }
@@ -170,7 +168,7 @@ export default function EditAllocationModal() {
       try {
         const res = await api.get(`/assignments-allocations/projects?project=${encodeURIComponent(projectFromURL)}`);
         setAssignmentData(res.data?.assignment || null);
-        setOriginalAssignment(res.data?.assignment || null); // Preserved for the reassign API
+        setOriginalAssignment(res.data?.assignment || null);
       } catch { setError("Network error loading assignment details."); }
       finally { setLoading(false); }
     }
@@ -179,7 +177,6 @@ export default function EditAllocationModal() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: RELOAD ASSIGNMENT WHEN PROJECT CHANGES
-     Fetches the new assignment details if the user changes the selected project.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!selectedProject) return;
@@ -193,10 +190,31 @@ export default function EditAllocationModal() {
   }, [selectedProject]);
 
   /* ---------------------------------------------------------------------------
+     HANDLER: handleDelete
+     Deletes the entire allocation row for this employee + project combination.
+  --------------------------------------------------------------------------- */
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+      await api.delete('/assignments-allocations/row', {
+        data: {
+          emp_id:   Number(emp_id),
+          activity: projectFromURL,
+          category: originalAssignment?.category || null,
+        }
+      });
+      router.back();
+      setTimeout(() => router.replace(`/resource-manager/assign-edit-allocation?refresh=${Date.now()}`), 120);
+    } catch {
+      setError('Failed to delete allocation. Please try again.');
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  /* ---------------------------------------------------------------------------
      HANDLER: handleSave
-     ---------------------------------------------------------------------------
-     No-op if nothing changed. Duplicate check before saving.
-     Uses /reassign endpoint — preserves allocation values from old assignment.
   --------------------------------------------------------------------------- */
   async function handleSave() {
     if (!selectedProject || !selectedEmployee) {
@@ -208,10 +226,8 @@ export default function EditAllocationModal() {
     const oldProject = projectFromURL;
     const newProject = selectedProject;
 
-    // No-op — nothing changed, just close
     if (oldEmpId === newEmpId && oldProject === newProject) { router.back(); return; }
 
-    // Duplicate check — non-fatal if endpoint unavailable
     try {
       const dupRes = await api.get(`/assignments-allocations?emp_id=${encodeURIComponent(newEmpId)}&project=${encodeURIComponent(newProject)}`);
       const alreadyExists = (dupRes.data?.allAssignments || []).some(r =>
@@ -226,8 +242,8 @@ export default function EditAllocationModal() {
         new_emp_id:   newEmpId,
         old_project:  oldProject,
         new_project:  newProject,
-        old_category: originalAssignment?.category || null, // From the original load
-        new_category: assignmentData?.category     || null, // From the current selection
+        old_category: originalAssignment?.category || null,
+        new_category: assignmentData?.category     || null,
       });
       setSuccess(true);
       setTimeout(() => {
@@ -276,11 +292,9 @@ export default function EditAllocationModal() {
         {success && <div role="status" className="mb-4 p-3 bg-green-100 text-green-800 rounded border border-green-400 text-sm flex items-center gap-2"><svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 11 8 15 16 6" /></svg>Allocation updated successfully.</div>}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Editable selections */}
           <SearchableStyledDropdown label="Project"  value={selectedProject}  onChange={setSelectedProject}  options={projects}   valueKey="project_name" displayKey="project_name" />
           <SearchableStyledDropdown label="Employee" value={selectedEmployee} onChange={setSelectedEmployee} options={employees}  valueKey="emp_id"       displayKey="emp_name" />
 
-          {/* Read-only auto-filled fields */}
           {[
             ["Resource Name",      employeeData?.emp_name],
             ["Department",         departmentName || "—"],
@@ -298,9 +312,43 @@ export default function EditAllocationModal() {
           ))}
         </div>
 
+        {/* DELETE SECTION */}
+        <div className="mt-6">
+          <label className="text-xs text-black font-semibold block mb-2 font-[Outfit]">Delete</label>
+          {!showDeleteConfirm ? (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]"
+            >
+              Delete Allocation
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-red-700 font-semibold font-[Outfit]">Are you sure?</span>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleDelete}
+                className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]"
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* CLOSE + SAVE */}
         <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
           <button type="button" onClick={() => router.back()} className={`${btnClass} bg-[#003A5C] text-white`}>Close</button>
-          <button type="button" onClick={handleSave} disabled={loading} aria-disabled={loading} className={`${btnClass} bg-[#017ACB] text-white disabled:opacity-50 disabled:cursor-not-allowed`}>
+          <button type="button" onClick={handleSave} disabled={loading || success} aria-disabled={loading} className={`${btnClass} bg-[#017ACB] text-white disabled:opacity-50 disabled:cursor-not-allowed`}>
             Save Changes
           </button>
         </div>
