@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /* =============================================================================
    EditInitiativeModal.jsx
@@ -82,8 +82,7 @@ function containsBlockedWords(text) {
 }
 
 /* =============================================================================
-   COMPONENT: SearchableDropdown — for Requestor (long list with search).
-   Sorts results so prefix matches appear first.
+   COMPONENT: SearchableDropdown
    ============================================================================= */
 function SearchableDropdown({ label, value, onChange, list }) {
   const [open, setOpen]     = useState(false);
@@ -130,7 +129,7 @@ function SearchableDropdown({ label, value, onChange, list }) {
 }
 
 /* =============================================================================
-   COMPONENT: StyledDropdown — for fixed option lists.
+   COMPONENT: StyledDropdown
    ============================================================================= */
 function StyledDropdown({ label, value, onChange, options }) {
   const [open, setOpen] = useState(false);
@@ -166,11 +165,13 @@ function StyledDropdown({ label, value, onChange, options }) {
 export default function EditInitiativeModal() {
   const router = useRouter();
   const params = useSearchParams();
-  const id     = params.get('id'); // Initiative ID from URL — passed through encodeURIComponent on navigation
+  const id     = params.get('id');
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-  const [success, setSuccess] = useState(false);
+  const [loading, setLoading]                     = useState(false);
+  const [error, setError]                         = useState('');
+  const [success, setSuccess]                     = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting]                   = useState(false);
 
   const [employees, setEmployees]   = useState([]);
   const [requestors, setRequestors] = useState([]);
@@ -201,7 +202,6 @@ export default function EditInitiativeModal() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: LOAD INITIATIVE DATA
-     Pre-populates the form from the existing initiative record.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!id) return;
@@ -233,7 +233,6 @@ export default function EditInitiativeModal() {
 
   /* ---------------------------------------------------------------------------
      HANDLER: fetchDept
-     Looks up the requesting department for a VP name — non-fatal on error.
   --------------------------------------------------------------------------- */
   const fetchDept = async (vpName) => {
     if (!vpName?.trim()) return;
@@ -244,8 +243,24 @@ export default function EditInitiativeModal() {
   };
 
   /* ---------------------------------------------------------------------------
+     HANDLER: handleDelete
+  --------------------------------------------------------------------------- */
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+      await api.delete(`/initiatives/${encodeURIComponent(id)}`);
+      router.back();
+      setTimeout(() => router.replace(`/resource-manager/create-edit-initiatives?refresh=${Date.now()}`), 100);
+    } catch {
+      setError('Failed to delete initiative. Please try again.');
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  /* ---------------------------------------------------------------------------
      HANDLER: handleSubmit
-     Validates → profanity check → PUT to /initiatives.
   --------------------------------------------------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -261,9 +276,9 @@ export default function EditInitiativeModal() {
     if ((form.status === 'Completed' || form.status === 'Cancelled') && !form.completion_date)
       return setError('Completion date is required when status is Completed or Cancelled.');
 
-    if (containsBlockedWords(form.project))               return setError('Project Name contains inappropriate language. Please revise.');
-    if (containsBlockedWords(form.target_period))         return setError('Target Period contains inappropriate language. Please revise.');
-    if (containsBlockedWords(form.description))           return setError('Description contains inappropriate language. Please revise.');
+    if (containsBlockedWords(form.project))                return setError('Project Name contains inappropriate language. Please revise.');
+    if (containsBlockedWords(form.target_period))          return setError('Target Period contains inappropriate language. Please revise.');
+    if (containsBlockedWords(form.description))            return setError('Description contains inappropriate language. Please revise.');
     if (containsBlockedWords(form.resource_consideration)) return setError('Resource Consideration contains inappropriate language. Please revise.');
 
     const payload = { id, ...form, requesting_dept: dept };
@@ -325,7 +340,6 @@ export default function EditInitiativeModal() {
                 list={requestors}
               />
 
-              {/* Requestor VP + Requesting Dept — read-only, auto-filled */}
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Requestor VP</label>
                 <input value={form.requestor_vp} readOnly className={readOnlyClass} style={styles.outfitFont} />
@@ -360,6 +374,43 @@ export default function EditInitiativeModal() {
               <textarea value={form.resource_consideration} onChange={e => updateField('resource_consideration', e.target.value.replace(/[^a-zA-Z0-9 .,\-'&()]/g, ''))} maxLength={500} rows={3} className={inputClass} style={styles.outfitFont} />
             </div>
 
+            {/* DELETE SECTION */}
+            <div className="mt-6">
+              <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Delete</label>
+              {!showDeleteConfirm ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]"
+                  style={styles.outfitFont}
+                >
+                  Delete Initiative
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-red-700 font-semibold" style={styles.outfitFont}>Are you sure?</span>
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    onClick={handleDelete}
+                    className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]"
+                    style={styles.outfitFont}
+                  >
+                    {deleting ? 'Deleting...' : 'Yes, Delete'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition"
+                    style={styles.outfitFont}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* CANCEL + SAVE */}
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
               <button type="button" onClick={() => router.back()} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
               <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
