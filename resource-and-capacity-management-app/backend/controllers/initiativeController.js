@@ -572,3 +572,40 @@ export const updateInitiative = async (req, res) => {
     return res.status(500).json({ error: "Failed to update initiative" });
   }
 };
+
+/* =============================================================================
+   HANDLER: deleteInitiative
+   DELETE /api/initiatives/:id
+   -----------------------------------------------------------------------------
+   Deletes a single initiative record by its MongoDB _id.
+
+   SECURITY:
+     • Must be protected by JWT + RBAC — only Resource Managers should delete
+     • ObjectId.isValid() validates the id format before any DB query —
+       malformed IDs return 400 immediately without touching the DB
+     • Returns 404 if initiative not found — no silent no-ops on missing records
+     • Generic error message on failure — full error logged server-side only
+   ============================================================================= */
+export const deleteInitiative = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format before querying — prevents DB errors on bad input
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid initiative ID" });
+    }
+
+    const db     = await connectDB();
+    const result = await db.collection("assignment").deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Initiative not found" });
+    }
+
+    return res.json({ success: true, message: "Initiative deleted successfully" });
+
+  } catch (err) {
+    console.error("deleteInitiative error:", err);
+    return res.status(500).json({ error: "Failed to delete initiative" });
+  }
+};
