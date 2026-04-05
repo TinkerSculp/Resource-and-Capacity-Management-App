@@ -48,7 +48,8 @@ import {
   getEmployeeCapacity,   // GET  /employees/:emp_id/capacity — Returns capacity data
   updateEmployeeCapacity,// PUT  /employees/:emp_id/capacity — Updates capacity data
   getAllDepartments,      // GET  /departments              — Returns all departments
-  getAllManagers          // GET  /managers                 — Returns all managers
+  getAllManagers,        // GET  /managers                 — Returns all managers
+  deleteEmployee
 } from "../controllers/resourceController.js";
 
 const router = express.Router();
@@ -176,5 +177,18 @@ router.get("/departments", getAllDepartments);
    • Read-only — requires JWT to prevent enumeration of internal personnel.
 ----------------------------------------------------------------------------- */
 router.get("/managers", getAllManagers);
+
+// Add after the PUT /employees/:emp_id route:
+
+/* -----------------------------------------------------------------------------
+   DELETE /api/resources/employees/:emp_id
+   -----------------------------------------------------------------------------
+   Permanently deletes an employee record and all associated capacity data.
+
+   SECURITY:
+   • MUST require JWT + RBAC — only Resource Managers should delete employees.
+   • Controller validates :emp_id and returns 404 if record does not exist.
+----------------------------------------------------------------------------- */
+router.delete("/employees/:emp_id", deleteEmployee);
 
 export default router;
