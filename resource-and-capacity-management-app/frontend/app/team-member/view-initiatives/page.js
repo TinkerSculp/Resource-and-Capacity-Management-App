@@ -1,6 +1,4 @@
-
 'use client';
-export const dynamic = 'force-dynamic';
 
 /* =============================================================================
    TeamMemberInitiativesPage.jsx
@@ -62,18 +60,19 @@ const btnDarkClass = `
   dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
   dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
-  relative before:content-[''] before:absolute before:inset-0 before:rounded
+  relative
+  before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
   dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const tabClass = (isActive) => `
-  px-6 py-2 rounded text-sm
+  px-4 py-2 rounded text-sm
   border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
-    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
+    ? 'bg-[#017ACB] text-white dark:bg-[#017ACB]'
+    : 'bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-gray-300 dark:hover:bg-slate-600'
   }
   transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -87,9 +86,14 @@ const tabClass = (isActive) => `
 `;
 
 const colBtnClass = `
-  ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
-  border border-black/50 hover:bg-[#CDE6F7] transition
+  ml-2 px-2 py-1 rounded text-xs font-bold
+  bg-white dark:bg-slate-700
+  text-[#017ACB] dark:text-[#4DAEFF]
+  border border-black/50 dark:border-slate-500
+  hover:bg-[#CDE6F7] dark:hover:bg-slate-600
+  transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.14)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.14)]
   relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
@@ -139,12 +143,12 @@ function isValidInitiative(item) {
    Custom styled checkbox consistent with the rest of the app's design system.
    ============================================================================= */
 const Checkbox = ({ checked }) => (
-  <span className="w-4 h-4 border border-black rounded-sm flex items-center justify-center transition relative overflow-hidden flex-shrink-0">
+  <span className="w-4 h-4 border border-black dark:border-slate-400 rounded-sm flex items-center justify-center relative overflow-hidden flex-shrink-0">
     <input type="checkbox" checked={checked} readOnly className="opacity-0 absolute w-4 h-4 cursor-pointer" />
     {checked && (
       <>
-        <span className="absolute inset-0" style={{ backgroundColor: '#003A5C' }} />
-        <svg className="absolute w-3 h-3 text-white" viewBox="0 0 20 20" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <span className="absolute inset-0" style={{ backgroundColor: "#003A5C" }} />
+        <svg className="absolute w-3 h-3" viewBox="0 0 20 20" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="4 11 8 15 16 6" />
         </svg>
       </>
@@ -370,7 +374,7 @@ export default function TeamMemberInitiativesPage() {
         <>
           {[{ val: 'asc', label: 'A → Z' }, { val: 'desc', label: 'Z → A' }].map(({ val, label }) => (
             <div key={val}
-              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${projectSort === val ? 'font-bold' : ''}`}
+              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${projectSort === val ? 'font-bold' : ''}`}
               onClick={() => setProjectSort(projectSort === val ? '' : val)}
             >
               <Checkbox checked={projectSort === val} />{label}
@@ -381,14 +385,14 @@ export default function TeamMemberInitiativesPage() {
       )}
       {/* "All" clears the filter for this column */}
       <div
-        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.length === 0 ? 'font-bold' : ''}`}
+        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${selected.length === 0 ? 'font-bold' : ''}`}
         onClick={() => setSelected([])}
       >
         <Checkbox checked={selected.length === 0} />All
       </div>
       {available.map(val => (
         <div key={val}
-          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.includes(val) ? 'font-bold' : ''}`}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${selected.includes(val) ? 'font-bold' : ''}`}
           onClick={() => toggleSelection(val, setSelected, selected)}
         >
           <Checkbox checked={selected.includes(val)} />{val}
@@ -402,7 +406,7 @@ export default function TeamMemberInitiativesPage() {
   --------------------------------------------------------------------------- */
   if (!user) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" />
       </div>
     );
@@ -449,7 +453,7 @@ export default function TeamMemberInitiativesPage() {
           max-h-[70vh] + overflow-y-auto — vertical scroll within the viewport.
           sticky thead — headers stay visible while scrolling down.
           Row click toggles highlight — bg-inherit on cells so hover works correctly. */}
-      <div className="table-surface border rounded-lg shadow-sm bg-white overflow-hidden">
+      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
@@ -553,7 +557,7 @@ export default function TeamMemberInitiativesPage() {
             <tbody>
               {filteredInitiatives.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="text-center py-8 text-gray-500 border" style={styles.outfitFont}>
+                  <td colSpan={11} className="text-center py-8 text-gray-500 dark:text-slate-400 border dark:border-slate-700" style={styles.outfitFont}>
                     No initiatives found.
                   </td>
                 </tr>
@@ -565,24 +569,24 @@ export default function TeamMemberInitiativesPage() {
                   <tr
                     key={item.id}
                     onClick={() => toggleHighlight(item.id)} // Row click toggles highlight
-                    className={`cursor-pointer transition-colors hover:bg-[#017ACB]/20 ${isHighlighted ? 'bg-[#CDE6F7]' : 'bg-white'}`}
+                    className={`cursor-pointer transition-colors hover:bg-[#017ACB]/10 dark:hover:bg-[#017ACB]/20 border-t border-black dark:border-slate-700 ${isHighlighted ? 'bg-[#CDE6F7] dark:bg-[#0A5F8A]/30' : 'bg-white dark:bg-slate-900'}`}
                   >
                     {/* bg-inherit on all cells so row hover/highlight colour shows through */}
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.project}</td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.category}</td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.lead}</td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.status}</td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.requestor}</td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.requestor_vp}</td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.requesting_dept}</td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">{item.project}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">{item.category}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">{item.lead}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">{item.status}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">{item.requestor}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">{item.requestor_vp}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">{item.requesting_dept}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">
                       {/* Completion date formatted to locale string — null shown as blank */}
                       {item.completion_date ? new Date(item.completion_date).toLocaleDateString() : ''}
                     </td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.target_period}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit">{item.target_period}</td>
                     {/* Description and Resource Consideration allow wrapping — max-w constrains width */}
-                    <td className="px-4 py-2 border text-sm text-black whitespace-normal break-words align-top max-w-[750px] bg-inherit">{item.description}</td>
-                    <td className="px-4 py-2 border text-sm text-black whitespace-normal break-words align-top max-w-[500px] bg-inherit">{item.resource_consideration}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-normal break-words align-top max-w-[750px] bg-inherit">{item.description}</td>
+                    <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-normal break-words align-top max-w-[500px] bg-inherit">{item.resource_consideration}</td>
                   </tr>
                 );
               })}
