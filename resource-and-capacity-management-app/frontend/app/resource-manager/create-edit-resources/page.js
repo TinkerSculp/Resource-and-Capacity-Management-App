@@ -30,6 +30,11 @@
      • Values outside 0–1 are rejected with an error banner
      • The backend uses upsert — creates the record if it doesn't exist
 
+   FIX — "No employees found" CENTRING:
+     The empty state <td> uses a combination of position:sticky left + a fixed
+     width approach so the message stays visually centred in the viewport even
+     when the table is wider than the screen and has been scrolled horizontally.
+
    SECURITY MODEL:
      • localStorage read inside try/catch — malformed JSON sets user to null.
      • All fetch errors are caught and set a visible error banner — never crash.
@@ -61,16 +66,8 @@ import api from "@/lib/api";
 
 const styles = { outfitFont: { fontFamily: "Outfit, sans-serif" } };
 
-/* -----------------------------------------------------------------------------
-   DEPARTMENT FILTER
-   Centralised so it's easy to change — all filtering logic references this
-   constant rather than a hardcoded string.
------------------------------------------------------------------------------ */
 const DEPARTMENT_FILTER_NAME = "Data Mgmt";
 
-/* -----------------------------------------------------------------------------
-   SHARED BUTTON CLASSES — neumorphic, matches all other pages in the app.
------------------------------------------------------------------------------ */
 const btnClass = `
   px-4 py-2 rounded text-sm
   bg-[#017ACB] text-white border border-black/50
@@ -118,7 +115,7 @@ const colBtnClass = `
 `;
 
 /* =============================================================================
-   COMPONENT: Checkbox — used inside dropdown filter menus.
+   COMPONENT: Checkbox
    ============================================================================= */
 function Checkbox({ checked }) {
   return (
@@ -142,12 +139,12 @@ function Checkbox({ checked }) {
 export default function ResourcesPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const refresh      = searchParams.get("refresh"); // Triggers re-fetch after create/edit
+  const refresh      = searchParams.get("refresh");
 
   /* ---------------------------------------------------------------------------
      STATE
   --------------------------------------------------------------------------- */
-  const [user, setUser]     = useState(null);
+  const [user, setUser]                                         = useState(null);
   const [employees, setEmployees]                               = useState([]);
   const [employeesWithCapacity, setEmployeesWithCapacity]       = useState([]);
   const [allEmployeesWithCapacity, setAllEmployeesWithCapacity] = useState([]);
@@ -156,17 +153,15 @@ export default function ResourcesPage() {
 
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
-  const [portalReady, setPortalReady] = useState(false); // Guards createPortal calls
+  const [portalReady, setPortalReady] = useState(false);
 
-  const [activeFilter, setActiveFilter] = useState("all"); // "all" or "mine"
-  const [searchTerm, setSearchTerm]     = useState("");
-  const [selectedEmpId, setSelectedEmpId] = useState(null); // Row highlight
+  const [activeFilter, setActiveFilter]   = useState("all");
+  const [searchTerm, setSearchTerm]       = useState("");
+  const [selectedEmpId, setSelectedEmpId] = useState(null);
 
-  // Inline cell editing
-  const [editingCell, setEditingCell]   = useState(null); // { empId, monthKey }
+  const [editingCell, setEditingCell]   = useState(null);
   const [editingValue, setEditingValue] = useState("");
 
-  // Column filter selections — [] means "show all"
   const [selectedNames, setSelectedNames]                     = useState([]);
   const [selectedTitles, setSelectedTitles]                   = useState([]);
   const [selectedReportsTo, setSelectedReportsTo]             = useState([]);
@@ -174,9 +169,8 @@ export default function ResourcesPage() {
   const [selectedManagerLevels, setSelectedManagerLevels]     = useState([]);
   const [selectedDirectorLevels, setSelectedDirectorLevels]   = useState([]);
 
-  const [nameSort, setNameSort] = useState("none"); // "asc" | "desc" | "none"
+  const [nameSort, setNameSort] = useState("none");
 
-  // Dropdown visibility flags
   const [showNameMenu, setShowNameMenu]                   = useState(false);
   const [showTitleMenu, setShowTitleMenu]                 = useState(false);
   const [showReportsToMenu, setShowReportsToMenu]         = useState(false);
@@ -186,13 +180,11 @@ export default function ResourcesPage() {
   const [showMonthMenu, setShowMonthMenu]                 = useState(false);
   const [menuPosition, setMenuPosition]                   = useState({ x: 0, y: 0 });
 
-  // Month system
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [monthOptions, setMonthOptions]   = useState([]);
   const [visibleMonths, setVisibleMonths] = useState([]);
   const monthMenuRef                      = useRef(null);
 
-  // Available filter option lists — rebuilt from the active tab's data
   const [availableNames, setAvailableNames]                     = useState([]);
   const [availableTitles, setAvailableTitles]                   = useState([]);
   const [availableReportsTo, setAvailableReportsTo]             = useState([]);
@@ -200,8 +192,11 @@ export default function ResourcesPage() {
   const [availableManagerLevels, setAvailableManagerLevels]     = useState([]);
   const [availableDirectorLevels, setAvailableDirectorLevels]   = useState([]);
 
+  // Ref to the scrollable table wrapper — used to compute viewport-centred empty state
+  const tableWrapperRef = useRef(null);
+
   /* ---------------------------------------------------------------------------
-     HELPERS: menu open/close, selection toggle
+     HELPERS
   --------------------------------------------------------------------------- */
   const closeAllMenus = () => {
     setShowNameMenu(false); setShowTitleMenu(false); setShowReportsToMenu(false);
@@ -209,7 +204,6 @@ export default function ResourcesPage() {
     setShowDirectorLevelMenu(false); setShowMonthMenu(false);
   };
 
-  // Toggle-aware: clicking the same ▼ button closes the menu
   const openMenu = (e, setFn, currentlyOpen) => {
     e.stopPropagation();
     if (currentlyOpen) { closeAllMenus(); return; }
@@ -262,7 +256,6 @@ export default function ResourcesPage() {
   /* ---------------------------------------------------------------------------
      EFFECTS: SETUP
   --------------------------------------------------------------------------- */
-  // Initialise month options on mount
   useEffect(() => {
     const backward = generate12MonthsBackward();
     setMonthOptions(backward);
@@ -271,7 +264,6 @@ export default function ResourcesPage() {
     setVisibleMonths(generate16MonthsForward(current.date));
   }, []);
 
-  // Load user session
   useEffect(() => {
     try {
       const stored = localStorage.getItem("user");
@@ -279,17 +271,14 @@ export default function ResourcesPage() {
     } catch { setUser(null); }
   }, []);
 
-  // Mark portal as ready after first client render
   useEffect(() => setPortalReady(true), []);
 
-  // Close all menus on outside click
   useEffect(() => {
     const handler = (e) => { if (!e.target.closest(".dropdown-menu")) closeAllMenus(); };
     window.addEventListener("click", handler);
     return () => window.removeEventListener("click", handler);
   }, []);
 
-  // Scroll month picker to the selected month when it opens
   useEffect(() => {
     if (showMonthMenu && monthMenuRef.current) {
       const el = monthMenuRef.current.querySelector(`[data-month-key="${selectedMonth?.key}"]`);
@@ -299,10 +288,6 @@ export default function ResourcesPage() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: LOAD EMPLOYEES + CAPACITY
-     ---------------------------------------------------------------------------
-     Fetches employees, departments, and managers in parallel, then fetches
-     capacity for each employee. Filters the final employee list to the
-     Data Management department using DEPARTMENT_FILTER_NAME.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     const load = async () => {
@@ -321,7 +306,6 @@ export default function ResourcesPage() {
         setDepartments(departmentsRaw);
         setManagers(managersRaw);
 
-        // Fetch capacity per employee and attach to the employee object
         const withCap = await Promise.all(
           employeesRaw.map(async emp => {
             try {
@@ -332,18 +316,17 @@ export default function ResourcesPage() {
               });
               return { ...emp, capacity: cap };
             } catch {
-              return { ...emp, capacity: {} }; // Empty capacity — non-fatal
+              return { ...emp, capacity: {} };
             }
           })
         );
 
-        // Filter to Data Management department only
         const filtered = withCap.filter(emp => {
           const dept = departmentsRaw.find(d => d.dept_no === emp.dept_no);
           return dept?.dept_name?.toLowerCase() === DEPARTMENT_FILTER_NAME.toLowerCase();
         });
 
-        setAllEmployeesWithCapacity(withCap); // Full list — used for Reports To name lookup
+        setAllEmployeesWithCapacity(withCap);
         setEmployeesWithCapacity(filtered);
         setEmployees(filtered);
         setError("");
@@ -359,11 +342,7 @@ export default function ResourcesPage() {
   }, [refresh]);
 
   /* ---------------------------------------------------------------------------
-     EFFECT: BUILD FILTER OPTION LISTS (TAB-AWARE)
-     ---------------------------------------------------------------------------
-     Rebuilds dropdown option lists from the active tab's employee set.
-     On "Mine" tab, only shows values relevant to the logged-in user's row —
-     prevents the dropdown from showing irrelevant options.
+     EFFECT: BUILD FILTER OPTION LISTS
   --------------------------------------------------------------------------- */
   useEffect(() => {
     const source = (activeFilter === "mine" && user)
@@ -384,18 +363,14 @@ export default function ResourcesPage() {
 
   /* ---------------------------------------------------------------------------
      EFFECT: MAIN FILTERING + SORT
-     Applies tab, search, department, column filters, and sort to produce the
-     final employee list for rendering.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     let filtered = [...employeesWithCapacity];
 
-    // Mine tab — scope to current user's emp_id only
     if (activeFilter === "mine" && user) {
       filtered = filtered.filter(emp => String(emp.emp_id) === String(user.emp_id));
     }
 
-    // Global search — matches name or title
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
       filtered = filtered.filter(e =>
@@ -403,13 +378,11 @@ export default function ResourcesPage() {
       );
     }
 
-    // Always enforce Data Management department
     filtered = filtered.filter(e => {
       const dept = departments.find(d => d.dept_no === e.dept_no);
       return dept?.dept_name?.toLowerCase() === DEPARTMENT_FILTER_NAME.toLowerCase();
     });
 
-    // Column filters — each filter only applies if the selection is non-empty
     if (selectedNames.length > 0)           filtered = filtered.filter(e => selectedNames.includes(e.emp_name));
     if (selectedTitles.length > 0)          filtered = filtered.filter(e => selectedTitles.includes(e.emp_title));
     if (selectedReportsTo.length > 0)       filtered = filtered.filter(e => selectedReportsTo.includes(getReportsToName(e)));
@@ -429,7 +402,7 @@ export default function ResourcesPage() {
   ]);
 
   /* ---------------------------------------------------------------------------
-     DISPLAY HELPER FUNCTIONS
+     DISPLAY HELPERS
   --------------------------------------------------------------------------- */
   const getDepartmentName = (deptNo) =>
     departments.find(d => d.dept_no === deptNo)?.dept_name || deptNo;
@@ -460,17 +433,10 @@ export default function ResourcesPage() {
 
   const cancelEditMonth = () => { setEditingCell(null); setEditingValue(""); };
 
-  /* ---------------------------------------------------------------------------
-     HANDLER: saveMonthValue
-     ---------------------------------------------------------------------------
-     Validates the 0–1 range before sending. Empty input clears the capacity
-     record (backend deletes the document). Valid values upsert the record.
-  --------------------------------------------------------------------------- */
   const saveMonthValue = async (emp, key) => {
     const raw = editingValue.trim();
 
     if (raw === "") {
-      // Empty — clear the capacity record for this month
       try {
         await api.put(`/resources/employees/${emp.emp_id}/capacity`, {
           capacityEntries: [{ date: key, amount: null }],
@@ -513,9 +479,7 @@ export default function ResourcesPage() {
   };
 
   /* ---------------------------------------------------------------------------
-     HELPER: renderDropdownPortal
-     Renders dropdown menus into document.body via createPortal.
-     This prevents menus from being clipped by overflow:hidden containers.
+     PORTAL HELPER
   --------------------------------------------------------------------------- */
   const renderDropdownPortal = (menu) => {
     if (!portalReady) return null;
@@ -552,16 +516,12 @@ export default function ResourcesPage() {
 
       {/* PAGE HEADER */}
       <div className="flex items-center justify-between mb-4 shrink-0 flex-wrap gap-2">
-
-        {/* LEFT: Title + Back button */}
         <div className="flex items-center gap-4 flex-wrap">
           <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>Resources</h2>
           <button onClick={() => router.push("/resource-manager/dashboard")} className={btnDarkClass} style={styles.outfitFont}>
             Back to Dashboard
           </button>
         </div>
-
-        {/* CENTER: Global search */}
         <div className="flex-1 flex justify-center">
           <input
             type="text"
@@ -573,8 +533,6 @@ export default function ResourcesPage() {
             style={styles.outfitFont}
           />
         </div>
-
-        {/* RIGHT: All/Mine tabs + Create Resource */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex gap-2">
             {["all", "mine"].map(tab => (
@@ -582,7 +540,6 @@ export default function ResourcesPage() {
                 key={tab}
                 onClick={() => {
                   setActiveFilter(tab);
-                  // Clear all selections when switching tabs
                   setSelectedNames([]); setSelectedTitles([]); setSelectedReportsTo([]);
                   setSelectedCurrentStatuses([]); setSelectedManagerLevels([]); setSelectedDirectorLevels([]);
                 }}
@@ -608,24 +565,23 @@ export default function ResourcesPage() {
         </div>
       )}
 
-      {/* TABLE
-          overflow-x-auto — horizontal scroll on narrow screens.
-          overflow-y-auto + max-h-[70vh] — vertical scroll within viewport.
-          sticky thead — headers stay visible while scrolling down.
-          sticky left-0 Edit column — always visible while scrolling right. */}
+      {/* TABLE WRAPPER */}
       <div className="border rounded-lg shadow-sm bg-white overflow-hidden shrink-0">
-        <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+        <div
+          ref={tableWrapperRef}
+          className="overflow-x-auto overflow-y-auto max-h-[70vh] relative"
+        >
           <table className="min-w-max w-full border-collapse text-sm">
 
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
 
-                {/* EDIT — sticky left, always visible when scrolling right */}
+                {/* EDIT */}
                 <th className="sticky left-0 top-0 z-[9999] bg-[#017ACB] px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle [background-clip:padding-box]" style={styles.outfitFont}>
                   Edit
                 </th>
 
-                {/* NAME — sort + filter */}
+                {/* NAME */}
                 <th className="px-2 py-2 text-left font-semibold border-l border-black border-r border-black min-w-[150px] relative" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Name</span>
@@ -672,7 +628,7 @@ export default function ResourcesPage() {
                   )}
                 </th>
 
-                {/* DEPARTMENT — no filter, always "Data Mgmt" */}
+                {/* DEPARTMENT */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[150px]" style={styles.outfitFont}>Department</th>
 
                 {/* REPORTS TO */}
@@ -735,7 +691,7 @@ export default function ResourcesPage() {
                   )}
                 </th>
 
-                {/* OTHER INFORMATION — no filter */}
+                {/* OTHER INFORMATION */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[200px] max-w-[200px]" style={styles.outfitFont}>Other Information</th>
 
                 {/* STATUS */}
@@ -758,7 +714,7 @@ export default function ResourcesPage() {
                   )}
                 </th>
 
-                {/* MONTH COLUMNS — ▼ picker only on the first month column */}
+                {/* MONTH COLUMNS */}
                 {visibleMonths.map((month, index) => (
                   <th key={month.key} className="px-2 py-2 text-center text-white border-r border-black min-w-[60px] relative" style={styles.outfitFont}>
                     <div className="flex justify-center items-center gap-1">
@@ -770,7 +726,6 @@ export default function ResourcesPage() {
                   </th>
                 ))}
 
-                {/* Month picker portal — scrolls to selected month on open */}
                 {showMonthMenu && renderDropdownPortal(
                   <div ref={monthMenuRef} className={dropMenuClass}>
                     {[...monthOptions].reverse().map(m => (
@@ -791,8 +746,31 @@ export default function ResourcesPage() {
             <tbody>
               {employees.length === 0 ? (
                 <tr>
-                  <td colSpan={9 + visibleMonths.length} className="px-4 py-8 text-center text-black border-t border-black" style={styles.outfitFont}>
-                    No employees found.
+                  {/* -------------------------------------------------------
+                      EMPTY STATE — viewport-centred regardless of scroll.
+                      The <td> spans all columns but has no width of its own.
+                      The inner <div> uses position:sticky + left + transform
+                      to pin itself to the horizontal centre of the visible
+                      viewport area, so it never drifts when the table is
+                      scrolled left or right.
+                  ------------------------------------------------------- */}
+                  <td
+                    colSpan={9 + visibleMonths.length}
+                    className="border-t border-black py-8"
+                    style={{ height: "120px" }}
+                  >
+                    <div
+                      className="text-black text-sm"
+                      style={{
+                        position: "sticky",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: "max-content",
+                        fontFamily: "Outfit, sans-serif",
+                      }}
+                    >
+                      No employees found.
+                    </div>
                   </td>
                 </tr>
               ) : employees.map(employee => {
@@ -809,7 +787,7 @@ export default function ResourcesPage() {
                         href={`/resource-manager/create-edit-resources/edit-resource?id=${employee.emp_id}`}
                         className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] inline-block"
                         style={styles.outfitFont}
-                        onClick={e => e.stopPropagation()} // Prevent row highlight on Edit click
+                        onClick={e => e.stopPropagation()}
                       >
                         Edit
                       </Link>
@@ -824,14 +802,14 @@ export default function ResourcesPage() {
                     <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{getLevelName(employee.director_level)}</td>
                     <td className="px-2 py-2 text-black border-r border-black max-w-[500px]" style={styles.outfitFont}>{employee.other_info || ""}</td>
 
-                    {/* STATUS BADGE — background colour only, text always black */}
+                    {/* STATUS BADGE */}
                     <td className="px-2 py-2 border-r border-black" style={styles.outfitFont}>
                       <span className={`px-2 py-1 text-xs rounded text-black ${getCurrentStatus(employee) === "Active" ? "bg-green-100" : "bg-red-100"}`}>
                         {getCurrentStatus(employee)}
                       </span>
                     </td>
 
-                    {/* MONTH CELLS — inline edit on click */}
+                    {/* MONTH CELLS */}
                     {visibleMonths.map(month => (
                       <td
                         key={month.key}
@@ -840,7 +818,6 @@ export default function ResourcesPage() {
                         onClick={e => { e.stopPropagation(); startEditMonth(employee, month.key); }}
                       >
                         {editingCell?.empId === employee.emp_id && editingCell?.monthKey === month.key ? (
-                          // Inline edit input — blur saves, Escape cancels, Enter saves
                           <input
                             type="number"
                             min="0"
@@ -879,7 +856,7 @@ export default function ResourcesPage() {
         </div>
       </div>
 
-      {/* FOOTER — employee count */}
+      {/* FOOTER */}
       <div className="mt-3 text-gray-600 text-sm shrink-0" style={styles.outfitFont}>
         Showing {employees.length} of {employeesWithCapacity.length} employees
       </div>
