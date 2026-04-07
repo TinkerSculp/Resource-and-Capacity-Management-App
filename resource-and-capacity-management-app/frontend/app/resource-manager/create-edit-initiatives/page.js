@@ -10,6 +10,7 @@
          requestor, requestor VP, requesting dept)
        • Project sort (A→Z / Z→A)
        • Inline Edit button per row — navigates to the edit page
+       • Global search bar — filters visible rows across key initiative fields
 
    HOW IT WORKS:
      1. On mount, validates the session from localStorage
@@ -18,6 +19,7 @@
      4. Filter dropdowns are built from the tab-scoped base BEFORE filters are
         applied — so "My Initiatives" only shows values from that user's rows
      5. Clicking a row highlights it — clicking again unhighlights
+     6. Global search is applied to the tab-scoped base before column filters
 
    FILTER OPTION LISTS — TAB-AWARE:
      Each dropdown's option list is derived from the current tab's base rows
@@ -32,6 +34,7 @@
      • All initiative fields passed through sanitizeText() before storing in state.
      • encodeURIComponent() on initiative IDs in all URL constructions.
      • Filter menus built from sanitized server data only — no user-typed values.
+     • Search input is restricted to letters and spaces only.
      • No dangerouslySetInnerHTML anywhere.
      • Fetch aborted on unmount via aborted flag — prevents setState after unmount.
 
@@ -157,9 +160,11 @@ export default function InitiativesPage() {
   const [user, setUser]           = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  const [initiatives, setInitiatives]             = useState([]); // allAssignments from backend
-  const [mine, setMine]                           = useState([]); // myInitiatives from backend
-  const [filteredInitiatives, setFilteredInitiatives] = useState([]);
+  const [initiatives, setInitiatives]                  = useState([]);
+  const [mine, setMine]                                = useState([]);
+  const [filteredInitiatives, setFilteredInitiatives]  = useState([]);
+
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Filter selections — [] = no filter (show all)
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -171,7 +176,7 @@ export default function InitiativesPage() {
   const [selectedProjects, setSelectedProjects]     = useState([]);
 
   const [projectSort, setProjectSort]     = useState('');
-  const [highlightedId, setHighlightedId] = useState(null); // Row click highlight
+  const [highlightedId, setHighlightedId] = useState(null);
   const toggleHighlight = (id) => setHighlightedId(prev => prev === id ? null : id);
 
   // Dropdown visibility flags
@@ -195,8 +200,6 @@ export default function InitiativesPage() {
 
   /* ---------------------------------------------------------------------------
      DERIVED: visibleStatuses
-     Status dropdown options are scoped to the active tab to prevent
-     showing irrelevant statuses (e.g. "Completed" appearing in the All tab).
   --------------------------------------------------------------------------- */
   const visibleStatuses =
     activeTab === 'completed' ? ['Completed'] :
@@ -212,16 +215,24 @@ export default function InitiativesPage() {
   };
 
   const closeAllMenus = () => {
-    setShowProjectSortMenu(false); setShowCategoryMenu(false); setShowStatusMenu(false);
-    setShowVPMenu(false); setShowDeptMenu(false); setShowLeadMenu(false);
+    setShowProjectSortMenu(false);
+    setShowCategoryMenu(false);
+    setShowStatusMenu(false);
+    setShowVPMenu(false);
+    setShowDeptMenu(false);
+    setShowLeadMenu(false);
     setShowRequestorMenu(false);
   };
 
   const openMenu = (e, setFn, currentlyOpen) => {
     e.stopPropagation();
-    if (currentlyOpen) { closeAllMenus(); return; }
+    if (currentlyOpen) {
+      closeAllMenus();
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
-    let x = rect.left, y = rect.bottom + 4;
+    let x = rect.left;
+    let y = rect.bottom + 4;
     if (x + 320 > window.innerWidth) x = window.innerWidth - 320 - 10;
     setMenuPosition({ x, y });
     closeAllMenus();
@@ -230,7 +241,6 @@ export default function InitiativesPage() {
 
   /* ---------------------------------------------------------------------------
      EFFECT 1: LOAD USER SESSION
-     Wrapped in try/catch — malformed JSON redirects to login rather than crashing.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
@@ -239,14 +249,13 @@ export default function InitiativesPage() {
       const parsed = JSON.parse(raw);
       if (!isValidUser(parsed)) return router.push('/login');
       setUser(parsed);
-    } catch { router.push('/login'); }
+    } catch {
+      router.push('/login');
+    }
   }, [router]);
 
   /* ---------------------------------------------------------------------------
      EFFECT 2: FETCH INITIATIVES
-     ---------------------------------------------------------------------------
-     aborted flag prevents setState after unmount and stale responses on tab change.
-     All returned initiative fields are passed through sanitizeText before storing.
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
@@ -263,22 +272,20 @@ export default function InitiativesPage() {
 
         const data = res.data;
 
-        // sanitizeText() on every field — XSS defence-in-depth
-        // isValidInitiative() filters out malformed objects missing _id
         const safeMap = (items) =>
           Array.isArray(items)
             ? items.filter(isValidInitiative).map(item => ({
-                id:                    sanitizeText(String(item._id)),
-                project:               sanitizeText(item.project_name),
-                category:              sanitizeText(item.category),
-                lead:                  sanitizeText(item.leader),
-                status:                sanitizeText(item.status),
-                requestor:             sanitizeText(item.requestor),
-                requestor_vp:          sanitizeText(item.requestor_vp),
-                requesting_dept:       sanitizeText(item.requesting_dept),
-                completion_date:       item.completion_date || null,
-                target_period:         sanitizeText(item.target_period),
-                description:           sanitizeText(item.description),
+                id:                     sanitizeText(String(item._id)),
+                project:                sanitizeText(item.project_name),
+                category:               sanitizeText(item.category),
+                lead:                   sanitizeText(item.leader),
+                status:                 sanitizeText(item.status),
+                requestor:              sanitizeText(item.requestor),
+                requestor_vp:           sanitizeText(item.requestor_vp),
+                requesting_dept:        sanitizeText(item.requesting_dept),
+                completion_date:        item.completion_date || null,
+                target_period:          sanitizeText(item.target_period),
+                description:            sanitizeText(item.description),
                 resource_consideration: sanitizeText(item.resource_notes),
               }))
             : [];
@@ -289,40 +296,30 @@ export default function InitiativesPage() {
         setInitiatives(safeMap(sourceAll));
         setMine(safeMap(data.myInitiatives || []));
         setFilteredInitiatives(safeMap(sourceAll));
-
       } catch (err) {
         console.error('Fetch error:', err);
       }
     };
 
     fetchInitiatives();
-    return () => { aborted = true; }; // Cleanup — prevents setState on stale fetch
+    return () => { aborted = true; };
   }, [user, refresh, activeTab]);
 
   /* ---------------------------------------------------------------------------
-     EFFECT 3: APPLY FILTERS + SORT + BUILD AVAILABLE FILTER LISTS
-     ---------------------------------------------------------------------------
-     The base dataset is scoped per tab BEFORE filters are applied:
-       all       → active initiatives (excludes Completed/Cancelled)
-       mine      → logged-in user's rows (also excludes Completed/Cancelled)
-       completed → Completed only
-       cancelled → Cancelled only
-
-     Filter option lists are built from the tab-scoped base BEFORE any column
-     filter is applied. This keeps dropdowns relevant — "My Initiatives"
-     dropdowns only show values from the logged-in user's rows.
+     EFFECT 3: APPLY SEARCH + FILTERS + SORT + BUILD AVAILABLE FILTER LISTS
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
 
-    // Step 1: Determine tab-scoped base rows (before any filter)
     const base =
-      activeTab === 'mine'      ? mine.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled') :
-      activeTab === 'completed' ? initiatives.filter(i => i.status === 'Completed') :
-      activeTab === 'cancelled' ? initiatives.filter(i => i.status === 'Cancelled') :
-      initiatives.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled');
+      activeTab === 'mine'
+        ? mine.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled')
+        : activeTab === 'completed'
+          ? initiatives.filter(i => i.status === 'Completed')
+          : activeTab === 'cancelled'
+            ? initiatives.filter(i => i.status === 'Cancelled')
+            : initiatives.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled');
 
-    // Step 2: Build option lists from the tab-scoped base — never from user-typed input
     const uniq = (arr) => [...new Set(arr)].filter(Boolean);
     setAvailableCategories(uniq(base.map(i => i.category)));
     setAvailableStatuses(uniq(base.map(i => i.status)));
@@ -332,34 +329,62 @@ export default function InitiativesPage() {
     setAvailableRequestors(uniq(base.map(i => i.requestor)));
     setAvailableProjects(uniq(base.map(i => i.project)));
 
-    // Step 3: Apply active filter selections — empty array = no filter
-    let filtered = base.filter(i =>
-      (!selectedCategories.length || selectedCategories.includes(i.category))       &&
-      (!selectedStatuses.length   || selectedStatuses.includes(i.status))            &&
-      (!selectedVPs.length        || selectedVPs.includes(i.requestor_vp))           &&
-      (!selectedDepts.length      || selectedDepts.includes(i.requesting_dept))      &&
-      (!selectedLeads.length      || selectedLeads.includes(i.lead))                 &&
-      (!selectedRequestors.length || selectedRequestors.includes(i.requestor))       &&
+    let filtered = base;
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+
+      filtered = filtered.filter(i =>
+        (i.project || '').toLowerCase().includes(term) ||
+        (i.category || '').toLowerCase().includes(term) ||
+        (i.lead || '').toLowerCase().includes(term) ||
+        (i.status || '').toLowerCase().includes(term) ||
+        (i.requestor || '').toLowerCase().includes(term) ||
+        (i.requestor_vp || '').toLowerCase().includes(term) ||
+        (i.requesting_dept || '').toLowerCase().includes(term) ||
+        (i.target_period || '').toLowerCase().includes(term) ||
+        (i.description || '').toLowerCase().includes(term) ||
+        (i.resource_consideration || '').toLowerCase().includes(term)
+      );
+    }
+
+    filtered = filtered.filter(i =>
+      (!selectedCategories.length || selectedCategories.includes(i.category)) &&
+      (!selectedStatuses.length   || selectedStatuses.includes(i.status)) &&
+      (!selectedVPs.length        || selectedVPs.includes(i.requestor_vp)) &&
+      (!selectedDepts.length      || selectedDepts.includes(i.requesting_dept)) &&
+      (!selectedLeads.length      || selectedLeads.includes(i.lead)) &&
+      (!selectedRequestors.length || selectedRequestors.includes(i.requestor)) &&
       (!selectedProjects.length   || selectedProjects.includes(i.project))
     );
 
-    // Step 4: Apply sort
     if (projectSort === 'asc')  filtered = [...filtered].sort((a, b) => a.project.localeCompare(b.project));
     if (projectSort === 'desc') filtered = [...filtered].sort((a, b) => b.project.localeCompare(a.project));
 
     setFilteredInitiatives(filtered);
   }, [
-    activeTab, initiatives, mine, user,
-    selectedCategories, selectedStatuses, selectedVPs,
-    selectedDepts, selectedLeads, selectedRequestors,
-    selectedProjects, projectSort
+    activeTab,
+    initiatives,
+    mine,
+    user,
+    searchTerm,
+    selectedCategories,
+    selectedStatuses,
+    selectedVPs,
+    selectedDepts,
+    selectedLeads,
+    selectedRequestors,
+    selectedProjects,
+    projectSort
   ]);
 
   /* ---------------------------------------------------------------------------
      EFFECT 4: CLOSE MENUS ON OUTSIDE CLICK
   --------------------------------------------------------------------------- */
   useEffect(() => {
-    const handler = (e) => { if (!e.target.closest('.dropdown-menu')) closeAllMenus(); };
+    const handler = (e) => {
+      if (!e.target.closest('.dropdown-menu')) closeAllMenus();
+    };
     window.addEventListener('click', handler);
     return () => window.removeEventListener('click', handler);
   }, []);
@@ -377,15 +402,14 @@ export default function InitiativesPage() {
 
   /* ---------------------------------------------------------------------------
      RENDER HELPER: renderMenuItems
-     Shared pattern for all filter dropdowns — optional sort options for the
-     Project column, then "All" + the list of available values.
   --------------------------------------------------------------------------- */
   const renderMenuItems = (available, selected, setSelected, sortOptions = false) => (
     <>
       {sortOptions && (
         <>
           {[{ val: 'asc', label: 'A → Z' }, { val: 'desc', label: 'Z → A' }].map(({ val, label }) => (
-            <div key={val}
+            <div
+              key={val}
               className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${projectSort === val ? 'font-bold' : ''}`}
               onClick={() => setProjectSort(projectSort === val ? '' : val)}
             >
@@ -395,15 +419,17 @@ export default function InitiativesPage() {
           <div className="border-t my-1 text-xs font-semibold text-gray-500 px-3 py-1">Filter by project</div>
         </>
       )}
-      {/* "All" clears the filter for this column */}
+
       <div
         className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? 'font-bold' : ''}`}
         onClick={() => setSelected([])}
       >
         <Checkbox checked={selected.length === 0} />All
       </div>
+
       {available.map(val => (
-        <div key={val}
+        <div
+          key={val}
           className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(val) ? 'font-bold' : ''}`}
           onClick={() => toggleSelection(val, setSelected, selected)}
         >
@@ -415,7 +441,6 @@ export default function InitiativesPage() {
 
   /* ===========================================================================
      RENDER
-     All cell values come from sanitized API data — no dangerouslySetInnerHTML.
   =========================================================================== */
   return (
     <>
@@ -428,6 +453,18 @@ export default function InitiativesPage() {
           </button>
         </div>
 
+        <div className="flex-1 flex justify-center min-w-[220px]">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value.replace(/[^a-zA-Z ]/g, ''))}
+            maxLength={100}
+            className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
+            style={styles.outfitFont}
+          />
+        </div>
+
         {/* TABS + ADD BUTTON — switching tabs clears all filters */}
         <div className="flex flex-wrap gap-2 items-center">
           {['all', 'mine', 'completed', 'cancelled'].map(tab => (
@@ -435,10 +472,15 @@ export default function InitiativesPage() {
               key={tab}
               onClick={() => {
                 setActiveTab(tab);
-                // Clear all filters — prevents cross-tab filter bleed
-                setSelectedCategories([]); setSelectedStatuses([]); setSelectedVPs([]);
-                setSelectedDepts([]); setSelectedLeads([]); setSelectedRequestors([]);
-                setSelectedProjects([]); setProjectSort('');
+                setSearchTerm('');
+                setSelectedCategories([]);
+                setSelectedStatuses([]);
+                setSelectedVPs([]);
+                setSelectedDepts([]);
+                setSelectedLeads([]);
+                setSelectedRequestors([]);
+                setSelectedProjects([]);
+                setProjectSort('');
               }}
               aria-pressed={activeTab === tab}
               className={tabClass(activeTab === tab)}
@@ -458,17 +500,12 @@ export default function InitiativesPage() {
         </div>
       </div>
 
-      {/* INITIATIVES TABLE
-          overflow-x-auto — horizontal scroll on narrow screens.
-          max-h-[70vh] + overflow-y-auto — vertical scroll within viewport.
-          sticky thead — headers stay visible while scrolling down.
-          sticky left-0 Edit column — always visible while scrolling right. */}
+      {/* INITIATIVES TABLE */}
       <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
-
                 {/* EDIT — sticky left */}
                 <th className="sticky left-0 top-0 z-[9999] bg-[#017ACB] px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle [background-clip:padding-box]" style={styles.outfitFont}>
                   Edit
@@ -518,7 +555,6 @@ export default function InitiativesPage() {
                   </div>
                   {showStatusMenu && (
                     <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
-                      {/* visibleStatuses is scoped to the active tab */}
                       {renderMenuItems(visibleStatuses, selectedStatuses, setSelectedStatuses)}
                     </div>
                   )}
@@ -560,7 +596,6 @@ export default function InitiativesPage() {
                   )}
                 </th>
 
-                {/* Static columns — no filter needed */}
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Completion Date</th>
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Target Period</th>
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Description</th>
@@ -579,14 +614,17 @@ export default function InitiativesPage() {
 
               {filteredInitiatives.map(item => {
                 const isHighlighted = highlightedId === item.id;
+
                 return (
                   <tr
                     key={item.id}
                     onClick={() => toggleHighlight(item.id)}
                     className={`cursor-pointer transition-colors hover:bg-[#017ACB]/20 ${isHighlighted ? 'bg-[#CDE6F7]' : 'bg-white'}`}
                   >
-                    {/* EDIT — sticky left, stopPropagation prevents row highlight toggle */}
-                    <td className="sticky left-0 z-30 px-4 py-2 bg-white border-r border-black text-black whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                    <td
+                      className="sticky left-0 z-30 px-4 py-2 bg-white border-r border-black text-black whitespace-nowrap"
+                      onClick={e => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => router.push(`/resource-manager/create-edit-initiatives/edit-initiative?id=${encodeURIComponent(item.id)}`)}
                         className="
@@ -604,8 +642,6 @@ export default function InitiativesPage() {
                       </button>
                     </td>
 
-                    {/* DATA CELLS — all values sanitized before storage, no injection risk */}
-                    {/* bg-inherit on all cells so row hover/highlight colour shows through */}
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.project}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.category}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.lead}</td>
@@ -617,7 +653,6 @@ export default function InitiativesPage() {
                       {item.completion_date ? new Date(item.completion_date).toLocaleDateString() : ''}
                     </td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.target_period}</td>
-                    {/* Description and Resource Consideration allow wrapping — max-w constrains width */}
                     <td className="px-4 py-2 border text-sm text-black whitespace-normal break-words align-top max-w-[750px] bg-inherit">{item.description}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-normal break-words align-top max-w-[500px] bg-inherit">{item.resource_consideration}</td>
                   </tr>
