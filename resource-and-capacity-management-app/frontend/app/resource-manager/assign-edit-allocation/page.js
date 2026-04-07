@@ -152,7 +152,7 @@ export default function AssignmentsAllocationsPage() {
   const [months, setMonths]             = useState([]);
   const [activeTab, setActiveTab]       = useState("all");
   const [loading, setLoading]           = useState(true);
-
+  const [searchTerm, setSearchTerm] = useState("");
   // Confirm dialogs
   const [confirmDialog, setConfirmDialog]     = useState(null); // { row, m, index }
   const [overAllocConfirm, setOverAllocConfirm] = useState(null); // { row, m, index, newValue, maxCapacity }
@@ -435,47 +435,76 @@ export default function AssignmentsAllocationsPage() {
      allocation in the visible month window to be included.
   --------------------------------------------------------------------------- */
   useEffect(() => {
-    if (!user) return;
+  if (!user) return;
 
-    let filtered = (activeTab === "mine" ? mine : allRows).filter(row => {
-      const empName        = row.employee?.emp_name || "";
-      const project        = row.assignment?.project_name || "";
-      const category       = row.assignment?.category || "";
-      const leader         = row.assignment?.leader || "";
-      const requestor      = row.assignment?.requestor || "";
-      const requestorVP    = row.assignment?.requestor_vp || "";
-      const requestingDept = row.assignment?.requesting_dept_name || row.assignment?.requesting_dept || "";
-      const managerName    = row.employee?.manager_name || "";
+  let filtered = activeTab === "mine" ? mine : allRows;
 
-      const passesFilters =
-        (!selectedResources.length     || selectedResources.includes(empName)) &&
-        (!selectedProjects.length      || selectedProjects.includes(project)) &&
-        (!selectedCategories.length    || selectedCategories.includes(category)) &&
-        (!selectedLeaders.length       || selectedLeaders.includes(leader)) &&
-        (!selectedRequestors.length    || selectedRequestors.includes(requestor)) &&
-        (!selectedRequestorVPs.length  || selectedRequestorVPs.includes(requestorVP)) &&
-        (!selectedRequestingDepts.length || selectedRequestingDepts.includes(requestingDept)) &&
-        (!selectedManagers.length      || selectedManagers.includes(managerName));
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
 
-      if (!passesFilters) return false;
+    filtered = filtered.filter(row => {
+      const empName        = row.employee?.emp_name?.toLowerCase() || "";
+      const deptName       = row.employee?.dept_name?.toLowerCase() || "";
+      const managerName    = row.employee?.manager_name?.toLowerCase() || "";
+      const project        = row.assignment?.project_name?.toLowerCase() || "";
+      const category       = row.assignment?.category?.toLowerCase() || "";
+      const leader         = row.assignment?.leader?.toLowerCase() || "";
+      const requestor      = row.assignment?.requestor?.toLowerCase() || "";
+      const requestorVP    = row.assignment?.requestor_vp?.toLowerCase() || "";
+      const requestingDept = (row.assignment?.requesting_dept_name || row.assignment?.requesting_dept || "").toLowerCase();
 
-      // Must have at least one visible allocation — empty rows are not shown
-      return visibleMonths.some(m => {
-        const val = row.allocations?.[m];
-        return val !== null && val !== undefined && val !== "";
-      });
+      return (
+        empName.includes(term) ||
+        deptName.includes(term) ||
+        managerName.includes(term) ||
+        project.includes(term) ||
+        category.includes(term) ||
+        leader.includes(term) ||
+        requestor.includes(term) ||
+        requestorVP.includes(term) ||
+        requestingDept.includes(term)
+      );
     });
+  }
 
-    if (resourceSort === "asc")  filtered.sort((a, b) => a.employee.emp_name.localeCompare(b.employee.emp_name));
-    if (resourceSort === "desc") filtered.sort((a, b) => b.employee.emp_name.localeCompare(a.employee.emp_name));
+  filtered = filtered.filter(row => {
+    const empName        = row.employee?.emp_name || "";
+    const project        = row.assignment?.project_name || "";
+    const category       = row.assignment?.category || "";
+    const leader         = row.assignment?.leader || "";
+    const requestor      = row.assignment?.requestor || "";
+    const requestorVP    = row.assignment?.requestor_vp || "";
+    const requestingDept = row.assignment?.requesting_dept_name || row.assignment?.requesting_dept || "";
+    const managerName    = row.employee?.manager_name || "";
 
-    setFilteredRows(filtered);
-  }, [
-    user, activeTab, mine, allRows, visibleMonths,
-    selectedResources, selectedProjects, selectedCategories,
-    selectedLeaders, selectedRequestors, selectedRequestorVPs,
-    selectedRequestingDepts, selectedManagers, resourceSort
-  ]);
+    const passesFilters =
+      (!selectedResources.length || selectedResources.includes(empName)) &&
+      (!selectedProjects.length || selectedProjects.includes(project)) &&
+      (!selectedCategories.length || selectedCategories.includes(category)) &&
+      (!selectedLeaders.length || selectedLeaders.includes(leader)) &&
+      (!selectedRequestors.length || selectedRequestors.includes(requestor)) &&
+      (!selectedRequestorVPs.length || selectedRequestorVPs.includes(requestorVP)) &&
+      (!selectedRequestingDepts.length || selectedRequestingDepts.includes(requestingDept)) &&
+      (!selectedManagers.length || selectedManagers.includes(managerName));
+
+    if (!passesFilters) return false;
+
+    return visibleMonths.some(m => {
+      const val = row.allocations?.[m];
+      return val !== null && val !== undefined && val !== "";
+    });
+  });
+
+  if (resourceSort === "asc") filtered.sort((a, b) => a.employee.emp_name.localeCompare(b.employee.emp_name));
+  if (resourceSort === "desc") filtered.sort((a, b) => b.employee.emp_name.localeCompare(a.employee.emp_name));
+
+  setFilteredRows(filtered);
+}, [
+  user, activeTab, mine, allRows, visibleMonths, searchTerm,
+  selectedResources, selectedProjects, selectedCategories,
+  selectedLeaders, selectedRequestors, selectedRequestorVPs,
+  selectedRequestingDepts, selectedManagers, resourceSort
+]);
 
   /* ---------------------------------------------------------------------------
      HANDLER: navigate to edit allocation page for a row
@@ -667,6 +696,17 @@ export default function AssignmentsAllocationsPage() {
               Back to Dashboard
             </button>
           </div>
+           <div className="flex-1 flex justify-center min-w-[220px]">
+         <input
+           type="text"
+           placeholder="Search..."
+           value={searchTerm}
+           onChange={e => setSearchTerm(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
+           maxLength={100}
+           className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
+           style={styles.outfitFont}
+          />
+          </div>
 
           {/* TABS + ADD — switching tabs clears all active filters */}
           <div className="flex flex-wrap gap-2 items-center">
@@ -675,6 +715,7 @@ export default function AssignmentsAllocationsPage() {
                 key={tab}
                 onClick={() => {
                   setActiveTab(tab);
+                  setSearchTerm("");
                   setSelectedResources([]); setSelectedProjects([]); setSelectedCategories([]);
                   setSelectedLeaders([]); setSelectedRequestors([]); setSelectedRequestorVPs([]);
                   setSelectedRequestingDepts([]); setSelectedManagers([]);
@@ -848,12 +889,27 @@ export default function AssignmentsAllocationsPage() {
 
               <tbody>
                 {filteredRows.length === 0 && (
-                  <tr>
-                    <td colSpan={11 + monthLabels.length} className="text-center py-8 text-gray-500 border" style={styles.outfitFont}>
-                      No assignments found.
-                    </td>
-                  </tr>
-                )}
+              <tr>
+                <td
+                colSpan={11 + monthLabels.length}
+                className="border py-8"
+                style={{ height: "120px" }}
+              >
+              <div
+                 className="text-gray-500 text-sm"
+                 style={{
+                 position: "sticky",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  width: "max-content",
+                  fontFamily: "Outfit, sans-serif",
+                }}
+                >
+                     No assignments found.
+                  </div>
+                </td>
+              </tr>
+          )}
 
                 {filteredRows.map((row, index) => {
                   const empId         = row.employee?.emp_id;
