@@ -80,6 +80,10 @@ export default function DashboardSummary() {
   --------------------------------------------------------------------------- */
   const [filter, setFilter]   = useState('all');
   const [summary, setSummary] = useState({ active: 0, hold: 0, backlog: 0 });
+  const [showModal, setShowModal] = useState(false);
+  const [selectedType, setSelectedType] = useState('');
+  const [initiatives, setInitiatives] = useState([]);
+
 
   /* ---------------------------------------------------------------------------
      EFFECT: LOAD SUMMARY DATA
@@ -139,21 +143,40 @@ export default function DashboardSummary() {
      clamp() on all sizes provides fluid scaling — no hard breakpoint jumps.
      grid-cols-3 keeps cards side by side at all viewport sizes.
   --------------------------------------------------------------------------- */
-  return (
+   const cards = [
+    {
+      type: 'active',
+      label: 'Active Initiatives',
+      icon: '/ActiveProject.svg',
+      value: summary.active,
+    },
+    {
+      type: 'hold',
+      label: 'Initiatives on Hold',
+      icon: '/hold.svg',
+      value: summary.hold,
+    },
+    {
+      type: 'backlog',
+      label: 'Initiatives in Back Log',
+      icon: '/Backlog.svg',
+      value: summary.backlog,
+    },
+  ];
+   
+ return (
     <div className="w-full -mt-[clamp(0.7rem,1.0vw,1.7rem)]">
-
-      {/* Welcome heading — username from validated localStorage session */}
-      <h2 className="text-[clamp(1.4rem,1.8vw,2.2rem)] text-gray-900 mb-[clamp(0.15rem,0.3vw,0.45rem)]" style={styles.outfitFont}>
+      <h2
+        className="text-[clamp(1.4rem,1.8vw,2.2rem)] text-gray-900 mb-[clamp(0.15rem,0.3vw,0.45rem)]"
+        style={styles.outfitFont}
+      >
         Welcome back, {user.username}
       </h2>
 
-      {/* FILTER BUTTONS
-          "All" → global counts, "Mine" → user-scoped counts
-          Active filter highlighted with brand blue background */}
       <div className="flex gap-2 mb-[clamp(0.6rem,1vw,1.2rem)]">
         {[
-          { mode: 'all',  label: 'All',  ariaLabel: 'Show all initiatives' },
-          { mode: 'mine', label: 'Mine', ariaLabel: 'Show my initiatives'  }
+          { mode: 'all', label: 'All', ariaLabel: 'Show all initiatives' },
+          { mode: 'mine', label: 'Mine', ariaLabel: 'Show my initiatives' },
         ].map(({ mode, label, ariaLabel }) => (
           <button
             key={mode}
@@ -164,9 +187,11 @@ export default function DashboardSummary() {
               px-[clamp(0.4rem,0.6vw,0.8rem)] py-[clamp(0.2rem,0.4vw,0.6rem)]
               w-[clamp(3.5rem,4.5vw,5.5rem)] border border-[#00263F]/50
               text-center cursor-pointer rounded text-[clamp(0.9rem,1vw,1.1rem)] transition
-              ${filter === mode
-                ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-                : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'}
+              ${
+                filter === mode
+                  ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
+                  : 'bg-gray-200 text-gray-700 hover:bg-[#017ACB]/20'
+              }
               shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
               active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
               relative before:content-[''] before:absolute before:inset-0 before:rounded
@@ -180,27 +205,61 @@ export default function DashboardSummary() {
         ))}
       </div>
 
-      {/* SUMMARY CARDS
-          All values validated with ?? 0 — never undefined.
-          Static label array avoids any injection risk. */}
+      
+
       <div className="grid grid-cols-3 gap-[clamp(1rem,2vw,2.5rem)] w-full">
-        {[
-          { label: 'Active Initiatives',       icon: <img src="/ActiveProject.svg" alt="Active project icon" className="w-14 h-14" />, value: summary.active  },
-          { label: 'Initiatives on Hold',      icon: <img src="/hold.svg"          alt="On hold icon"        className="w-14 h-14" />, value: summary.hold    },
-          { label: 'Initiatives in Back Log',  icon: <img src="/Backlog.svg"       alt="Backlog icon"        className="w-14 h-14" />, value: summary.backlog }
-        ].map((item, i) => (
-          <div key={i} className="bg-gray-200 rounded-lg shadow-sm border border-gray-300 p-[clamp(1rem,1.5vw,2rem)] transition">
-            <p className="text-gray-600 text-[clamp(0.9rem,1.0vw,1.2rem)] text-center" style={styles.outfitFont}>{item.label}</p>
-            <h3 className="flex items-center justify-center gap-2 text-[clamp(1.3rem,1.5vw,1.9rem)] font-semibold text-gray-900 mb-2" style={styles.outfitFont}>
-              <span className="flex items-center gap-1">
-                {item.icon}
-                <span className="inline-block w-2 text-center">{item.value}</span>
+        {cards.map((item) => (
+          <div
+            key={item.type}
+            onClick={() => {
+              setSelectedType(item.type);
+              setShowModal(true);
+            }}
+            className="bg-gray-200 rounded-lg shadow-sm border border-gray-300 p-[clamp(1rem,1.5vw,2rem)] transition cursor-pointer hover:scale-105 hover:bg-[#017ACB]/10"
+          >
+            <p
+              className="text-gray-600 text-[clamp(0.9rem,1.0vw,1.2rem)] text-center"
+              style={styles.outfitFont}
+            >
+              {item.label}
+            </p>
+
+            <h3
+              className="flex items-center justify-center gap-2 text-[clamp(1.3rem,1.5vw,1.9rem)] font-semibold text-gray-900 mb-2"
+              style={styles.outfitFont}
+            >
+              <span className="flex items-center gap-2">
+                <img src={item.icon} alt={item.label} className="w-14 h-14" />
+                <span>{item.value}</span>
               </span>
             </h3>
           </div>
         ))}
       </div>
 
+      {showModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-xl w-[400px] shadow-lg">
+
+      <h2 className="text-xl font-semibold mb-4 text-center">
+        {selectedType === "active" && "Active Initiatives"}
+        {selectedType === "hold" && "Initiatives on Hold"}
+        {selectedType === "backlog" && "Backlog Initiatives"}
+      </h2>
+
+      <p className="text-center text-gray-600">
+        (You can show initiative list here)
+      </p>
+
+      <button
+        onClick={() => setShowModal(false)}
+        className="mt-4 w-full bg-[#017ACB] text-white py-2 rounded"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
-}
+} 
