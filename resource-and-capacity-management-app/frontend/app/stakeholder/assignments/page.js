@@ -639,23 +639,23 @@ export default function StakeholderAssignmentsPage() {
             <tbody>
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9 + visibleMonths.length} className="text-center py-8 text-gray-500 border" style={styles.outfitFont}>
+                  <td colSpan={9 + visibleMonths.length} className="text-center py-8 text-gray-500 dark:text-slate-300 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900" style={styles.outfitFont}>
                     No assignments found.
                   </td>
                 </tr>
               ) : filteredRows.map((row, index) => (
-                <tr key={index} className={`group transition-colors hover:bg-[#017ACB]/20 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                  <td className={`sticky left-0 z-20 px-4 py-2 border text-sm text-black whitespace-nowrap min-w-[150px] ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} group-hover:bg-[#017ACB]/20`} style={styles.outfitFont}>{row.resource_name}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap" style={styles.outfitFont}>{row.department}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap" style={styles.outfitFont}>{row.reports_to}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap" style={styles.outfitFont}>{row.activity}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap" style={styles.outfitFont}>{row.category}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap" style={styles.outfitFont}>{row.leader}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap" style={styles.outfitFont}>{row.requestor}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap" style={styles.outfitFont}>{row.requestor_vp}</td>
-                  <td className="px-4 py-2 border text-sm text-black whitespace-nowrap" style={styles.outfitFont}>{row.requesting_dept}</td>
+                <tr key={index} className={`group transition-colors hover:bg-[#017ACB]/20 dark:hover:bg-black/20 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                  <td className={`sticky left-0 z-20 px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap min-w-[150px] dark:bg-[#212121]! ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} group-hover:bg-[#017ACB]/20 dark:group-hover:bg-black!`} style={styles.outfitFont}>{row.resource_name}</td>
+                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.department}</td>
+                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.reports_to}</td>
+                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.activity}</td>
+                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.category}</td>
+                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.leader}</td>
+                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.requestor}</td>
+                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.requestor_vp}</td>
+                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.requesting_dept}</td>
                   {visibleMonths.map(m => (
-                    <td key={m} className="px-2 py-2 border text-sm text-black text-center whitespace-nowrap" style={styles.outfitFont}>
+                    <td key={m} className="px-2 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 text-center whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>
                       {row.allocations[m] ?? ""}
                     </td>
                   ))}

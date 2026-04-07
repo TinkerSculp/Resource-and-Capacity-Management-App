@@ -292,16 +292,16 @@ const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
 /* =============================================================================
    TAB BUTTON CLASS BUILDER
-   Active   = blue background, white text
-   Inactive = grey background, dark text
-   Both buttons are the same fixed width so they stay the same size.
+   Mirrors Stakeholder/Resource Manager tab treatment.
+   Active   = neutral pill
+   Inactive = blue pill
    ============================================================================= */
 const tabClass = (isActive) => `
-  w-20 py-2 rounded text-sm text-center
-  border border-black/50 dark:border-slate-500/60
+  px-6 py-2 rounded text-sm
+  border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white'
-    : 'bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-gray-300 dark:hover:bg-slate-600'
+    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
+    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
   }
   transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
