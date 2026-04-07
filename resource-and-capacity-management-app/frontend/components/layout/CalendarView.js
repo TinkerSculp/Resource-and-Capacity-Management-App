@@ -582,7 +582,7 @@ export default function CalendarView() {
                             style={styles.outfitFont}
                           >
                             {/* Custom styled checkbox */}
-                            <span className="w-4 h-4 flex-shrink-0 border border-black dark:border-slate-500 rounded-sm flex items-center justify-center relative overflow-hidden transition hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30">
+                            <span className="w-4 h-4 flex-shrink-0 border border-black dark:border-slate-500 rounded-sm flex items-center justify-center relative overflow-hidden transition hover:bg-[#017ACB]/20 dark:hover:bg-[#0A5F8A]">
                               <input
                                 type="checkbox"
                                 checked={isSelected}
