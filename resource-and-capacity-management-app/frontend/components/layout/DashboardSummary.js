@@ -237,23 +237,32 @@ export default function DashboardSummary() {
         ))}
       </div>
 
-      {showModal && (
+      
+    {showModal && (
   <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-xl w-[400px] shadow-lg">
+    <div className="bg-white p-6 rounded-xl w-[400px] shadow-lg text-center">
 
-      <h2 className="text-xl font-semibold mb-4 text-center">
+      <h2 className="text-xl font-semibold mb-2">
         {selectedType === "active" && "Active Initiatives"}
         {selectedType === "hold" && "Initiatives on Hold"}
         {selectedType === "backlog" && "Backlog Initiatives"}
       </h2>
 
-      <p className="text-center text-gray-600">
-        (You can show initiative list here)
+      <p className="text-3xl font-bold text-[#017ACB] my-4">
+        {selectedType === "active" && summary.active}
+        {selectedType === "hold" && summary.hold}
+        {selectedType === "backlog" && summary.backlog}
+      </p>
+
+      <p className="text-gray-500 mb-4">
+        {selectedType === "active" && "Currently active initiatives"}
+        {selectedType === "hold" && "Initiatives currently on hold"}
+        {selectedType === "backlog" && "Initiatives waiting in backlog"}
       </p>
 
       <button
         onClick={() => setShowModal(false)}
-        className="mt-4 w-full bg-[#017ACB] text-white py-2 rounded"
+        className="w-full bg-[#017ACB] text-white py-2 rounded hover:bg-[#0162a3]"
       >
         Close
       </button>
@@ -261,5 +270,7 @@ export default function DashboardSummary() {
   </div>
 )}
     </div>
+  );
+}div>
   );
 } 
