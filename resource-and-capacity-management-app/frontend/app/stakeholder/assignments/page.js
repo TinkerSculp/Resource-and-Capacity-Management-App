@@ -1,6 +1,4 @@
-
 "use client";
-export const dynamic = 'force-dynamic';
 
 /* =============================================================================
    StakeholderAssignmentsPage.jsx
@@ -71,11 +69,11 @@ const btnDarkClass = `
 `;
 
 const tabClass = (isActive) => `
-  px-6 py-2 rounded text-sm
+  px-4 py-2 rounded text-sm
   border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200'
-    : 'bg-[#017ACB] text-white hover:bg-[#017ACB]/80 dark:hover:bg-[#017ACB]/80'
+    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    : 'bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 hover:text-gray-700 dark:hover:text-slate-100'
   }
   transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -89,9 +87,14 @@ const tabClass = (isActive) => `
 `;
 
 const colBtnClass = `
-  ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
-  border border-black/50 hover:bg-[#CDE6F7] transition
+  ml-2 px-2 py-1 rounded text-xs font-bold
+  bg-white dark:bg-slate-700
+  text-[#017ACB] dark:text-[#4DAEFF]
+  border border-black/50 dark:border-slate-500
+  hover:bg-[#CDE6F7] dark:hover:bg-slate-600
+  transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.14)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.14)]
   relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
@@ -132,7 +135,7 @@ function formatMonth(yyyymm) {
    COMPONENT: Checkbox — custom styled, consistent with app design system.
    ============================================================================= */
 const Checkbox = ({ checked }) => (
-  <span className="w-4 h-4 border border-black rounded-sm flex items-center justify-center relative overflow-hidden flex-shrink-0">
+  <span className="w-4 h-4 border border-black dark:border-slate-400 rounded-sm flex items-center justify-center relative overflow-hidden flex-shrink-0">
     <input type="checkbox" checked={checked} readOnly className="opacity-0 absolute w-4 h-4 cursor-pointer" />
     {checked && (
       <>
@@ -419,7 +422,7 @@ export default function StakeholderAssignmentsPage() {
         <>
           {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
             <div key={val}
-              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${resourceSort === val ? "font-bold" : ""}`}
+              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${resourceSort === val ? "font-bold" : ""}`}
               onClick={() => setResourceSort(resourceSort === val ? "" : val)}
             >
               <Checkbox checked={resourceSort === val} />{label}
@@ -429,14 +432,14 @@ export default function StakeholderAssignmentsPage() {
         </>
       )}
       <div
-        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.length === 0 ? "font-bold" : ""}`}
+        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${selected.length === 0 ? "font-bold" : ""}`}
         onClick={() => setSelected([])}
       >
         <Checkbox checked={selected.length === 0} />All
       </div>
       {available.map(val => (
         <div key={val}
-          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.includes(val) ? "font-bold" : ""}`}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${selected.includes(val) ? "font-bold" : ""}`}
           onClick={() => toggleSelection(val, setSelected, selected)}
         >
           <Checkbox checked={selected.includes(val)} />{val}
@@ -450,7 +453,7 @@ export default function StakeholderAssignmentsPage() {
   --------------------------------------------------------------------------- */
   if (!user) {
     return (
-      <div className="h-[600px] bg-white flex items-center justify-center">
+      <div className="h-[600px] bg-white dark:bg-slate-950 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" />
       </div>
     );
@@ -493,13 +496,13 @@ export default function StakeholderAssignmentsPage() {
       </div>
 
       {/* ASSIGNMENTS TABLE */}
-      <div className="table-surface border rounded-lg shadow-sm bg-white overflow-hidden">
+      <div className="border dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse text-sm">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
 
-                <th className="sticky left-0 top-0 z-[9999] px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB] min-w-[150px] bg-clip-padding" style={styles.outfitFont}>
+                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Resource Name</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowResourceMenu, showResourceMenu)}>▼</button>
@@ -623,7 +626,7 @@ export default function StakeholderAssignmentsPage() {
                   <div ref={monthMenuRef} className={menuClass} style={{ position: "fixed", top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
                     {[...availablePastMonths].reverse().map(m => (
                       <div key={m} data-month={m}
-                        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${startMonth === m ? "font-bold" : ""}`}
+                        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${startMonth === m ? "font-bold" : ""}`}
                         onClick={() => setStartMonth(m)}
                       >
                         <Checkbox checked={startMonth === m} />
@@ -639,23 +642,23 @@ export default function StakeholderAssignmentsPage() {
             <tbody>
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9 + visibleMonths.length} className="text-center py-8 text-gray-500 dark:text-slate-300 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900" style={styles.outfitFont}>
+                  <td colSpan={9 + visibleMonths.length} className="text-center py-8 text-gray-500 dark:text-slate-400 border dark:border-slate-700" style={styles.outfitFont}>
                     No assignments found.
                   </td>
                 </tr>
               ) : filteredRows.map((row, index) => (
-                <tr key={index} className={`group transition-colors hover:bg-[#017ACB]/20 dark:hover:bg-black/20 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                  <td className={`sticky left-0 z-20 px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap min-w-[150px] dark:bg-[#212121]! ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} group-hover:bg-[#017ACB]/20 dark:group-hover:bg-black!`} style={styles.outfitFont}>{row.resource_name}</td>
-                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.department}</td>
-                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.reports_to}</td>
-                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.activity}</td>
-                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.category}</td>
-                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.leader}</td>
-                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.requestor}</td>
-                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.requestor_vp}</td>
-                  <td className="px-4 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>{row.requesting_dept}</td>
+                <tr key={index} className={`transition-colors hover:bg-[#017ACB]/10 dark:hover:bg-[#017ACB]/20 border-t border-black dark:border-slate-700 ${index % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-gray-50 dark:bg-slate-800/60"}`}>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.resource_name}</td>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.department}</td>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.reports_to}</td>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.activity}</td>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.category}</td>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.leader}</td>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.requestor}</td>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.requestor_vp}</td>
+                  <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.requesting_dept}</td>
                   {visibleMonths.map(m => (
-                    <td key={m} className="px-2 py-2 border border-gray-200 dark:border-slate-700 text-sm text-black dark:text-slate-100 text-center whitespace-nowrap dark:bg-[#212121] dark:group-hover:bg-black/20" style={styles.outfitFont}>
+                    <td key={m} className="px-2 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 text-center whitespace-nowrap bg-inherit" style={styles.outfitFont}>
                       {row.allocations[m] ?? ""}
                     </td>
                   ))}
