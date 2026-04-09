@@ -20,6 +20,16 @@ export default function ProfileCard() {
   const [profile, setProfile] = useState(null);
   const router                = useRouter();
 
+  /* -------------------------------------------------------------------------
+     EFFECT: Load User Profile
+     -------------------------------------------------------------------------
+     Validates session on mount by retrieving stored user credentials.
+     • Retrieves user from localStorage and validates username exists.
+     • Redirects to login if user is invalid or parse error occurs.
+     • Fetches user profile data from backend using encoded username.
+     • Clears auth data and redirects on 401/403 responses.
+     • Updates both user and profile state on successful fetch. 
+     ------------------------------------------------------------------------- */
   useEffect(() => {
     let parsedUser = null;
     try {
@@ -40,6 +50,16 @@ export default function ProfileCard() {
       return;
     }
 
+    /* -------------------------------------------------------------------------
+       FUNCTION: Load Profile
+       -------------------------------------------------------------------------
+       Fetches authenticated user's profile data from backend.
+       • Sets the user state from parsed localStorage data.
+       • Makes API request with URL-encoded username parameter.
+       • Validates response contains data before updating profile state.
+       • Handles auth errors (401/403) by clearing tokens and redirecting.
+       • Logs errors for debugging purposes. 
+       ------------------------------------------------------------------------- */
     async function loadProfile() {
       try {
         setUser(parsedUser);
@@ -60,6 +80,14 @@ export default function ProfileCard() {
     loadProfile();
   }, [router]);
 
+  /* -------------------------------------------------------------------------
+     FUNCTION: Handle Logout
+     -------------------------------------------------------------------------
+     Clears authentication state and redirects user to login page.
+     • Removes auth token and user data from localStorage.
+     • Deletes Authorization header from API client defaults.
+     • Navigates to login route to complete logout flow. 
+     ------------------------------------------------------------------------- */
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');

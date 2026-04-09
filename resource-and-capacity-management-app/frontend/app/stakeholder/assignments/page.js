@@ -394,6 +394,9 @@ export default function StakeholderAssignmentsPage() {
     return () => window.removeEventListener("click", handler);
   }, []);
 
+  /* ---------------------------------------------------------------------------
+     EFFECT: AUTO-SCROLL MONTH MENU TO START MONTH
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (showMonthMenu && monthMenuRef.current) {
       const el = monthMenuRef.current.querySelector(`[data-month="${startMonth}"]`);

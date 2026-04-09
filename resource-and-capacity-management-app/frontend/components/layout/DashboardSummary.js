@@ -53,6 +53,10 @@ const tabClass = (isActive) => `
   dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
+/* -----------------------------------------------------------------------------
+   FUNCTION: Summary Card Icon
+   Renders an icon for the summary card, supporting dark mode.
+----------------------------------------------------------------------------- */
 function SummaryCardIcon({ defaultSrc, darkSrc, alt }) {
   return (
     <picture>

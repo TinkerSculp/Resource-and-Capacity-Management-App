@@ -71,6 +71,14 @@ const LOGIN_PATH      = '/login';
 
 export default function Header() {
 
+  /* --------------------------------------------------------------------------
+     USER STATE — Safe SSR/Hydration Initialiser
+     --------------------------------------------------------------------------
+     Initialises user from localStorage only on the client. The function runs
+     once, BEFORE the component mounts. If JSON parsing fails (corrupted data),
+     both 'user' and 'token' are cleared from storage to prevent a broken
+     session from persisting. Component renders without a user on any error. 
+     ------------------------------------------------------------------------- */
   const [user, setUser] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -86,6 +94,19 @@ export default function Header() {
     return null;
   });
 
+  /* -------------------------------------------------------------------------
+     COMPONENT STATE
+     -------------------------------------------------------------------------
+     • hydrated        — Tracks if component has mounted; prevents hydration
+                        mismatches by only rendering after client-side init.
+     • sessionExpired  — Triggered when inactivity timeout is reached;
+                        displays the session-expired modal.
+     • chatOpen        — Controls visibility of the AI chatbot panel.
+     • messages        — Array of { role, content } objects for the chat.
+     • chatInput       — Current user input in the chat text field.
+     • chatLoading     — Indicates an async chat message is in flight.
+     • chatEndRef      — Ref to scroll the chat to the bottom on new messages. 
+     ------------------------------------------------------------------------- */
   const [hydrated, setHydrated]           = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [chatOpen, setChatOpen]           = useState(false);
@@ -99,10 +120,26 @@ export default function Header() {
   const [, startTransition] = useTransition();
   const router = useRouter();
 
+  /* -------------------------------------------------------------------------
+     EFFECT: Hydration Gating
+     -------------------------------------------------------------------------
+     Delays rendering until the component has fully hydrated on the client.
+     Prevents React hydration mismatches by ensuring localStorage is read
+     and the component state matches the client DOM. Runs once on mount. 
+     ------------------------------------------------------------------------- */
   useLayoutEffect(() => {
     startTransition(() => setHydrated(true));
   }, []);
 
+  /* -------------------------------------------------------------------------
+     EFFECT: Session Timeout Watcher
+     -------------------------------------------------------------------------
+     Monitors inactivity across user actions (mouse, keyboard, touch, scroll).
+     • Resets inactivity timer on any interaction.
+     • Checks every CHECK_EVERY_MS (60s) if timeout has been exceeded.
+     • On TIMEOUT_MS (30 min) inactivity: clears localStorage & shows modal.
+     • Cleans up event listeners and interval on unmount. 
+     ------------------------------------------------------------------------- */
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const resetTimer = () => localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
@@ -123,6 +160,17 @@ export default function Header() {
     };
   }, [router]);
 
+  /* -------------------------------------------------------------------------
+     FUNCTION: Send Chat Message
+     -------------------------------------------------------------------------
+     Sends the user's input to the backend AI endpoint (/ai/chat).
+     • Trims input; skips if empty or already loading.
+     • Adds user message to the local chat history.
+     • Posts to backend (Llama 3.1 proxy via Hugging Face).
+     • Appends assistant's reply to the chat history.
+     • Gracefully handles network and API errors with user-friendly messages.
+     • Scrolls chat panel to the bottom after reply arrives. 
+     ------------------------------------------------------------------------- */
   const sendMessage = async () => {
     const text = chatInput.trim();
     if (!text || chatLoading) return;

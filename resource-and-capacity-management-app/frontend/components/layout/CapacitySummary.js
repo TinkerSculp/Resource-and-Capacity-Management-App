@@ -305,6 +305,9 @@ export default function CapacitySummary() {
   const isMobile  = typeof window !== 'undefined' && window.innerWidth < 640;
   const isDarkMode = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
+  /* ---------------------------------------------------------------------------
+     CHART OPTIONS — responsive design, dark mode support, stacked bars
+  --------------------------------------------------------------------------- */
   const chartOptions = {
     responsive:          true,
     maintainAspectRatio: true,
