@@ -71,8 +71,8 @@ const tabClass = (isActive) => `
   px-4 py-2 rounded text-sm
   border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white dark:bg-[#017ACB]'
-    : 'bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-gray-300 dark:hover:bg-slate-600'
+    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    : 'bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 hover:text-gray-700 dark:hover:text-slate-100'
   }
   transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
@@ -453,14 +453,14 @@ export default function TeamMemberInitiativesPage() {
           max-h-[70vh] + overflow-y-auto — vertical scroll within the viewport.
           sticky thead — headers stay visible while scrolling down.
           Row click toggles highlight — bg-inherit on cells so hover works correctly. */}
-      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+      <div className="table-surface border dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
 
                 {/* PROJECT — includes sort options in its dropdown */}
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Project</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowProjectSortMenu, showProjectSortMenu)}>▼</button>
@@ -472,7 +472,7 @@ export default function TeamMemberInitiativesPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Category</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowCategoryMenu, showCategoryMenu)}>▼</button>
@@ -484,7 +484,7 @@ export default function TeamMemberInitiativesPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Leader Accountable</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowLeadMenu, showLeadMenu)}>▼</button>
@@ -496,7 +496,7 @@ export default function TeamMemberInitiativesPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Status</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowStatusMenu, showStatusMenu)}>▼</button>
@@ -509,7 +509,7 @@ export default function TeamMemberInitiativesPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestorMenu, showRequestorMenu)}>▼</button>
@@ -521,7 +521,7 @@ export default function TeamMemberInitiativesPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor VP</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowVPMenu, showVPMenu)}>▼</button>
@@ -533,7 +533,7 @@ export default function TeamMemberInitiativesPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requesting Dept</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowDeptMenu, showDeptMenu)}>▼</button>
@@ -546,10 +546,10 @@ export default function TeamMemberInitiativesPage() {
                 </th>
 
                 {/* Static columns — no filter needed */}
-                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Completion Date</th>
-                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Target Period</th>
-                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Description</th>
-                <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Resource Consideration</th>
+                <th className="px-4 py-2 border border-black text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Completion Date</th>
+                <th className="px-4 py-2 border border-black text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Target Period</th>
+                <th className="px-4 py-2 border border-black text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Description</th>
+                <th className="px-4 py-2 border border-black text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Resource Consideration</th>
 
               </tr>
             </thead>
@@ -557,7 +557,7 @@ export default function TeamMemberInitiativesPage() {
             <tbody>
               {filteredInitiatives.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="text-center py-8 text-gray-500 dark:text-slate-400 border dark:border-slate-700" style={styles.outfitFont}>
+                  <td colSpan={11} className="text-center py-8 text-gray-500 dark:text-slate-400 border border-black dark:border-slate-700" style={styles.outfitFont}>
                     No initiatives found.
                   </td>
                 </tr>
