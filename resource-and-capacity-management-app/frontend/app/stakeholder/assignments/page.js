@@ -496,13 +496,13 @@ export default function StakeholderAssignmentsPage() {
       </div>
 
       {/* ASSIGNMENTS TABLE */}
-      <div className="border dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+      <div className="table-surface border dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse text-sm">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Resource Name</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowResourceMenu, showResourceMenu)}>▼</button>
@@ -514,7 +514,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Department</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowDeptMenu, showDeptMenu)}>▼</button>
@@ -526,7 +526,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Reports To</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowReportsToMenu, showReportsToMenu)}>▼</button>
@@ -538,7 +538,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Activity</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowActivityMenu, showActivityMenu)}>▼</button>
@@ -550,7 +550,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Activity Category</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowCategoryMenu, showCategoryMenu)}>▼</button>
@@ -562,7 +562,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Leader Accountable</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowLeaderMenu, showLeaderMenu)}>▼</button>
@@ -574,7 +574,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowRequestorMenu, showRequestorMenu)}>▼</button>
@@ -586,7 +586,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requestor VP</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowVPMenu, showVPMenu)}>▼</button>
@@ -598,7 +598,7 @@ export default function StakeholderAssignmentsPage() {
                   )}
                 </th>
 
-                <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
+                <th className="px-4 py-2 border border-black text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Requesting Dept</span>
                     <button className={colBtnClass} onClick={(e) => openMenu(e, setShowReqDeptMenu, showReqDeptMenu)}>▼</button>
@@ -619,22 +619,21 @@ export default function StakeholderAssignmentsPage() {
                         <button className={colBtnClass} onClick={(e) => openMenu(e, setShowMonthMenu, showMonthMenu)}>▼</button>
                       )}
                     </div>
+                    {idx === 0 && showMonthMenu && (
+                      <div ref={monthMenuRef} className={menuClass} style={{ position: "fixed", top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
+                        {[...availablePastMonths].reverse().map(m => (
+                          <div key={m} data-month={m}
+                            className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${startMonth === m ? "font-bold" : ""}`}
+                            onClick={() => setStartMonth(m)}
+                          >
+                            <Checkbox checked={startMonth === m} />
+                            {monthLabel(m)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </th>
                 ))}
-
-                {showMonthMenu && (
-                  <div ref={monthMenuRef} className={menuClass} style={{ position: "fixed", top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
-                    {[...availablePastMonths].reverse().map(m => (
-                      <div key={m} data-month={m}
-                        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${startMonth === m ? "font-bold" : ""}`}
-                        onClick={() => setStartMonth(m)}
-                      >
-                        <Checkbox checked={startMonth === m} />
-                        {monthLabel(m)}
-                      </div>
-                    ))}
-                  </div>
-                )}
 
               </tr>
             </thead>
@@ -642,7 +641,7 @@ export default function StakeholderAssignmentsPage() {
             <tbody>
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9 + visibleMonths.length} className="text-center py-8 text-gray-500 dark:text-slate-400 border dark:border-slate-700" style={styles.outfitFont}>
+                  <td colSpan={9 + visibleMonths.length} className="text-center py-8 text-gray-500 dark:text-slate-400 border border-black dark:border-slate-700" style={styles.outfitFont}>
                     No assignments found.
                   </td>
                 </tr>
