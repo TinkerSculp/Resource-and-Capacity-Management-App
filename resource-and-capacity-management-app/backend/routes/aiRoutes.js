@@ -20,7 +20,7 @@
 
 import express from "express";
 import { protect } from "../middleware/auth.js";
-import { chat } from "../controllers/aicontroller.js";
+import { chat } from "../controllers/aiController.js";
 
 const router = express.Router();
 
