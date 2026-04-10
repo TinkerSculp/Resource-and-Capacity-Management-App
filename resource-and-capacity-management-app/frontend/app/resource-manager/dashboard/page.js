@@ -44,6 +44,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import DashboardSummary from '@/components/layout/DashboardSummary';
 import DashboardTileIcon from '@/components/layout/DashboardTileIcon';
 
@@ -82,7 +83,7 @@ export default function DashboardPage() {
   --------------------------------------------------------------------------- */
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="h-[600px] flex items-center justify-center">
         <div className="animate-spin h-10 w-10 border-b-2 border-blue-600 rounded-full" role="status" />
       </div>
     );

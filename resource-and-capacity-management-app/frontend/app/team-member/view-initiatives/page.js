@@ -406,7 +406,7 @@ export default function TeamMemberInitiativesPage() {
   --------------------------------------------------------------------------- */
   if (!user) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
+      <div className="h-[600px] bg-white dark:bg-slate-950 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" />
       </div>
     );

@@ -95,10 +95,10 @@ const btnDarkClass = `
    FILTER TAB CLASS BUILDER
    -----------------------------------------------------------------------------
    isActive = true  (currently selected filter)
-     → Grey bg, dark text — indicates "this is already your current view"
+     → Blue (#017ACB) bg, white text — "you are here"
 
    isActive = false (the other option, not selected)
-     → Blue bg, white text — stands out as something you can click to switch
+     → Grey bg, dark text — available to click to switch
 
    Both buttons are w-full so they stay the same size regardless of state.
 ----------------------------------------------------------------------------- */
@@ -421,7 +421,7 @@ export default function CalendarView() {
      RENDER
   =========================================================================== */
   return (
-    <div className="w-full relative h-[600px] page-surface">
+    <div className="w-full relative min-h-screen page-surface">
 
       {/* Shake keyframe — brief left-right animation for invalid month selection */}
       <style>{`
@@ -582,7 +582,7 @@ export default function CalendarView() {
                             style={styles.outfitFont}
                           >
                             {/* Custom styled checkbox */}
-                            <span className="w-4 h-4 flex-shrink-0 border border-black dark:border-slate-500 rounded-sm flex items-center justify-center relative overflow-hidden transition hover:bg-[#017ACB]/20 dark:hover:bg-[#0A5F8A]">
+                            <span className="w-4 h-4 flex-shrink-0 border border-black dark:border-slate-500 rounded-sm flex items-center justify-center relative overflow-hidden transition hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30">
                               <input
                                 type="checkbox"
                                 checked={isSelected}

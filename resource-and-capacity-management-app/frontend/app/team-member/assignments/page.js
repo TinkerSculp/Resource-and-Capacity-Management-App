@@ -1,13 +1,54 @@
 "use client";
 
+/* =============================================================================
+   TeamMemberAssignmentsPage.jsx
+   -----------------------------------------------------------------------------
+   PURPOSE:
+     Read-only assignments and allocations view for Team Member users
+     (acc_type_id === 3). Displays a horizontally scrollable table of resource
+     assignments with monthly FTE allocations. Supports two tabs:
+       • "All Assignments" — all assignments on projects the team member is
+         allocated to (scoped by activity/category pairs from myAssignments)
+       • "My Assignments"  — only the team member's own assignment rows
+
+   HOW IT WORKS:
+     1. On mount, validates the session from localStorage
+     2. Fetches all assignments and allocations from the backend
+     3. Defaults the month view to the current month (or first available)
+     4. Per-column filter dropdowns allow multi-select filtering
+     5. Resource Name column supports A→Z / Z→A sorting
+     6. Month ▼ button lets the user shift the 16-column window to past months
+
+   MONTH WINDOW:
+     16 months are shown at a time, starting from startMonth.
+     The ▼ button on the first month column opens a picker of the past 12
+     months — selecting one shifts the entire window to start from that month.
+
+   SECURITY MODEL:
+     • Session validated on mount — missing token redirects to /login.
+     • All API string fields pass through sanitize() before storing in state.
+     • username is URL-encoded before being appended to the API query string.
+     • All rendered values are plain text — no dangerouslySetInnerHTML.
+
+   DEPENDENCIES:
+     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
+     • next/navigation — useRouter, useSearchParams
+   ============================================================================= */
+
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 
+/* -----------------------------------------------------------------------------
+   FONT STYLE — shared style object applied to all text elements.
+----------------------------------------------------------------------------- */
 const styles = { outfitFont: { fontFamily: "Outfit, sans-serif" } };
 
+/* -----------------------------------------------------------------------------
+   SHARED BUTTON + DROPDOWN CLASSES — neumorphic, matches all other pages.
+----------------------------------------------------------------------------- */
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
   bg-[#003A5C] text-white border border-black/50 dark:border-slate-500/60
@@ -44,6 +85,7 @@ const tabClass = (isActive) => `
   dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
+/* colBtnClass — ▼ header filter buttons inside th elements */
 const colBtnClass = `
   ml-2 px-2 py-1 rounded text-xs font-bold
   bg-white dark:bg-slate-700
@@ -59,20 +101,18 @@ const colBtnClass = `
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.10),inset_0_-1px_2px_rgba(0,0,0,0.10)]
 `;
 
+/* menuClass — fixed-position dropdown panel, z-[30000] floats above sticky headers */
 const menuClass = `
   dropdown-menu fixed bg-white dark:bg-slate-800 text-black dark:text-slate-100 shadow-lg rounded
   min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto
   z-[30000] border border-gray-300 dark:border-slate-600 pointer-events-auto
 `;
 
-/* ----------------------------------------------------------------------------
-    FUNCTION: sanitize
-   ----------------------------------------------------------------------------
-    Sanitizes input strings to prevent XSS and remove control characters.
-      • Removes non-printable/control characters and HTML tags.
-      • Strips common XSS vectors like script tags and event handlers.
-      • Trims whitespace and ensures output is a safe string for rendering.
-   ---------------------------------------------------------------------------- */
+/* =============================================================================
+   UTILITY: sanitize
+   Strips control characters, HTML tags, and script injection patterns from
+   API response strings before storing in state or rendering.
+   ============================================================================= */
 function sanitize(value) {
   if (typeof value !== "string") return "";
   return value
@@ -82,28 +122,20 @@ function sanitize(value) {
     .trim();
 }
 
-/* ----------------------------------------------------------------------------
-    FUNCTION: formatMonth
-   ----------------------------------------------------------------------------
-    Converts a YYYYMM string to "Mon-YY" display label (e.g. "202503" → "Mar-25").
-      • Parses year and month from input string and creates a Date object.
-      • Uses toLocaleString to get abbreviated month name based on user's locale.
-      • Combines month and year suffix to create final display string.
-   ---------------------------------------------------------------------------- */
+/* =============================================================================
+   UTILITY: formatMonth
+   Converts a YYYYMM string to "Mon-YY" display label (e.g. "202503" → "Mar-25").
+   ============================================================================= */
 function formatMonth(yyyymm) {
   const s    = String(yyyymm);
   const date = new Date(Number(s.slice(0, 4)), Number(s.slice(4, 6)) - 1, 1);
   return date.toLocaleString("default", { month: "short" }) + "-" + s.slice(2, 4);
 }
 
-/* -----------------------------------------------------------------------------
-    COMPONENT: Checkbox
-   -----------------------------------------------------------------------------
-    Custom checkbox component that visually indicates checked state with a styled box and checkmark.
-      • Renders a square box with border that changes appearance when checked.
-      • Displays a checkmark icon when the checkbox is checked.
-      • Uses an invisible native checkbox input for accessibility and state management.
-   ----------------------------------------------------------------------------- */
+/* =============================================================================
+   COMPONENT: Checkbox
+   Custom styled checkbox consistent with the rest of the app's design system.
+   ============================================================================= */
 const Checkbox = ({ checked }) => (
   <span className="w-4 h-4 border border-black dark:border-slate-400 rounded-sm flex items-center justify-center relative overflow-hidden flex-shrink-0">
     <input type="checkbox" checked={checked} readOnly className="opacity-0 absolute w-4 h-4 cursor-pointer" />
@@ -118,36 +150,27 @@ const Checkbox = ({ checked }) => (
   </span>
 );
 
-/* ============================================================================
-   COMPONENT: TeamMemberAssignmentsPage
-   ============================================================================
-   Main page component for viewing team member assignments and allocations.
-   Features filtering by resource, department, activity, and other dimensions.
-   Displays tabbed view (all vs. personal assignments) with sortable columns.
-   ============================================================================ */
+/* =============================================================================
+   MAIN COMPONENT
+   ============================================================================= */
 export default function TeamMemberAssignmentsPage() {
-  // Navigation and query params
   const router       = useRouter();
   const searchParams = useSearchParams();
   const refresh      = searchParams.get("refresh");
 
-  // User authentication state
+  /* ---------------------------------------------------------------------------
+     STATE
+  --------------------------------------------------------------------------- */
   const [user, setUser]           = useState(null);
-  
-  // Tab state: "all" for all assignments, "mine" for personal assignments
   const [activeTab, setActiveTab] = useState("all");
 
-  // Data rows: allRows = all assignments, myRows = current user's assignments
-  // months = available reporting months, filteredRows = displayed rows after filtering
-  const [allRows, setAllRows]           = useState([]);
-  const [myRows, setMyRows]             = useState([]);
-  const [months, setMonths]             = useState([]);
-  const [filteredRows, setFilteredRows] = useState([]);
+  const [allRows, setAllRows]           = useState([]); // All assignments scoped to user's projects
+  const [myRows, setMyRows]             = useState([]); // The team member's own assignment rows
+  const [months, setMonths]             = useState([]); // Full sorted month list from backend
+  const [filteredRows, setFilteredRows] = useState([]); // Rows after all filters applied
 
-  // Sorting state for Resource Name column ("asc" or "desc")
-  const [resourceSort, setResourceSort] = useState("");
+  const [resourceSort, setResourceSort] = useState(""); // "asc" | "desc" | ""
 
-  // Filter selection states: track which items are selected in each filter category
   const [selectedResources, setSelectedResources]       = useState([]);
   const [selectedDepts, setSelectedDepts]               = useState([]);
   const [selectedReportsTo, setSelectedReportsTo]       = useState([]);
@@ -158,7 +181,7 @@ export default function TeamMemberAssignmentsPage() {
   const [selectedRequestorVPs, setSelectedRequestorVPs] = useState([]);
   const [selectedReqDepts, setSelectedReqDepts]         = useState([]);
 
-  // Available options for each filter category (derived from current data)
+  // Available options for each filter dropdown — derived from the current tab's data
   const [availableResources, setAvailableResources]       = useState([]);
   const [availableDepts, setAvailableDepts]               = useState([]);
   const [availableReportsTo, setAvailableReportsTo]       = useState([]);
@@ -169,11 +192,9 @@ export default function TeamMemberAssignmentsPage() {
   const [availableRequestorVPs, setAvailableRequestorVPs] = useState([]);
   const [availableReqDepts, setAvailableReqDepts]         = useState([]);
 
-  // Month selection state
-  const [startMonth, setStartMonth]               = useState(null); // Currently selected month for display
-  const [availablePastMonths, setAvailablePastMonths] = useState([]);
+  const [startMonth, setStartMonth]               = useState(null); // First month shown in the 16-column window
+  const [availablePastMonths, setAvailablePastMonths] = useState([]); // Last 12 months for the month picker
 
-  // Menu state management: tracks position and visibility of dropdown menus
   const [menuPosition, setMenuPosition]           = useState({ x: 0, y: 0 });
   const [showResourceMenu, setShowResourceMenu]   = useState(false);
   const [showDeptMenu, setShowDeptMenu]           = useState(false);
@@ -185,11 +206,11 @@ export default function TeamMemberAssignmentsPage() {
   const [showVPMenu, setShowVPMenu]               = useState(false);
   const [showReqDeptMenu, setShowReqDeptMenu]     = useState(false);
   const [showMonthMenu, setShowMonthMenu]         = useState(false);
-  const monthMenuRef = useRef(null); // Reference to month menu for scroll-to-active functionality
+  const monthMenuRef = useRef(null); // Ref used to scroll the active month into view when the picker opens
 
-  /* -----------------------------------------------------------------------
-     closeAllMenus: Closes all open dropdown menus
-     ----------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------------
+     HELPERS
+  --------------------------------------------------------------------------- */
   const closeAllMenus = () => {
     setShowResourceMenu(false); setShowDeptMenu(false); setShowReportsToMenu(false);
     setShowActivityMenu(false); setShowCategoryMenu(false); setShowLeaderMenu(false);
@@ -197,42 +218,28 @@ export default function TeamMemberAssignmentsPage() {
     setShowMonthMenu(false);
   };
 
-  /* -----------------------------------------------------------------------
-     openMenu: Opens a specific menu, positioning it relative to trigger button
-     -----------------------------------------------------------------------
-       • Prevents event propagation to avoid bubbling
-       • Closes menu if already open (toggle behavior)
-       • Calculates position and adjusts if menu would overflow screen
-     ----------------------------------------------------------------------- */
   const openMenu = (e, setFn, currentlyOpen) => {
     e.stopPropagation();
     if (currentlyOpen) { closeAllMenus(); return; }
     const rect = e.currentTarget.getBoundingClientRect();
     let x = rect.left, y = rect.bottom + 4;
+    /* Prevent the menu from overflowing the right edge of the viewport */
     if (x + 224 > window.innerWidth) x = window.innerWidth - 224 - 10;
     setMenuPosition({ x, y });
     closeAllMenus();
     setFn(true);
   };
 
-  /* -----------------------------------------------------------------------
-     toggleSelection: Adds or removes a value from a filter selection array
-     -----------------------------------------------------------------------
-       • Ignores empty/falsy values
-       • Removes value if already selected, adds if not selected (toggle)
-     ----------------------------------------------------------------------- */
   const toggleSelection = (value, setFn, current) => {
     if (!value) return;
     setFn(current.includes(value) ? current.filter(v => v !== value) : [...current, value]);
   };
-  /* =========================================================================
-     EFFECT: Initialize User Authentication
-     =========================================================================
-     Retrieves stored user and authentication token from localStorage on component mount.
-     • Checks for both user object and token presence in localStorage.
-     • Clears storage and redirects to login if either is missing.
-     • Parses stored user JSON and updates component state.
-     • Catches parsing errors and redirects to login for security. */
+
+  /* ---------------------------------------------------------------------------
+     EFFECT: SESSION VALIDATION
+     Validates that both user and token exist in localStorage.
+     Redirects to /login if either is missing or JSON parsing fails.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
       const stored = localStorage.getItem("user");
@@ -242,16 +249,12 @@ export default function TeamMemberAssignmentsPage() {
     } catch { router.push("/login"); }
   }, [router]);
 
-  /* =========================================================================
-     EFFECT: Fetch Assignments & Allocations Data
-     =========================================================================
-     Retrieves all assignments and allocations for the current user from the backend API.
-     • Waits for user state to be populated before making the request.
-     • Fetches data via GET /assignments-allocations endpoint with username and timestamp.
-     • Maps raw API response into structured row format with sanitized field values.
-     • Populates available months list for month selector.
-     • Splits data into allRows (all visible assignments) and myRows (user's own assignments).
-     • Logs errors to console without disrupting UI if fetch fails. */
+  /* ---------------------------------------------------------------------------
+     EFFECT: FETCH ASSIGNMENTS & ALLOCATIONS
+     Fetches allAssignments and myAssignments from the backend.
+     &ts=Date.now() cache-busts the URL to force a fresh fetch on re-navigation.
+     sanitize() applied to every string field — XSS defence-in-depth.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
     const load = async () => {
@@ -280,15 +283,12 @@ export default function TeamMemberAssignmentsPage() {
     load();
   }, [user, refresh]);
 
-  /* =========================================================================
-     EFFECT: Initialize Start Month & Past Months List
-     =========================================================================
-     Sets the initial display month and generates a list of past 12 months for the month selector.
-     • Waits for months data to be fetched and startMonth to not yet be set.
-     • Determines current month in YYYYMM format and checks if it exists in available months.
-     • Defaults to current month if available; otherwise uses the first available month.
-     • Builds array of past 12 months in YYYYMM format for the month dropdown menu.
-     • Stores list in availablePastMonths state for user selection. */
+  /* ---------------------------------------------------------------------------
+     EFFECT: DEFAULT START MONTH + PAST MONTHS PICKER
+     Runs once after months loads. Defaults to the current calendar month if
+     available, otherwise falls back to the first month in the list.
+     Builds a list of the past 12 months for the month picker dropdown.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!months.length || startMonth) return;
     const now     = new Date();
@@ -302,15 +302,18 @@ export default function TeamMemberAssignmentsPage() {
     setAvailablePastMonths(past);
   }, [months]);
 
-  /* =========================================================================
-     EFFECT: Update Available Filter Options & Compute Filtered Rows
-     =========================================================================
-     Derives available filter values from active dataset and applies all active filters to generate displayed rows.
-     • Determines base dataset: uses myRows for "mine" tab, or filtered allRows if user has assignments.
-     • Extracts unique values from base dataset for each filter category (resources, departments, activities, etc.).
-     • Applies all active filter selections using AND logic (all filters must match).
-     • Sorts filtered results by resource name in ascending or descending order if sort is active.
-     • Updates filteredRows state to reflect current filter and sort configuration. */
+  /* ---------------------------------------------------------------------------
+     EFFECT: BUILD FILTER LISTS + APPLY FILTERS
+     ---------------------------------------------------------------------------
+     Tab scoping:
+       "mine" → myRows (the team member's own rows only)
+       "all"  → allRows filtered to activity/category pairs present in myRows
+                (shows all colleagues on the same projects as the team member)
+
+     Available filter options are derived from the scoped base dataset so
+     dropdowns never offer values that would produce empty results.
+     Filters use AND logic — every active filter must match for a row to show.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
     const base = activeTab === "mine" ? myRows : (() => {
@@ -344,41 +347,90 @@ export default function TeamMemberAssignmentsPage() {
     setFilteredRows(filtered);
   }, [activeTab, allRows, myRows, user, selectedResources, selectedDepts, selectedReportsTo, selectedActivities, selectedCategories, selectedLeaders, selectedRequestors, selectedRequestorVPs, selectedReqDepts, resourceSort]);
 
-  /* =========================================================================
-     EFFECT: Close Dropdown Menus on Outside Click
-     =========================================================================
-     Attaches a global click event listener to close all open dropdown menus when clicking outside.
-     • Listens to window click events and checks if click target is within a dropdown menu.
-     • Calls closeAllMenus if click is outside all dropdown menu elements.
-     • Cleans up event listener on component unmount to prevent memory leaks.
-     • Enables dismissing menus by clicking anywhere on the page. */
+  /* ---------------------------------------------------------------------------
+     EFFECT: CLOSE MENUS ON OUTSIDE CLICK
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     const handler = (e) => { if (!e.target.closest(".dropdown-menu")) closeAllMenus(); };
     window.addEventListener("click", handler);
     return () => window.removeEventListener("click", handler);
   }, []);
 
-  /* =========================================================================
-     EFFECT: Scroll Active Month Into View
-     =========================================================================
-     Auto-scrolls the month menu to center the currently selected month when the month menu opens.
-     • Triggers only when month menu becomes visible and month menu ref exists.
-     • Queries for the DOM element matching the current startMonth data attribute.
-     • Uses scrollIntoView with "center" block positioning for better UX.
-     • Ensures user sees the currently selected month without manual scrolling. */
+  /* ---------------------------------------------------------------------------
+     EFFECT: SCROLL ACTIVE MONTH INTO VIEW
+     When the month picker opens, scrolls to the currently selected month so
+     the user doesn't have to manually hunt for it in the list.
+  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (showMonthMenu && monthMenuRef.current) {
       const el = monthMenuRef.current.querySelector(`[data-month="${startMonth}"]`);
       if (el) el.scrollIntoView({ block: "center" });
     }
   }, [showMonthMenu, startMonth]);
+
+  /* ---------------------------------------------------------------------------
+     VISIBLE MONTHS — 16 columns starting from startMonth
+  --------------------------------------------------------------------------- */
+  const visibleMonths = (() => {
+    if (!months.length || !startMonth) return [];
+    const idx = months.indexOf(startMonth);
+    return months.slice(idx < 0 ? 0 : idx, (idx < 0 ? 0 : idx) + 16);
+  })();
+
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthLabel = (m) => `${monthNames[parseInt(m.slice(4, 6), 10) - 1]} ${m.slice(0, 4)}`;
+
+  /* ---------------------------------------------------------------------------
+     RENDER HELPER: renderMenuItems
+     Renders the option rows inside a filter dropdown.
+     sortOptions=true adds A→Z / Z→A sort rows for the Resource Name column.
+  --------------------------------------------------------------------------- */
+  const renderMenuItems = (available, selected, setSelected, sortOptions = false) => (
+    <>
+      {sortOptions && (
+        <>
+          {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
+            <div key={val} className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${resourceSort === val ? "font-bold" : ""}`} onClick={() => setResourceSort(resourceSort === val ? "" : val)}>
+              <Checkbox checked={resourceSort === val} />{label}
+            </div>
+          ))}
+          <div className="border-t my-1 dark:border-slate-600" />
+        </>
+      )}
+      {/* "All" clears the filter for this column */}
+      <div className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${selected.length === 0 ? "font-bold" : ""}`} onClick={() => setSelected([])}>
+        <Checkbox checked={selected.length === 0} />All
+      </div>
+      {available.map(val => (
+        <div key={val} className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 dark:text-slate-100 ${selected.includes(val) ? "font-bold" : ""}`} onClick={() => toggleSelection(val, setSelected, selected)}>
+          <Checkbox checked={selected.includes(val)} />{val}
+        </div>
+      ))}
+    </>
+  );
+
+  /* ---------------------------------------------------------------------------
+     LOADING STATE
+  --------------------------------------------------------------------------- */
+  if (!user) return (
+    <div className="h-[600px] bg-white dark:bg-slate-950 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" />
+    </div>
+  );
+
+  /* ===========================================================================
+     RENDER — all cell values from sanitized API data, no dangerouslySetInnerHTML.
+  =========================================================================== */
   return (
     <>
+      {/* PAGE HEADER */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-4xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>Assignments</h2>
           <button onClick={() => router.push("/team-member/dashboard")} className={btnDarkClass} style={styles.outfitFont}>Back to Dashboard</button>
         </div>
+
+        {/* TAB BUTTONS — switching tabs clears all active filters */}
         <div className="flex flex-wrap gap-2 items-center">
           {["all", "mine"].map(tab => (
             <button key={tab} onClick={() => { setActiveTab(tab); setSelectedResources([]); setSelectedDepts([]); setSelectedReportsTo([]); setSelectedActivities([]); setSelectedCategories([]); setSelectedLeaders([]); setSelectedRequestors([]); setSelectedRequestorVPs([]); setSelectedReqDepts([]); setResourceSort(""); }} aria-pressed={activeTab === tab} className={tabClass(activeTab === tab)} style={styles.outfitFont}>
@@ -388,15 +440,24 @@ export default function TeamMemberAssignmentsPage() {
         </div>
       </div>
 
+      {/* ASSIGNMENTS TABLE
+          overflow-x-auto — horizontal scroll for the wide month columns.
+          max-h-[70vh] + overflow-y-auto — vertical scroll within the viewport.
+          sticky thead — headers stay visible while scrolling down.
+          Resource Name th is sticky left-0 — stays pinned while scrolling right. */}
       <div className="table-surface border dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse text-sm">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
+
+                {/* RESOURCE NAME — sticky left column, includes sort + filter */}
                 <th className="sticky left-0 top-0 z-[9999] px-4 py-2 border border-black text-sm font-semibold whitespace-nowrap bg-[#017ACB] min-w-[150px] bg-clip-padding" style={styles.outfitFont}>
                   <div className="flex justify-between items-center"><span>Resource Name</span><button className={colBtnClass} onClick={(e) => openMenu(e, setShowResourceMenu, showResourceMenu)}>▼</button></div>
                   {showResourceMenu && <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>{renderMenuItems(availableResources, selectedResources, setSelectedResources, true)}</div>}
                 </th>
+
+                {/* FILTERABLE COLUMNS — rendered from a config array to avoid repetition */}
                 {[
                   [showDeptMenu,       setShowDeptMenu,       availableDepts,        selectedDepts,        setSelectedDepts,        "Department"],
                   [showReportsToMenu,  setShowReportsToMenu,  availableReportsTo,    selectedReportsTo,    setSelectedReportsTo,    "Reports To"],
@@ -412,6 +473,10 @@ export default function TeamMemberAssignmentsPage() {
                     {showMenu && <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>{renderMenuItems(avail, sel, setSel)}</div>}
                   </th>
                 ))}
+
+                {/* MONTH COLUMNS — 16 visible from startMonth.
+                    Month picker menu rendered inside the first th to avoid hydration error
+                    (a <div> cannot be a direct child of <tr>). */}
                 {visibleMonths.map((m, idx) => (
                   <th key={m} className="px-2 py-2 text-center text-white border-r border-black min-w-[60px] relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-center items-center gap-1">
@@ -429,13 +494,17 @@ export default function TeamMemberAssignmentsPage() {
                     )}
                   </th>
                 ))}
+
               </tr>
             </thead>
+
             <tbody>
               {filteredRows.length === 0 ? (
                 <tr><td colSpan={9 + visibleMonths.length} className="text-center py-8 text-gray-500 dark:text-slate-400 border border-black dark:border-slate-700" style={styles.outfitFont}>No assignments found.</td></tr>
               ) : filteredRows.map((row, index) => (
+                /* Alternating row bg — dark mode uses #212121 to match table-surface globals.css */
                 <tr key={index} className={`group transition-colors hover:bg-[#017ACB]/10 dark:hover:bg-[#017ACB]/20 border-t border-black dark:border-slate-700 ${index % 2 === 0 ? "bg-white dark:bg-[#212121]" : "bg-gray-50 dark:bg-[#212121]"}`}>
+                  {/* Sticky Resource Name cell — explicit bg required to cover scrolled content */}
                   <td className={`sticky left-0 z-20 px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap min-w-[150px] ${index % 2 === 0 ? "bg-white dark:bg-[#212121]" : "bg-gray-50 dark:bg-[#212121]"} group-hover:bg-[#017ACB]/10 dark:group-hover:bg-[#212121]`} style={styles.outfitFont}>{row.resource_name}</td>
                   <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.department}</td>
                   <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.reports_to}</td>
@@ -445,6 +514,7 @@ export default function TeamMemberAssignmentsPage() {
                   <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.requestor}</td>
                   <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.requestor_vp}</td>
                   <td className="px-4 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.requesting_dept}</td>
+                  {/* ?? "" renders blank instead of undefined/null for months with no allocation */}
                   {visibleMonths.map(m => (
                     <td key={m} className="px-2 py-2 border border-black dark:border-slate-700 text-sm text-black dark:text-slate-100 text-center whitespace-nowrap bg-inherit" style={styles.outfitFont}>{row.allocations[m] ?? ""}</td>
                   ))}

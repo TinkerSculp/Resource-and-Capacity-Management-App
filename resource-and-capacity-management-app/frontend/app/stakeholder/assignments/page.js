@@ -160,7 +160,7 @@ export default function StakeholderAssignmentsPage() {
      STATE
   --------------------------------------------------------------------------- */
   const [user, setUser]           = useState(null);
-  const [empName, setEmpName]     = useState(""); // Resolved from profile — used for requestor matching
+  const [empName, setEmpName]     = useState(""); 
   const [activeTab, setActiveTab] = useState("all");
 
   const [allRows, setAllRows]         = useState([]);

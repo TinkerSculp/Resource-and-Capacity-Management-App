@@ -32,8 +32,8 @@ const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
    TAB BUTTON CLASS BUILDER
    Active   = blue (#017ACB) — "you are here"
    Inactive = grey (gray-200 / slate-700 dark) — available to click
-   Both states: hover fades to light blue tint (#017ACB/20) matching the
-   filterTabClass pattern used across all other pages.
+   Active hover: stays blue (#017ACB/80) — clearly shows the current selection.
+   Inactive hover: fades to grey (#gray-300 / slate-600 dark) — invites clicking.
    ============================================================================= */
 const tabClass = (isActive) => `
   w-20 px-4 py-2 rounded text-sm text-center
@@ -53,10 +53,6 @@ const tabClass = (isActive) => `
   dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
-/* -----------------------------------------------------------------------------
-   FUNCTION: Summary Card Icon
-   Renders an icon for the summary card, supporting dark mode.
------------------------------------------------------------------------------ */
 function SummaryCardIcon({ defaultSrc, darkSrc, alt }) {
   return (
     <picture>

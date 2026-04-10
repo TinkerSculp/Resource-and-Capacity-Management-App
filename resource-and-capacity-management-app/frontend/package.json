@@ -21,11 +21,13 @@
     "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "@babel/preset-typescript": "^7.28.5",
     "@tailwindcss/postcss": "^4",
     "babel-plugin-react-compiler": "1.0.0",
     "baseline-browser-mapping": "^2.10.14",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
+    "eslint-plugin-import": "^2.32.0",
     "tailwindcss": "^4"
   }
 }

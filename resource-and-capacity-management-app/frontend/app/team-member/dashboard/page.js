@@ -37,15 +37,15 @@
      • tile labels use clamp() font size — readable on all screen sizes.
 
    DEPENDENCIES:
-     • DashboardSummary      — Shared summary cards component
-     • next/navigation        — useRouter for tile click navigation
-     • next/image             — Optimised tile icons
+     • DashboardSummary — Shared summary cards component
+     • next/navigation  — useRouter for tile click navigation
+     • next/image       — Optimised tile icons (used directly via Image)
    ============================================================================= */
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import DashboardSummary from '@/components/layout/DashboardSummary';
-import DashboardTileIcon from '@/components/layout/DashboardTileIcon';
 
 const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
@@ -82,7 +82,7 @@ export default function TeamMemberDashboardPage() {
   --------------------------------------------------------------------------- */
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="h-[600px] flex items-center justify-center">
         <div className="animate-spin h-10 w-10 border-b-2 border-blue-600 rounded-full" role="status" />
       </div>
     );
@@ -94,14 +94,10 @@ export default function TeamMemberDashboardPage() {
      All hrefs are hardcoded paths — no user input reaches router.push().
   --------------------------------------------------------------------------- */
   const tiles = [
-    {
-      label: 'Capacity Summary',
-      icon: <DashboardTileIcon defaultSrc="/capacitysummary.svg" darkSrc="/WhiteCapacitySummary.svg" alt="Capacity summary icon" />,
-      href: '/capacity'
-    },
-    { label: 'Initiatives',      icon: <DashboardTileIcon defaultSrc="/Initiatives.svg" darkSrc="/WhiteInitiatives.svg" alt="Initiatives icon"  />, href: '/team-member/view-initiatives' },
-    { label: 'Assignments',      icon: <DashboardTileIcon defaultSrc="/Assignments.svg" darkSrc="/WhiteAssignments.svg" alt="Assignments icon"  />, href: '/team-member/assignments' },
-    { label: 'Calendar',         icon: <DashboardTileIcon defaultSrc="/Calendar.svg" darkSrc="/WhiteCalendar.svg" alt="Calendar icon"  />, href: '/calendar' },
+    { label: 'Capacity Summary', icon: <Image src="/capacitysummary.svg" alt="Capacity summary icon" width={96} height={96} />, href: '/capacity' },
+    { label: 'Initiatives',      icon: <Image src="/Initiatives.svg"     alt="Initiatives icon"      width={96} height={96} />, href: '/team-member/view-initiatives' },
+    { label: 'Assignments',      icon: <Image src="/Assignments.svg"     alt="Assignments icon"      width={96} height={96} />, href: '/team-member/assignments' },
+    { label: 'Calendar',         icon: <Image src="/Calendar.svg"        alt="Calendar icon"         width={96} height={96} />, href: '/calendar' },
   ];
 
   /* ===========================================================================
@@ -119,7 +115,7 @@ export default function TeamMemberDashboardPage() {
       </div>
 
       {/* DIVIDER */}
-      <div className="border-t-2 border-gray-900 dark:border-slate-600 w-full" />
+      <div className="border-t-2 border-gray-900 w-full" />
 
       {/* 2×2 TILE GRID
           Width is calc(66.666% + gap/2) — matches the resource manager dashboard
@@ -137,16 +133,16 @@ export default function TeamMemberDashboardPage() {
             key={i}
             onClick={() => tile.href && router.push(tile.href)} // Hardcoded hrefs — no user input
             className={`
-              bg-white rounded-lg shadow-sm dark:shadow-black/30 text-center border-4 border-gray-400 dark:bg-slate-900 dark:border-slate-700
+              bg-white rounded-lg shadow-sm border text-center border-4 border-gray-400
               p-[clamp(0.8rem,1.6vw,2.4rem)]
-              hover:shadow-md hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30
+              hover:shadow-md hover:bg-[#017ACB]/20
               cursor-pointer transition w-full
             `}
           >
             <div className="flex flex-col items-center justify-center gap-1">
               {tile.icon}
               <h3
-                className="text-[clamp(1.1rem,1.4vw,1.6rem)] font-semibold text-gray-900 dark:text-slate-100"
+                className="text-[clamp(1.1rem,1.4vw,1.6rem)] font-semibold text-gray-900"
                 style={styles.outfitFont}
               >
                 {tile.label}
