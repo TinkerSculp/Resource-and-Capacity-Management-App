@@ -271,6 +271,4 @@ export default function DashboardSummary() {
 )}
     </div>
   );
-}div>
-  );
-} 
+}
