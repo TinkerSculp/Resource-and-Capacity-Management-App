@@ -168,7 +168,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowForgotModal(true)}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+                className="text-sm text-[#017ACB] dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
                 style={{ fontFamily: 'Outfit, sans-serif' }}
               >
                 Forgot Password?
