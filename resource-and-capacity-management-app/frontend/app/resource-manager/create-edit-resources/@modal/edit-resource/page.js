@@ -1,40 +1,5 @@
 'use client';
 
-/* =============================================================================
-   EditResourceModal.jsx
-   -----------------------------------------------------------------------------
-   PURPOSE:
-     Full-page modal for editing an existing employee record. Navigated to via
-     the Edit button on the Resources table. Loads the employee, validates the
-     form, and PUTs the update to /resources/employees/:id.
-
-   HOW IT WORKS:
-     1. Reads emp_id from the URL search params (?id=)
-     2. Fetches the employee record, departments, and managers in parallel
-     3. Converts stored IDs to display names for the dropdowns
-     4. On submit: validates → checks for duplicate name → PUTs the payload
-     5. On success: navigates back and triggers a refresh on the Resources page
-
-   ID ↔ NAME CONVERSION:
-     The employee record stores IDs for reports_to, manager_level, director_level,
-     requestor_vp. The form displays names. On load, IDs are converted to names
-     via the managers list. On save, names are converted back to IDs via getEmpId().
-     Similarly, dept_no is stored but the form shows dept_name.
-
-   SECURITY MODEL:
-     • emp_id is read from URL params and passed through encodeURIComponent().
-     • Profanity checks applied to emp_name, emp_title, and other_info before submit.
-     • Duplicate name check runs against the employees list (server-sourced) and
-       excludes the current emp_id — prevents false duplicate detection on self.
-     • All numeric fields (emp_id, reports_to, etc.) resolved via ID lookup
-       before sending — no user-typed IDs reach the backend.
-     • API errors are surfaced via an error banner — never exposed as raw errors.
-
-   DEPENDENCIES:
-     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
-     • next/navigation  — useRouter, useSearchParams
-   ============================================================================= */
-
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
@@ -52,9 +17,6 @@ const btnClass = `
 
 const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
 
-/* -----------------------------------------------------------------------------
-   PROFANITY CHECK — applied to emp_name, emp_title, and other_info before submit.
------------------------------------------------------------------------------ */
 const BLOCKED_WORDS = [
   "kill","murder","stab","shoot","die","death","dead","attack","hate","sucks",
   "stupid","idiot","moron","dumb","loser","trash","ass","bastard","bitch","damn",
@@ -70,10 +32,6 @@ function containsBlockedWords(text) {
 
 const inputClass = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full';
 
-/* =============================================================================
-   COMPONENT: StyledDropdown
-   Fixed option list dropdown — used for Department (only "Data Mgmt" allowed).
-   ============================================================================= */
 function StyledDropdown({ label, value, onChange, options }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -100,11 +58,6 @@ function StyledDropdown({ label, value, onChange, options }) {
   );
 }
 
-/* =============================================================================
-   COMPONENT: SearchableDropdown
-   Searchable dropdown for long lists — used for hierarchy fields (Reports To,
-   Manager Level, Director Level, VP). Filters by emp_name as the user types.
-   ============================================================================= */
 function SearchableDropdown({ label, value, onChange, list }) {
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState('');
@@ -135,23 +88,20 @@ function SearchableDropdown({ label, value, onChange, list }) {
   );
 }
 
-/* =============================================================================
-   MAIN COMPONENT: EditResourceModal
-   ============================================================================= */
 export default function EditResourceModal() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const empId        = searchParams.get('id');
 
-  const [departments, setDepartments]         = useState([]);
-  const [managers, setManagers]               = useState([]);
-  const [employee, setEmployee]               = useState(null);
-  const [loading, setLoading]                 = useState(false);
-  const [error, setError]                     = useState('');
-  const [success, setSuccess]                 = useState(false);
-  const [statusValue, setStatusValue]         = useState('Active');
+  const [departments, setDepartments]             = useState([]);
+  const [managers, setManagers]                   = useState([]);
+  const [employee, setEmployee]                   = useState(null);
+  const [loading, setLoading]                     = useState(false);
+  const [error, setError]                         = useState('');
+  const [success, setSuccess]                     = useState(false);
+  const [statusValue, setStatusValue]             = useState('Active');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting]               = useState(false);
+  const [deleting, setDeleting]                   = useState(false);
 
   const [formData, setFormData] = useState({
     emp_id: '', emp_name: '', emp_title: '', dept_no: '',
@@ -163,9 +113,6 @@ export default function EditResourceModal() {
   const getDeptNo   = (name) => departments.find(d => d.dept_name === name)?.dept_no || null;
   const getEmpId    = (name) => managers.find(m => m.emp_name === name)?.emp_id || null;
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: LOAD EMPLOYEE + DROPDOWNS
-  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!empId) return;
     const load = async () => {
@@ -219,9 +166,6 @@ export default function EditResourceModal() {
     setFormData(prev => ({ ...prev, [field]: e.target.value.replace(/[^a-zA-Z0-9 .,\-']/g, '') }));
   };
 
-  /* ---------------------------------------------------------------------------
-     HANDLER: handleDelete
-  --------------------------------------------------------------------------- */
   const handleDelete = async () => {
     try {
       setDeleting(true);
@@ -231,23 +175,16 @@ export default function EditResourceModal() {
     } catch {
       setError('Failed to delete employee. Please try again.');
       setShowDeleteConfirm(false);
-    } finally {
-      setDeleting(false);
-    }
+    } finally { setDeleting(false); }
   };
 
-  /* ---------------------------------------------------------------------------
-     HANDLER: handleEdit
-  --------------------------------------------------------------------------- */
   const handleEdit = async (e) => {
     e.preventDefault();
     setError('');
-
     if (containsBlockedWords(formData.emp_name))   return setError('Name contains inappropriate language. Please revise.');
     if (containsBlockedWords(formData.emp_title))  return setError('Title contains inappropriate language. Please revise.');
     if (containsBlockedWords(formData.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
     if (!formData.emp_name.trim())  return setError('Name is required.');
-
     try {
       const { data: existing } = await api.get('/resources/employees');
       const nameTaken = existing.some(e =>
@@ -256,7 +193,6 @@ export default function EditResourceModal() {
       );
       if (nameTaken) return setError(`An employee named "${formData.emp_name.trim()}" already exists.`);
     } catch { /* non-fatal */ }
-
     if (!formData.emp_title.trim()) return setError('Title is required.');
     if (!formData.dept_no)          return setError('Department is required.');
     if (!formData.reports_to)       return setError('Reports To is required.');
@@ -290,9 +226,6 @@ export default function EditResourceModal() {
     } finally { setLoading(false); }
   };
 
-  /* ---------------------------------------------------------------------------
-     LOADING STATE
-  --------------------------------------------------------------------------- */
   if (!employee || !managers.length || !departments.length) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
@@ -301,9 +234,6 @@ export default function EditResourceModal() {
     );
   }
 
-  /* ===========================================================================
-     RENDER
-  =========================================================================== */
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -313,15 +243,29 @@ export default function EditResourceModal() {
           </div>
         )}
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-6 text-black" style={styles.outfitFont}>Edit Resource</h2>
+          {/* HEADER — title on left, X exit button on right */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-black" style={styles.outfitFont}>Edit Resource</h2>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              disabled={loading}
+              aria-label="Close"
+              className="text-gray-500 hover:text-black transition text-2xl font-bold leading-none px-2 py-1 rounded hover:bg-gray-100"
+              style={styles.outfitFont}
+            >
+              ×
+            </button>
+          </div>
+
           {error && (
             <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>
               {error}<button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button>
             </div>
           )}
+
           <form onSubmit={handleEdit} noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Employee ID — read-only */}
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Employee ID</label>
                 <input type="text" value={formData.emp_id} readOnly className="bg-gray-100 text-gray-500 border border-black p-2 rounded cursor-not-allowed w-full" style={styles.outfitFont} />
@@ -342,97 +286,54 @@ export default function EditResourceModal() {
               <SearchableDropdown label="VP *"             value={formData.requestor_vp}   onChange={val => setFormData(prev => ({ ...prev, requestor_vp: val }))}   list={managers} />
             </div>
 
-            {/* Other Information */}
             <div className="flex flex-col mt-4">
               <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Other Information</label>
               <textarea value={formData.other_info} onChange={e => setFormData(prev => ({ ...prev, other_info: e.target.value.replace(/[^a-zA-Z0-9 .,]/g, '') }))} rows={3} maxLength={500} className={inputClass} style={styles.outfitFont} />
             </div>
 
-            {/* STATUS + DELETE side by side */}
-            <div className="mt-4 flex gap-8 flex-wrap items-start">
+            {/* FOOTER ROW — Status | Delete | Cancel | Save Changes all on one line */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
 
-              {/* Status */}
-              <div>
-                <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Status</label>
-                <div className="flex gap-3 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setStatusValue('Active')}
-                    className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Active' ? 'bg-green-200 border-green-600' : 'bg-green-50 hover:bg-green-100'}`}
-                    style={styles.outfitFont}
-                  >
-                    Active
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatusValue('Inactive')}
-                    className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Inactive' ? 'bg-red-200 border-red-600' : 'bg-red-50 hover:bg-red-100'}`}
-                    style={styles.outfitFont}
-                  >
-                    Inactive
-                  </button>
-                </div>
-              </div>
+              {/* LEFT SIDE — Status + Delete */}
+              <div className="flex flex-wrap items-center gap-3">
 
-              {/* Delete */}
-              <div>
-                <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Delete</label>
+                {/* Status buttons */}
+                <button type="button" onClick={() => setStatusValue('Active')}
+                  className={`px-4 py-2 rounded text-sm font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Active' ? 'bg-green-200 border-green-600 text-black' : 'bg-green-50 hover:bg-green-100 text-black'}`}
+                  style={styles.outfitFont}>Active</button>
+                <button type="button" onClick={() => setStatusValue('Inactive')}
+                  className={`px-4 py-2 rounded text-sm font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Inactive' ? 'bg-red-200 border-red-600 text-black' : 'bg-red-50 hover:bg-red-100 text-black'}`}
+                  style={styles.outfitFont}>Inactive</button>
+
+                {/* Delete */}
                 {!showDeleteConfirm ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(true)}
+                  <button type="button" onClick={() => setShowDeleteConfirm(true)}
                     className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]"
-                    style={styles.outfitFont}
-                  >
-                    Delete Resource
-                  </button>
+                    style={styles.outfitFont}>Delete Resource</button>
                 ) : (
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-red-700 font-semibold" style={styles.outfitFont}>Are you sure?</span>
-                    <button
-                      type="button"
-                      disabled={deleting}
-                      onClick={handleDelete}
+                    <button type="button" disabled={deleting} onClick={handleDelete}
                       className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]"
-                      style={styles.outfitFont}
-                    >
-                      {deleting ? 'Deleting...' : 'Yes, Delete'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(false)}
+                      style={styles.outfitFont}>{deleting ? 'Deleting...' : 'Yes, Delete'}</button>
+                    <button type="button" onClick={() => setShowDeleteConfirm(false)}
                       className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition"
-                      style={styles.outfitFont}
-                    >
-                      Cancel
-                    </button>
+                      style={styles.outfitFont}>Cancel</button>
                   </div>
                 )}
               </div>
 
-            </div>
+              {/* RIGHT SIDE — Cancel + Save Changes */}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => router.back()} disabled={loading}
+                  className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]"
+                  style={styles.outfitFont}>Cancel</button>
+                <button type="submit" disabled={loading || success} className={btnClass} style={styles.outfitFont}>
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
 
-            {/* Cancel + Save */}
-            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                disabled={loading}
-                className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] w-full sm:w-auto"
-                style={styles.outfitFont}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading || success}
-                className={`${btnClass} w-full sm:w-auto`}
-                style={styles.outfitFont}
-              >
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
             </div>
-
           </form>
         </div>
       </div>

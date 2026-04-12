@@ -1,85 +1,21 @@
 'use client';
 
-/* =============================================================================
-   Header.jsx
-   -----------------------------------------------------------------------------
-   PURPOSE:
-     Global sticky header rendered on every page of the application.
-     Displays the company logo, app title, and the authenticated user's
-     profile bubble. Provides navigation to the profile page.
-     Also enforces a 30-minute inactivity session timeout — if the user is
-     idle for 30 minutes, a modal is shown warning them the session expired.
-     They must click "Back to Login" to be redirected.
-     Includes an AI chatbot button that opens a chat panel powered by
-     Llama 3.1 via Hugging Face — proxied through the backend so the
-     API key is never exposed in the browser.
-
-   SECURITY MODEL:
-     • User object is read from localStorage using a safe initialiser function
-       that runs only on the client — prevents SSR crashes and hydration mismatches.
-     • Wrapped in try/catch: malformed or tampered JSON is caught gracefully,
-       storage is cleared, and the component renders without a user rather than
-       crashing the entire app.
-     • Both 'user' and 'token' are cleared together on any parse failure,
-       ensuring no partial/broken session data lingers in storage.
-     • No sensitive data (passwords, raw tokens) is ever rendered in the UI —
-       only the username initial and display name are shown.
-     • Session timeout uses Date.now() timestamps — not user-controllable input.
-       All localStorage is cleared on timeout to remove auth data completely.
-     • Redirect only happens after the user explicitly clicks "Back to Login" —
-       uses a hardcoded path, no user-controlled redirect targets.
-     • AI chat messages are sent to the backend proxy (/api/ai/chat) via the
-       shared Axios instance — the HF API key never touches the browser.
-
-   HYDRATION STRATEGY:
-     • useLayoutEffect + useTransition delays rendering until the client has
-       hydrated, preventing a React hydration mismatch between server-rendered
-       HTML (no user) and client HTML (user from localStorage).
-     • Returns null until hydrated — avoids a flash of incorrect UI.
-
-   SESSION TIMEOUT:
-     • TIMEOUT_MS    = 30 * 60 * 1000 — times out after 30 minutes of inactivity
-     • CHECK_EVERY_MS = 60 * 1000     — checks once every minute
-     • Any mouse, keyboard, touch, or scroll activity resets the timer.
-     • On expiry: localStorage is cleared and a modal is shown. The user
-       must click "Back to Login" before being redirected to /login.
-
-   DEPENDENCIES:
-     • Next.js Image   — Optimised image rendering for the company logo
-     • Next.js router  — Used for profile page navigation + login redirect
-     • @/lib/api       — Shared Axios instance with JWT Bearer token auto-injection
-   ============================================================================= */
-
 import { useLayoutEffect, useState, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import api from '@/lib/api';
 
-/* -----------------------------------------------------------------------------
-   FONT STYLE
-   Shared style object for the Outfit typeface, applied consistently across
-   all text elements in the header to maintain brand typography.
------------------------------------------------------------------------------ */
 const styles = {
   outfitFont: { fontFamily: 'Outfit, sans-serif' }
 };
 
-/* -----------------------------------------------------------------------------
-   SESSION TIMEOUT CONSTANTS
------------------------------------------------------------------------------ */
 const TIMEOUT_MS      = 30 * 60 * 1000;
 const CHECK_EVERY_MS  = 60 * 1000;
 const LAST_ACTIVE_KEY = 'lastActive';
 const LOGIN_PATH      = '/login';
 
-/* =============================================================================
-   COMPONENT: Header
-   ============================================================================= */
 export default function Header() {
 
-  /* ---------------------------------------------------------------------------
-     STATE: user — read from localStorage on mount (client-side only)
-  --------------------------------------------------------------------------- */
   const [user, setUser] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -95,23 +31,13 @@ export default function Header() {
     return null;
   });
 
-  /* ---------------------------------------------------------------------------
-     STATE: hydrated — gates rendering until client hydration is complete
-  --------------------------------------------------------------------------- */
-  const [hydrated, setHydrated] = useState(false);
-
-  /* ---------------------------------------------------------------------------
-     STATE: sessionExpired — triggers the session timeout modal
-  --------------------------------------------------------------------------- */
+  const [hydrated, setHydrated]             = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  /* ---------------------------------------------------------------------------
-     STATE: AI Chatbot
-     chatOpen    — whether the chat panel is visible
-     messages    — conversation history [{ role: 'user'|'assistant', content }]
-     chatInput   — current text in the input field
-     chatLoading — true while waiting for the AI response from the backend
-  --------------------------------------------------------------------------- */
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile]         = useState(null);
+  const profileRef                    = useRef(null);
+
   const [chatOpen, setChatOpen]       = useState(false);
   const [messages, setMessages]       = useState([
     { role: 'assistant', content: "Hi! I'm your Resource & Capacity Management assistant. Ask me anything about using this app — managing resources, allocations, initiatives, reports, or accounts." }
@@ -123,18 +49,10 @@ export default function Header() {
   const [, startTransition] = useTransition();
   const router = useRouter();
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: Mark component as hydrated after client paint
-  --------------------------------------------------------------------------- */
   useLayoutEffect(() => {
     startTransition(() => setHydrated(true));
   }, []);
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: 30-minute inactivity session timeout
-     Resets on any mouse, keyboard, touch, or scroll activity.
-     Clears localStorage and shows modal on expiry.
-  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -159,12 +77,36 @@ export default function Header() {
     };
   }, [router]);
 
-  /* ---------------------------------------------------------------------------
-     HANDLER: sendMessage
-     Sends the conversation to the backend proxy (/api/ai/chat).
-     The backend forwards it to Hugging Face Llama-3.1-8B-Instruct via Cerebras.
-     The HF API key never touches the browser — kept server-side only.
-  --------------------------------------------------------------------------- */
+  useEffect(() => {
+    if (!profileOpen || !user?.username) return;
+    const fetchProfile = async () => {
+      try {
+        const res = await api.get(`/profile?username=${encodeURIComponent(user.username)}`);
+        if (res?.data) setProfile(res.data);
+      } catch (err) {
+        console.error('Profile fetch error:', err);
+      }
+    };
+    fetchProfile();
+  }, [profileOpen, user]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    delete api.defaults.headers.common['Authorization'];
+    router.push('/login');
+  };
+
   const sendMessage = async () => {
     const text = chatInput.trim();
     if (!text || chatLoading) return;
@@ -192,19 +134,11 @@ export default function Header() {
     }
   };
 
-  /* ---------------------------------------------------------------------------
-     HYDRATION GATE — render nothing until client hydration is complete
-  --------------------------------------------------------------------------- */
   if (!hydrated) return null;
 
-  /* ===========================================================================
-     RENDER
-  =========================================================================== */
   return (
     <>
-      {/* ===================================================================
-          SESSION EXPIRED MODAL
-      =================================================================== */}
+      {/* SESSION EXPIRED MODAL */}
       {sessionExpired && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] px-4"
@@ -247,9 +181,7 @@ export default function Header() {
         </div>
       )}
 
-      {/* ===================================================================
-          HEADER — 3-column grid: logo | title | user controls
-      =================================================================== */}
+      {/* HEADER */}
       <header className="bg-[#017ACB] shadow-sm w-full sticky top-0 z-40">
         <div className="px-4 sm:px-6 lg:px-8 w-full">
           <div
@@ -288,7 +220,7 @@ export default function Header() {
             <div className="flex items-center gap-2 sm:gap-4 justify-end">
               {user && (
                 <>
-                  {/* Username — hidden on mobile */}
+                  {/* Username */}
                   <span
                     className="hidden sm:block font-semibold text-white text-[clamp(0.8rem,1.1vw,1.3rem)] whitespace-nowrap"
                     style={styles.outfitFont}
@@ -314,21 +246,90 @@ export default function Header() {
                     </svg>
                   </button>
 
-                  {/* Avatar bubble — navigates to profile */}
-                  <div
-                    onClick={() => router.push('/profile')}
-                    role="button"
-                    aria-label={`View profile for ${user.username}`}
-                    className="
-                      rounded-full bg-white flex items-center justify-center
-                      flex-shrink-0 cursor-pointer transition
-                      hover:bg-[#CCE4F4] hover:shadow-[0_0_6px_#017ACB]
-                      w-[clamp(2rem,2.6vw,3rem)] h-[clamp(2rem,2.6vw,3rem)]
-                    "
-                  >
-                    <span className="text-[#017ACB] font-bold text-[clamp(0.9rem,1.2vw,1.4rem)]" aria-hidden="true">
-                      {user.username.charAt(0).toUpperCase()}
-                    </span>
+                  {/* Avatar bubble — opens profile dropdown */}
+                  <div className="relative" ref={profileRef}>
+                    <div
+                      onClick={() => setProfileOpen(o => !o)}
+                      role="button"
+                      aria-label={`View profile for ${user.username}`}
+                      aria-expanded={profileOpen}
+                      className="
+                        rounded-full bg-white flex items-center justify-center
+                        flex-shrink-0 cursor-pointer transition
+                        hover:bg-[#CCE4F4] hover:shadow-[0_0_6px_#017ACB]
+                        w-[clamp(2rem,2.6vw,3rem)] h-[clamp(2rem,2.6vw,3rem)]
+                      "
+                    >
+                      <span className="text-[#017ACB] font-bold text-[clamp(0.9rem,1.2vw,1.4rem)]" aria-hidden="true">
+                        {user.username.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* PROFILE DROPDOWN */}
+                    {profileOpen && (
+                      <div
+                        className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-[99999] overflow-hidden"
+                        style={styles.outfitFont}
+                      >
+                        {/* Top section — avatar + name + title */}
+                        <div className="bg-gray-50 px-5 py-4 flex flex-col items-center border-b border-gray-200">
+                          <div className="w-14 h-14 rounded-full bg-[#017ACB] flex items-center justify-center mb-2 shadow">
+                            <span className="text-white font-bold text-2xl">
+                              {user.username.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="font-bold text-black text-base text-center">
+                            {profile?.name || user.username}
+                          </p>
+                          {profile?.title && (
+                            <p className="text-gray-500 text-xs text-center mt-0.5">{profile.title}</p>
+                          )}
+                        </div>
+
+                        {/* Profile fields */}
+                        <div className="px-5 py-3 space-y-2 text-sm text-gray-700">
+                          {profile ? (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="font-semibold text-black">Department</span>
+                                <span>{profile.department || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="font-semibold text-black">Role</span>
+                                <span>{profile.role}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="font-semibold text-black">ID</span>
+                                <span>{profile.id}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex justify-center py-2">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#017ACB]" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Log Out button */}
+                        <div className="px-5 py-3 border-t border-gray-200">
+                          <button
+                            onClick={handleLogout}
+                            className="
+                              w-full px-4 py-2 rounded text-sm font-semibold
+                              bg-[#017ACB] text-white border border-black/50
+                              hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+                              shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+                              active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+                              relative before:content-[''] before:absolute before:inset-0 before:rounded
+                              before:pointer-events-none
+                              before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+                            "
+                          >
+                            Log Out
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -337,11 +338,7 @@ export default function Header() {
         </div>
       </header>
 
-      {/* ===================================================================
-          AI CHATBOT PANEL
-          Mobile: full-width sheet from bottom (70vh)
-          Desktop (sm+): fixed bottom-right panel (360×520px)
-      =================================================================== */}
+      {/* AI CHATBOT PANEL */}
       {chatOpen && (
         <div
           className="
@@ -393,8 +390,6 @@ export default function Header() {
                 </div>
               </div>
             ))}
-
-            {/* Typing indicator — shown while waiting for AI response */}
             {chatLoading && (
               <div className="flex justify-start">
                 <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-2 shadow-sm flex gap-1 items-center">
@@ -411,7 +406,7 @@ export default function Header() {
             <div ref={chatEndRef} />
           </div>
 
-          {/* Input area — larger touch targets on mobile */}
+          {/* Input area */}
           <div className="px-3 py-3 border-t border-gray-200 bg-white flex gap-2 flex-shrink-0">
             <input
               type="text"

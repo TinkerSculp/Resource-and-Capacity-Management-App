@@ -1,57 +1,11 @@
 'use client';
-
-/* =============================================================================
-   InitiativesPage.jsx
-   -----------------------------------------------------------------------------
-   PURPOSE:
-     Displays all initiatives in a filterable, scrollable table. Supports:
-       • "All Initiatives", "My Initiatives", "Completed", "Cancelled" tabs
-       • Column-level filter menus (project, category, leader, status,
-         requestor, requestor VP, requesting dept)
-       • Project sort (A→Z / Z→A)
-       • Inline Edit button per row — navigates to the edit page
-       • Global search bar — filters visible rows across key initiative fields
-
-   HOW IT WORKS:
-     1. On mount, validates the session from localStorage
-     2. Fetches initiatives from GET /api/initiatives scoped to the user's username
-     3. When the tab changes, refetches with a status filter param
-     4. Filter dropdowns are built from the tab-scoped base BEFORE filters are
-        applied — so "My Initiatives" only shows values from that user's rows
-     5. Clicking a row highlights it — clicking again unhighlights
-     6. Global search is applied to the tab-scoped base before column filters
-
-   FILTER OPTION LISTS — TAB-AWARE:
-     Each dropdown's option list is derived from the current tab's base rows
-     BEFORE any filter is applied. This means:
-       • My Initiatives dropdowns only list values present in that user's rows
-       • All/Mine project filter never lists Completed or Cancelled projects
-       • Completed/Cancelled tabs only show their own statuses in the filter
-
-   SECURITY MODEL:
-     • localStorage accessed inside try/catch — malformed JSON redirects to login.
-     • user.username validated via isValidUser() before any API call.
-     • All initiative fields passed through sanitizeText() before storing in state.
-     • encodeURIComponent() on initiative IDs in all URL constructions.
-     • Filter menus built from sanitized server data only — no user-typed values.
-     • Search input is restricted to letters and spaces only.
-     • No dangerouslySetInnerHTML anywhere.
-     • Fetch aborted on unmount via aborted flag — prevents setState after unmount.
-
-   DEPENDENCIES:
-     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
-     • next/navigation  — useRouter, useSearchParams
-   ============================================================================= */
-
+ 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
-
+ 
 const styles = { outfitFont: { fontFamily: 'Outfit, sans-serif' } };
-
-/* -----------------------------------------------------------------------------
-   SHARED BUTTON + DROPDOWN CLASSES — neumorphic, matches all other pages.
------------------------------------------------------------------------------ */
+ 
 const btnClass = `
   px-4 py-2 rounded text-sm
   bg-[#017ACB] text-white border border-black/50
@@ -62,7 +16,7 @@ const btnClass = `
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
 `;
-
+ 
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
   bg-[#003A5C] text-white border border-black/50
@@ -73,7 +27,7 @@ const btnDarkClass = `
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
 `;
-
+ 
 const tabClass = (isActive) => `
   px-4 py-2 rounded text-sm border border-black/50
   ${isActive
@@ -87,7 +41,7 @@ const tabClass = (isActive) => `
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
   transition whitespace-nowrap
 `;
-
+ 
 const colBtnClass = `
   ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
   border border-black/50 hover:bg-[#CDE6F7] transition
@@ -97,19 +51,24 @@ const colBtnClass = `
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.10),inset_0_-1px_2px_rgba(0,0,0,0.10)]
 `;
-
-/* menuClass — fixed-position overlay, z-[30000] floats above sticky headers */
+ 
+// Sortable column header text — 3D pop on hover, matching project button style
+const sortableSpanClass = `
+  cursor-pointer select-none px-2 py-1 rounded transition
+  hover:bg-white hover:text-[#017ACB] hover:border hover:border-black/50
+  hover:shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+`;
+ 
 const menuClass = `
   dropdown-menu fixed bg-white text-black shadow-lg rounded
   min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto
   z-[30000] border border-gray-300 pointer-events-auto
 `;
-
+ 
 /* =============================================================================
    SECURITY HELPERS
    ============================================================================= */
-
-// Strip control characters, HTML tags, and common injection keywords
 function sanitizeText(value) {
   if (typeof value !== 'string') return '';
   return value
@@ -118,19 +77,17 @@ function sanitizeText(value) {
     .replace(/script|onerror|onload|javascript:/gi, '')
     .trim();
 }
-
-// Validate that the stored user object has a usable username
+ 
 function isValidUser(user) {
   return user && typeof user.username === 'string' && user.username.trim();
 }
-
-// Validate that an initiative has a usable _id before mapping
+ 
 function isValidInitiative(item) {
   return item && item._id;
 }
-
+ 
 /* =============================================================================
-   COMPONENT: Checkbox — used inside all dropdown filter menus.
+   COMPONENT: Checkbox
    ============================================================================= */
 const Checkbox = ({ checked }) => (
   <span className="w-4 h-4 border border-black rounded-sm flex items-center justify-center transition relative overflow-hidden flex-shrink-0">
@@ -145,7 +102,7 @@ const Checkbox = ({ checked }) => (
     )}
   </span>
 );
-
+ 
 /* =============================================================================
    MAIN COMPONENT
    ============================================================================= */
@@ -153,20 +110,19 @@ export default function InitiativesPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const refresh      = searchParams.get('refresh');
-
+ 
   /* ---------------------------------------------------------------------------
      STATE
   --------------------------------------------------------------------------- */
   const [user, setUser]           = useState(null);
   const [activeTab, setActiveTab] = useState('all');
-
-  const [initiatives, setInitiatives]                  = useState([]);
-  const [mine, setMine]                                = useState([]);
-  const [filteredInitiatives, setFilteredInitiatives]  = useState([]);
-
+ 
+  const [initiatives, setInitiatives]                 = useState([]);
+  const [mine, setMine]                               = useState([]);
+  const [filteredInitiatives, setFilteredInitiatives] = useState([]);
+ 
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Filter selections — [] = no filter (show all)
+ 
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedStatuses, setSelectedStatuses]     = useState([]);
   const [selectedVPs, setSelectedVPs]               = useState([]);
@@ -174,12 +130,30 @@ export default function InitiativesPage() {
   const [selectedLeads, setSelectedLeads]           = useState([]);
   const [selectedRequestors, setSelectedRequestors] = useState([]);
   const [selectedProjects, setSelectedProjects]     = useState([]);
-
-  const [projectSort, setProjectSort]     = useState('');
+ 
+  // ---------------------------------------------------------------------------
+  // SORT STATE — column: "project"|"category"|"lead"|"status"|"requestor"|"vp"|"dept"|null
+  // Cycles: asc → desc → null (3rd click clears)
+  // Numbers always sort to the bottom.
+  // ---------------------------------------------------------------------------
+  const [sortConfig, setSortConfig] = useState({ column: null, direction: 'asc' });
+ 
+  const handleHeaderSort = (column) => {
+    setSortConfig(prev => {
+      if (prev.column !== column)               return { column, direction: 'asc' };
+      if (prev.direction === 'asc')             return { column, direction: 'desc' };
+      return { column: null, direction: 'asc' }; // 3rd click clears
+    });
+  };
+ 
+  const sortArrow = (column) => {
+    if (sortConfig.column !== column) return '';
+    return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+  };
+ 
   const [highlightedId, setHighlightedId] = useState(null);
   const toggleHighlight = (id) => setHighlightedId(prev => prev === id ? null : id);
-
-  // Dropdown visibility flags
+ 
   const [showProjectSortMenu, setShowProjectSortMenu] = useState(false);
   const [showCategoryMenu, setShowCategoryMenu]       = useState(false);
   const [showStatusMenu, setShowStatusMenu]           = useState(false);
@@ -188,8 +162,7 @@ export default function InitiativesPage() {
   const [showLeadMenu, setShowLeadMenu]               = useState(false);
   const [showRequestorMenu, setShowRequestorMenu]     = useState(false);
   const [menuPosition, setMenuPosition]               = useState({ x: 0, y: 0 });
-
-  // Available option lists — built from sanitized server data, scoped by tab
+ 
   const [availableCategories, setAvailableCategories] = useState([]);
   const [availableStatuses, setAvailableStatuses]     = useState([]);
   const [availableVPs, setAvailableVPs]               = useState([]);
@@ -197,23 +170,23 @@ export default function InitiativesPage() {
   const [availableLeads, setAvailableLeads]           = useState([]);
   const [availableRequestors, setAvailableRequestors] = useState([]);
   const [availableProjects, setAvailableProjects]     = useState([]);
-
+ 
   /* ---------------------------------------------------------------------------
-     DERIVED: visibleStatuses
+     DERIVED
   --------------------------------------------------------------------------- */
   const visibleStatuses =
     activeTab === 'completed' ? ['Completed'] :
     activeTab === 'cancelled' ? ['Cancelled'] :
     availableStatuses.filter(s => s !== 'Completed' && s !== 'Cancelled');
-
+ 
   /* ---------------------------------------------------------------------------
-     HELPERS: menu open/close and filter toggle
+     HELPERS
   --------------------------------------------------------------------------- */
   const toggleSelection = (value, setFn, current) => {
     if (!value) return;
     setFn(current.includes(value) ? current.filter(v => v !== value) : [...current, value]);
   };
-
+ 
   const closeAllMenus = () => {
     setShowProjectSortMenu(false);
     setShowCategoryMenu(false);
@@ -223,13 +196,10 @@ export default function InitiativesPage() {
     setShowLeadMenu(false);
     setShowRequestorMenu(false);
   };
-
+ 
   const openMenu = (e, setFn, currentlyOpen) => {
     e.stopPropagation();
-    if (currentlyOpen) {
-      closeAllMenus();
-      return;
-    }
+    if (currentlyOpen) { closeAllMenus(); return; }
     const rect = e.currentTarget.getBoundingClientRect();
     let x = rect.left;
     let y = rect.bottom + 4;
@@ -238,7 +208,7 @@ export default function InitiativesPage() {
     closeAllMenus();
     setFn(true);
   };
-
+ 
   /* ---------------------------------------------------------------------------
      EFFECT 1: LOAD USER SESSION
   --------------------------------------------------------------------------- */
@@ -253,25 +223,25 @@ export default function InitiativesPage() {
       router.push('/login');
     }
   }, [router]);
-
+ 
   /* ---------------------------------------------------------------------------
      EFFECT 2: FETCH INITIATIVES
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
     let aborted = false;
-
+ 
     const fetchInitiatives = async () => {
       try {
         const params = { username: user.username };
         if (activeTab === 'completed') params.status = 'Completed';
         else if (activeTab === 'cancelled') params.status = 'Cancelled';
-
+ 
         const res = await api.get('/initiatives', { params });
         if (!res?.data || aborted) return;
-
+ 
         const data = res.data;
-
+ 
         const safeMap = (items) =>
           Array.isArray(items)
             ? items.filter(isValidInitiative).map(item => ({
@@ -289,10 +259,10 @@ export default function InitiativesPage() {
                 resource_consideration: sanitizeText(item.resource_notes),
               }))
             : [];
-
+ 
         const sourceAll = data.allAssignments || data.completed || data.cancelled || [];
         if (aborted) return;
-
+ 
         setInitiatives(safeMap(sourceAll));
         setMine(safeMap(data.myInitiatives || []));
         setFilteredInitiatives(safeMap(sourceAll));
@@ -300,17 +270,17 @@ export default function InitiativesPage() {
         console.error('Fetch error:', err);
       }
     };
-
+ 
     fetchInitiatives();
     return () => { aborted = true; };
   }, [user, refresh, activeTab]);
-
+ 
   /* ---------------------------------------------------------------------------
-     EFFECT 3: APPLY SEARCH + FILTERS + SORT + BUILD AVAILABLE FILTER LISTS
+     EFFECT 3: FILTER + SORT
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
-
+ 
     const base =
       activeTab === 'mine'
         ? mine.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled')
@@ -319,7 +289,7 @@ export default function InitiativesPage() {
           : activeTab === 'cancelled'
             ? initiatives.filter(i => i.status === 'Cancelled')
             : initiatives.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled');
-
+ 
     const uniq = (arr) => [...new Set(arr)].filter(Boolean);
     setAvailableCategories(uniq(base.map(i => i.category)));
     setAvailableStatuses(uniq(base.map(i => i.status)));
@@ -328,12 +298,11 @@ export default function InitiativesPage() {
     setAvailableLeads(uniq(base.map(i => i.lead)));
     setAvailableRequestors(uniq(base.map(i => i.requestor)));
     setAvailableProjects(uniq(base.map(i => i.project)));
-
+ 
     let filtered = base;
-
+ 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-
       filtered = filtered.filter(i =>
         (i.project || '').toLowerCase().includes(term) ||
         (i.category || '').toLowerCase().includes(term) ||
@@ -347,7 +316,7 @@ export default function InitiativesPage() {
         (i.resource_consideration || '').toLowerCase().includes(term)
       );
     }
-
+ 
     filtered = filtered.filter(i =>
       (!selectedCategories.length || selectedCategories.includes(i.category)) &&
       (!selectedStatuses.length   || selectedStatuses.includes(i.status)) &&
@@ -357,38 +326,46 @@ export default function InitiativesPage() {
       (!selectedRequestors.length || selectedRequestors.includes(i.requestor)) &&
       (!selectedProjects.length   || selectedProjects.includes(i.project))
     );
-
-    if (projectSort === 'asc')  filtered = [...filtered].sort((a, b) => a.project.localeCompare(b.project));
-    if (projectSort === 'desc') filtered = [...filtered].sort((a, b) => b.project.localeCompare(a.project));
-
+ 
+    // --- SORT — numbers always go to the bottom regardless of direction ---
+    const { column, direction } = sortConfig;
+    if (column) {
+      const dir = direction === 'asc' ? 1 : -1;
+      const isNumericStart = (s) => /^\d/.test(s || '');
+      filtered = [...filtered].sort((a, b) => {
+        let aVal = '';
+        let bVal = '';
+        if (column === 'project')   { aVal = a.project;       bVal = b.project; }
+        if (column === 'category')  { aVal = a.category;      bVal = b.category; }
+        if (column === 'lead')      { aVal = a.lead;          bVal = b.lead; }
+        if (column === 'status')    { aVal = a.status;        bVal = b.status; }
+        if (column === 'requestor') { aVal = a.requestor;     bVal = b.requestor; }
+        if (column === 'vp')        { aVal = a.requestor_vp;  bVal = b.requestor_vp; }
+        if (column === 'dept')      { aVal = a.requesting_dept; bVal = b.requesting_dept; }
+        const aIsNum = isNumericStart(aVal);
+        const bIsNum = isNumericStart(bVal);
+        if (aIsNum && !bIsNum) return 1;
+        if (!aIsNum && bIsNum) return -1;
+        return aVal.localeCompare(bVal) * dir;
+      });
+    }
+ 
     setFilteredInitiatives(filtered);
   }, [
-    activeTab,
-    initiatives,
-    mine,
-    user,
-    searchTerm,
-    selectedCategories,
-    selectedStatuses,
-    selectedVPs,
-    selectedDepts,
-    selectedLeads,
-    selectedRequestors,
-    selectedProjects,
-    projectSort
+    activeTab, initiatives, mine, user, searchTerm, sortConfig,
+    selectedCategories, selectedStatuses, selectedVPs, selectedDepts,
+    selectedLeads, selectedRequestors, selectedProjects,
   ]);
-
+ 
   /* ---------------------------------------------------------------------------
      EFFECT 4: CLOSE MENUS ON OUTSIDE CLICK
   --------------------------------------------------------------------------- */
   useEffect(() => {
-    const handler = (e) => {
-      if (!e.target.closest('.dropdown-menu')) closeAllMenus();
-    };
+    const handler = (e) => { if (!e.target.closest('.dropdown-menu')) closeAllMenus(); };
     window.addEventListener('click', handler);
     return () => window.removeEventListener('click', handler);
   }, []);
-
+ 
   /* ---------------------------------------------------------------------------
      LOADING STATE
   --------------------------------------------------------------------------- */
@@ -399,34 +376,18 @@ export default function InitiativesPage() {
       </div>
     );
   }
-
+ 
   /* ---------------------------------------------------------------------------
-     RENDER HELPER: renderMenuItems
+     RENDER HELPER: renderMenuItems — filter-only dropdowns (no sort rows)
   --------------------------------------------------------------------------- */
-  const renderMenuItems = (available, selected, setSelected, sortOptions = false) => (
+  const renderMenuItems = (available, selected, setSelected) => (
     <>
-      {sortOptions && (
-        <>
-          {[{ val: 'asc', label: 'A → Z' }, { val: 'desc', label: 'Z → A' }].map(({ val, label }) => (
-            <div
-              key={val}
-              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${projectSort === val ? 'font-bold' : ''}`}
-              onClick={() => setProjectSort(projectSort === val ? '' : val)}
-            >
-              <Checkbox checked={projectSort === val} />{label}
-            </div>
-          ))}
-          <div className="border-t my-1 text-xs font-semibold text-gray-500 px-3 py-1">Filter by project</div>
-        </>
-      )}
-
       <div
         className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? 'font-bold' : ''}`}
         onClick={() => setSelected([])}
       >
         <Checkbox checked={selected.length === 0} />All
       </div>
-
       {available.map(val => (
         <div
           key={val}
@@ -438,7 +399,7 @@ export default function InitiativesPage() {
       ))}
     </>
   );
-
+ 
   /* ===========================================================================
      RENDER
   =========================================================================== */
@@ -452,7 +413,7 @@ export default function InitiativesPage() {
             Back to Dashboard
           </button>
         </div>
-
+ 
         <div className="flex-1 flex justify-center min-w-[220px]">
           <input
             type="text"
@@ -464,8 +425,7 @@ export default function InitiativesPage() {
             style={styles.outfitFont}
           />
         </div>
-
-        {/* TABS + ADD BUTTON — switching tabs clears all filters */}
+ 
         <div className="flex flex-wrap gap-2 items-center">
           {['all', 'mine', 'completed', 'cancelled'].map(tab => (
             <button
@@ -480,7 +440,7 @@ export default function InitiativesPage() {
                 setSelectedLeads([]);
                 setSelectedRequestors([]);
                 setSelectedProjects([]);
-                setProjectSort('');
+                setSortConfig({ column: null, direction: 'asc' });
               }}
               aria-pressed={activeTab === tab}
               className={tabClass(activeTab === tab)}
@@ -489,7 +449,7 @@ export default function InitiativesPage() {
               {{ all: 'All Initiatives', mine: 'My Initiatives', completed: 'Completed', cancelled: 'Cancelled' }[tab]}
             </button>
           ))}
-
+ 
           <button
             onClick={() => router.push('/resource-manager/create-edit-initiatives/add-initiative')}
             className={btnClass}
@@ -499,34 +459,40 @@ export default function InitiativesPage() {
           </button>
         </div>
       </div>
-
+ 
       {/* INITIATIVES TABLE */}
       <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse">
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
+ 
                 {/* EDIT — sticky left */}
                 <th className="sticky left-0 top-0 z-[9999] bg-[#017ACB] px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle [background-clip:padding-box]" style={styles.outfitFont}>
                   Edit
                 </th>
-
-                {/* PROJECT — sort + filter */}
+ 
+                {/* PROJECT */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Project</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('project')}>
+                      Project{sortArrow('project')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowProjectSortMenu, showProjectSortMenu)}>▼</button>
                   </div>
                   {showProjectSortMenu && (
                     <div className={menuClass} style={{ top: menuPosition.y, left: menuPosition.x }} onClick={e => e.stopPropagation()}>
-                      {renderMenuItems(availableProjects, selectedProjects, setSelectedProjects, true)}
+                      {renderMenuItems(availableProjects, selectedProjects, setSelectedProjects)}
                     </div>
                   )}
                 </th>
-
+ 
+                {/* CATEGORY */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Category</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('category')}>
+                      Category{sortArrow('category')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowCategoryMenu, showCategoryMenu)}>▼</button>
                   </div>
                   {showCategoryMenu && (
@@ -535,10 +501,13 @@ export default function InitiativesPage() {
                     </div>
                   )}
                 </th>
-
+ 
+                {/* LEADER ACCOUNTABLE */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Leader Accountable</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('lead')}>
+                      Leader Accountable{sortArrow('lead')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowLeadMenu, showLeadMenu)}>▼</button>
                   </div>
                   {showLeadMenu && (
@@ -547,10 +516,13 @@ export default function InitiativesPage() {
                     </div>
                   )}
                 </th>
-
+ 
+                {/* STATUS */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Status</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('status')}>
+                      Status{sortArrow('status')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowStatusMenu, showStatusMenu)}>▼</button>
                   </div>
                   {showStatusMenu && (
@@ -559,10 +531,13 @@ export default function InitiativesPage() {
                     </div>
                   )}
                 </th>
-
+ 
+                {/* REQUESTOR */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Requestor</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('requestor')}>
+                      Requestor{sortArrow('requestor')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowRequestorMenu, showRequestorMenu)}>▼</button>
                   </div>
                   {showRequestorMenu && (
@@ -571,10 +546,13 @@ export default function InitiativesPage() {
                     </div>
                   )}
                 </th>
-
+ 
+                {/* REQUESTOR VP */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Requestor VP</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('vp')}>
+                      Requestor VP{sortArrow('vp')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowVPMenu, showVPMenu)}>▼</button>
                   </div>
                   {showVPMenu && (
@@ -583,10 +561,13 @@ export default function InitiativesPage() {
                     </div>
                   )}
                 </th>
-
+ 
+                {/* REQUESTING DEPT */}
                 <th className="px-4 py-2 border text-sm font-semibold relative whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Requesting Dept</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('dept')}>
+                      Requesting Dept{sortArrow('dept')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowDeptMenu, showDeptMenu)}>▼</button>
                   </div>
                   {showDeptMenu && (
@@ -595,14 +576,15 @@ export default function InitiativesPage() {
                     </div>
                   )}
                 </th>
-
+ 
+                {/* NON-SORTABLE COLUMNS */}
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Completion Date</th>
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Target Period</th>
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Description</th>
                 <th className="px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Resource Consideration</th>
               </tr>
             </thead>
-
+ 
             <tbody>
               {filteredInitiatives.length === 0 && (
                 <tr>
@@ -611,10 +593,9 @@ export default function InitiativesPage() {
                   </td>
                 </tr>
               )}
-
+ 
               {filteredInitiatives.map(item => {
                 const isHighlighted = highlightedId === item.id;
-
                 return (
                   <tr
                     key={item.id}
@@ -641,7 +622,7 @@ export default function InitiativesPage() {
                         Edit
                       </button>
                     </td>
-
+ 
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.project}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.category}</td>
                     <td className="px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{item.lead}</td>

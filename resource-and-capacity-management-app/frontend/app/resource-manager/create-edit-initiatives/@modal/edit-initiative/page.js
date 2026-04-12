@@ -1,43 +1,5 @@
 "use client";
 
-/* =============================================================================
-   EditInitiativeModal.jsx
-   -----------------------------------------------------------------------------
-   PURPOSE:
-     Full-page modal for editing an existing initiative. Navigated to via the
-     Edit button on the Initiatives table. Loads the initiative, populates the
-     form, and PUTs the update to /api/initiatives.
-
-   HOW IT WORKS:
-     1. Reads the initiative ID from URL params (?id=)
-     2. Fetches employees, requestors, and the current initiative data in parallel
-     3. When a Requestor is changed, auto-resolves the VP and fetches the dept
-     4. On submit: validates → profanity check → PUT
-     5. On success: navigates back and triggers a refresh on the Initiatives page
-
-   DIFFERENCES FROM AddInitiativeModal:
-     • Pre-populates the form from the existing initiative record
-     • Uses PUT /initiatives instead of POST
-     • Requestor VP auto-updates if the Requestor is changed — existing VP
-       is preserved from the loaded data on initial render
-
-   AUTO-FILL FIELDS:
-     Same as AddInitiativeModal — Requestor VP and Requesting Dept are
-     read-only and auto-filled when the Requestor is selected or changed.
-
-   SECURITY MODEL:
-     • initiative ID from URL params passed through encodeURIComponent().
-     • Profanity checks on project, target_period, description, and
-       resource_consideration before submit.
-     • VP name passed through encodeURIComponent() in the dept lookup URL.
-     • All dropdown options come from the backend — never user-typed input.
-     • API errors surfaced via error banner — never exposed as raw exceptions.
-
-   DEPENDENCIES:
-     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
-     • next/navigation  — useRouter, useSearchParams
-   ============================================================================= */
-
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
@@ -81,9 +43,6 @@ function containsBlockedWords(text) {
   return BLOCKED_WORDS.some(word => new RegExp(`\\b${word}\\b`, "i").test(text));
 }
 
-/* =============================================================================
-   COMPONENT: SearchableDropdown
-   ============================================================================= */
 function SearchableDropdown({ label, value, onChange, list }) {
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState('');
@@ -128,9 +87,6 @@ function SearchableDropdown({ label, value, onChange, list }) {
   );
 }
 
-/* =============================================================================
-   COMPONENT: StyledDropdown
-   ============================================================================= */
 function StyledDropdown({ label, value, onChange, options }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -159,9 +115,6 @@ function StyledDropdown({ label, value, onChange, options }) {
   );
 }
 
-/* =============================================================================
-   MAIN COMPONENT: EditInitiativeModal
-   ============================================================================= */
 export default function EditInitiativeModal() {
   const router = useRouter();
   const params = useSearchParams();
@@ -185,9 +138,6 @@ export default function EditInitiativeModal() {
 
   const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: LOAD DROPDOWNS
-  --------------------------------------------------------------------------- */
   useEffect(() => {
     const loadDropdowns = async () => {
       try {
@@ -200,9 +150,6 @@ export default function EditInitiativeModal() {
     loadDropdowns();
   }, []);
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: LOAD INITIATIVE DATA
-  --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!id) return;
     const loadInitiative = async () => {
@@ -231,9 +178,6 @@ export default function EditInitiativeModal() {
     loadInitiative();
   }, [id]);
 
-  /* ---------------------------------------------------------------------------
-     HANDLER: fetchDept
-  --------------------------------------------------------------------------- */
   const fetchDept = async (vpName) => {
     if (!vpName?.trim()) return;
     try {
@@ -242,9 +186,6 @@ export default function EditInitiativeModal() {
     } catch { setDept(''); }
   };
 
-  /* ---------------------------------------------------------------------------
-     HANDLER: handleDelete
-  --------------------------------------------------------------------------- */
   const handleDelete = async () => {
     try {
       setDeleting(true);
@@ -259,9 +200,6 @@ export default function EditInitiativeModal() {
     }
   };
 
-  /* ---------------------------------------------------------------------------
-     HANDLER: handleSubmit
-  --------------------------------------------------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -298,9 +236,6 @@ export default function EditInitiativeModal() {
     } finally { setLoading(false); }
   };
 
-  /* ===========================================================================
-     RENDER
-  =========================================================================== */
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -310,12 +245,28 @@ export default function EditInitiativeModal() {
           </div>
         )}
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4 text-black" style={styles.outfitFont}>Edit Initiative</h2>
+
+          {/* HEADER — title on left, X exit button on right */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-black" style={styles.outfitFont}>Edit Initiative</h2>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              disabled={loading}
+              aria-label="Close"
+              className="text-gray-500 hover:text-black transition text-2xl font-bold leading-none px-2 py-1 rounded hover:bg-gray-100"
+              style={styles.outfitFont}
+            >
+              ×
+            </button>
+          </div>
+
           {error && (
             <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>
               {error}<button onClick={() => setError('')} className="ml-3 font-bold text-red-900" aria-label="Dismiss">×</button>
             </div>
           )}
+
           <form onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col">
@@ -374,46 +325,50 @@ export default function EditInitiativeModal() {
               <textarea value={form.resource_consideration} onChange={e => updateField('resource_consideration', e.target.value.replace(/[^a-zA-Z0-9 .,\-'&()]/g, ''))} maxLength={500} rows={3} className={inputClass} style={styles.outfitFont} />
             </div>
 
-            {/* DELETE SECTION */}
-            <div className="mt-6">
-              <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Delete</label>
-              {!showDeleteConfirm ? (
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]"
-                  style={styles.outfitFont}
-                >
-                  Delete Initiative
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-red-700 font-semibold" style={styles.outfitFont}>Are you sure?</span>
-                  <button
-                    type="button"
-                    disabled={deleting}
-                    onClick={handleDelete}
-                    className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]"
-                    style={styles.outfitFont}
-                  >
-                    {deleting ? 'Deleting...' : 'Yes, Delete'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition"
-                    style={styles.outfitFont}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* BOTTOM ROW — Delete (left) + Cancel & Save Changes (right) */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
 
-            {/* CANCEL + SAVE */}
-            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
-              <button type="button" onClick={() => router.back()} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
-              <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
+              {/* DELETE — left side */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]"
+                    style={styles.outfitFont}
+                  >
+                    Delete Initiative
+                  </button>
+                ) : (
+                  <>
+                    <span className="text-xs text-red-700 font-semibold" style={styles.outfitFont}>Are you sure?</span>
+                    <button
+                      type="button"
+                      disabled={deleting}
+                      onClick={handleDelete}
+                      className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]"
+                      style={styles.outfitFont}
+                    >
+                      {deleting ? 'Deleting...' : 'Yes, Delete'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition"
+                      style={styles.outfitFont}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* CANCEL + SAVE — right side */}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => router.back()} disabled={loading} className={`${btnDarkClass} w-full sm:w-auto`} style={styles.outfitFont}>Cancel</button>
+                <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
+              </div>
+
             </div>
           </form>
         </div>

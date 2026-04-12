@@ -1,71 +1,11 @@
 "use client";
-
-/* =============================================================================
-   AssignmentsAllocationsPage.jsx
-   -----------------------------------------------------------------------------
-   PURPOSE:
-     Displays all employee assignments and their monthly allocations in a
-     scrollable, filterable table. Supports:
-       • "All Assignments" and "My Assignments" tab views
-       • Column-level filter menus (resource, manager, project, category,
-         leader, requestor, requestor VP, requesting dept)
-       • Resource sort (A→Z / Z→A) with search inside the resource dropdown
-       • Start month selector — shows 16 months from the chosen start
-       • Inline allocation editing — click a cell to edit, blur/enter to save
-       • Row highlight on click — highlights all rows for that employee
-       • Confirm dialog when clearing the last allocation on a row
-       • Over-allocation warning when an edit would exceed employee capacity
-
-   HOW IT WORKS:
-     1. On mount, reads user session from localStorage
-     2. Fetches all assignments and the current user's assignments from the backend
-     3. Defaults startMonth to the current calendar month
-     4. Filter option lists are derived from tab-scoped visible rows only
-     5. Inline edits call PUT/DELETE on the backend and update all three
-        arrays (allRows, mine, filteredRows) optimistically
-
-   INLINE EDITING — WHY ALL THREE ARRAYS:
-     filteredRows is re-derived from allRows/mine every time filters change
-     (Effect 6). If we only update filteredRows, switching a filter will
-     re-run Effect 6 from stale data and resurrect a deleted allocation.
-     Updating all three source arrays ensures any filter re-run sees the
-     correct state.
-
-   CONFIRM DIALOG:
-     When the user clears the last allocation on a row (all other months
-     are also empty), a confirmation dialog appears before deleting.
-     After confirmation, the row is deleted and the page refreshes to
-     remove the now-empty row cleanly.
-
-   OVER-ALLOCATION WARNING:
-     Before saving a value, the employee's capacity for that month is fetched
-     and compared to the sum of all their allocations (existing + new).
-     If the total would exceed capacity, a warning dialog is shown.
-     The user can proceed anyway — the warning is advisory, not blocking.
-
-   SECURITY MODEL:
-     • localStorage accessed inside try/catch — malformed JSON sets user to null.
-     • encodeURIComponent() on user.username in the API URL.
-     • Allocation save requests send only validated primitives:
-       emp_id (from server data), month key (from server data), and amount
-       (parsed with parseFloat — NaN → null → DELETE).
-     • Filter menus built from server response data only — no user-typed values.
-     • No dangerouslySetInnerHTML used anywhere.
-
-   DEPENDENCIES:
-     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
-     • next/navigation  — useRouter, useSearchParams
-   ============================================================================= */
-
+ 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
-
+ 
 const styles = { outfitFont: { fontFamily: "Outfit, sans-serif" } };
-
-/* =============================================================================
-   COMPONENT: Checkbox — used inside all dropdown filter menus.
-   ============================================================================= */
+ 
 const Checkbox = ({ checked }) => (
   <span className="w-4 h-4 flex-shrink-0 border border-black rounded-sm flex items-center justify-center transition relative overflow-hidden">
     <input type="checkbox" checked={checked} readOnly className="opacity-0 absolute w-4 h-4 cursor-pointer" />
@@ -79,10 +19,7 @@ const Checkbox = ({ checked }) => (
     )}
   </span>
 );
-
-/* -----------------------------------------------------------------------------
-   SHARED BUTTON CLASSES — neumorphic, matches all other pages in the app.
------------------------------------------------------------------------------ */
+ 
 const btnClass = `
   px-4 py-2 rounded text-sm
   bg-[#017ACB] text-white border border-black/50
@@ -93,7 +30,7 @@ const btnClass = `
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
 `;
-
+ 
 const tabClass = (isActive) => `
   px-4 py-2 rounded text-sm border border-black/50
   ${isActive
@@ -107,10 +44,7 @@ const tabClass = (isActive) => `
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
   transition whitespace-nowrap
 `;
-
-/* colBtnClass — ▼ buttons inside table header cells.
-   No before: pseudo-element to avoid the fractional height shift that causes
-   the button to nudge upward on hover inside a flex header cell. */
+ 
 const colBtnClass = `
   ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
   border border-black/50 hover:bg-[#CDE6F7] transition
@@ -120,91 +54,104 @@ const colBtnClass = `
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.10),inset_0_-1px_2px_rgba(0,0,0,0.10)]
 `;
-
-/* menuClass — fixed-position overlay, z-[30000] floats above sticky headers */
+ 
+// 3D pop hover effect on sortable column header text — matches project button style
+const sortableSpanClass = `
+  cursor-pointer select-none px-2 py-1 rounded transition
+  hover:bg-white hover:text-[#017ACB] hover:border hover:border-black/50
+  hover:shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+`;
+ 
 const menuClass = `
   dropdown-menu fixed bg-white text-black shadow-lg rounded
   min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto
   z-[30000] border border-gray-300 pointer-events-auto
 `;
-
-/* =============================================================================
-   MAIN COMPONENT
-   ============================================================================= */
+ 
 export default function AssignmentsAllocationsPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const refresh      = searchParams.get("refresh");
-
-  /* ---------------------------------------------------------------------------
-     STATE
-     All array states default to [] — prevents renders from receiving undefined.
-  --------------------------------------------------------------------------- */
+ 
   const [user, setUser]           = useState(null);
-  const [highlightedEmpId, setHighlightedEmpId] = useState(null); // Row highlight
+  const [highlightedEmpId, setHighlightedEmpId] = useState(null);
   const toggleHighlight = (empId) => setHighlightedEmpId(prev => prev === empId ? null : empId);
-
+ 
   const startMonthMenuRef = useRef(null);
-
+ 
   const [allRows, setAllRows]           = useState([]);
   const [mine, setMine]                 = useState([]);
   const [filteredRows, setFilteredRows] = useState([]);
   const [months, setMonths]             = useState([]);
   const [activeTab, setActiveTab]       = useState("all");
   const [loading, setLoading]           = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  // Confirm dialogs
-  const [confirmDialog, setConfirmDialog]     = useState(null); // { row, m, index }
-  const [overAllocConfirm, setOverAllocConfirm] = useState(null); // { row, m, index, newValue, maxCapacity }
-
-  // Filter selections — [] = no filter
-  const [selectedResources, setSelectedResources]           = useState([]);
-  const [selectedProjects, setSelectedProjects]             = useState([]);
-  const [selectedCategories, setSelectedCategories]         = useState([]);
-  const [selectedLeaders, setSelectedLeaders]               = useState([]);
-  const [selectedRequestors, setSelectedRequestors]         = useState([]);
-  const [selectedRequestorVPs, setSelectedRequestorVPs]     = useState([]);
+  const [searchTerm, setSearchTerm]     = useState("");
+ 
+  const [confirmDialog, setConfirmDialog]       = useState(null);
+  const [overAllocConfirm, setOverAllocConfirm] = useState(null);
+ 
+  const [selectedResources, setSelectedResources]             = useState([]);
+  const [selectedProjects, setSelectedProjects]               = useState([]);
+  const [selectedCategories, setSelectedCategories]           = useState([]);
+  const [selectedLeaders, setSelectedLeaders]                 = useState([]);
+  const [selectedRequestors, setSelectedRequestors]           = useState([]);
+  const [selectedRequestorVPs, setSelectedRequestorVPs]       = useState([]);
   const [selectedRequestingDepts, setSelectedRequestingDepts] = useState([]);
-  const [selectedManagers, setSelectedManagers]             = useState([]);
-
-  const [resourceSort, setResourceSort]     = useState("");
-  const [resourceSearch, setResourceSearch] = useState(""); // Search inside resource dropdown
-
-  // Dropdown visibility flags
-  const [showResourceMenu, setShowResourceMenu]           = useState(false);
-  const [showProjectMenu, setShowProjectMenu]             = useState(false);
-  const [showCategoryMenu, setShowCategoryMenu]           = useState(false);
-  const [showLeaderMenu, setShowLeaderMenu]               = useState(false);
-  const [showRequestorMenu, setShowRequestorMenu]         = useState(false);
-  const [showRequestorVPMenu, setShowRequestorVPMenu]     = useState(false);
-  const [showRequestingDeptMenu, setShowRequestingDeptMenu] = useState(false);
-  const [showManagerMenu, setShowManagerMenu]             = useState(false);
-  const [showStartMonthMenu, setShowStartMonthMenu]       = useState(false);
-  const [menuPosition, setMenuPosition]                   = useState({ x: 0, y: 0 });
-
-  // Available filter option lists — built from server response data only
-  const [availableResources, setAvailableResources]           = useState([]);
-  const [availableProjects, setAvailableProjects]             = useState([]);
-  const [availableCategories, setAvailableCategories]         = useState([]);
-  const [availableLeaders, setAvailableLeaders]               = useState([]);
-  const [availableRequestors, setAvailableRequestors]         = useState([]);
-  const [availableRequestorVPs, setAvailableRequestorVPs]     = useState([]);
+  const [selectedManagers, setSelectedManagers]               = useState([]);
+ 
+  // ---------------------------------------------------------------------------
+  // SORT STATE — cycles asc → desc → null per column. Numbers go to the bottom.
+  // ---------------------------------------------------------------------------
+  const [sortConfig, setSortConfig] = useState({ column: null, direction: "asc" });
+ 
+  const handleHeaderSort = (column) => {
+    setSortConfig(prev => {
+      if (prev.column !== column)               return { column, direction: "asc" };
+      if (prev.direction === "asc")             return { column, direction: "desc" };
+      return { column: null, direction: "asc" };
+    });
+  };
+ 
+  const sortArrow = (column) => {
+    if (sortConfig.column !== column) return "";
+    return sortConfig.direction === "asc" ? " ▲" : " ▼";
+  };
+ 
+  const [resourceSearch, setResourceSearch] = useState("");
+ 
+  const [showResourceMenu, setShowResourceMenu]               = useState(false);
+  const [showProjectMenu, setShowProjectMenu]                 = useState(false);
+  const [showCategoryMenu, setShowCategoryMenu]               = useState(false);
+  const [showLeaderMenu, setShowLeaderMenu]                   = useState(false);
+  const [showRequestorMenu, setShowRequestorMenu]             = useState(false);
+  const [showRequestorVPMenu, setShowRequestorVPMenu]         = useState(false);
+  const [showRequestingDeptMenu, setShowRequestingDeptMenu]   = useState(false);
+  const [showManagerMenu, setShowManagerMenu]                 = useState(false);
+  const [showStartMonthMenu, setShowStartMonthMenu]           = useState(false);
+  const [menuPosition, setMenuPosition]                       = useState({ x: 0, y: 0 });
+ 
+  const [availableResources, setAvailableResources]             = useState([]);
+  const [availableProjects, setAvailableProjects]               = useState([]);
+  const [availableCategories, setAvailableCategories]           = useState([]);
+  const [availableLeaders, setAvailableLeaders]                 = useState([]);
+  const [availableRequestors, setAvailableRequestors]           = useState([]);
+  const [availableRequestorVPs, setAvailableRequestorVPs]       = useState([]);
   const [availableRequestingDepts, setAvailableRequestingDepts] = useState([]);
-  const [availableManagers, setAvailableManagers]             = useState([]);
-
+  const [availableManagers, setAvailableManagers]               = useState([]);
+ 
   const [startMonth, setStartMonth] = useState(null);
-
+ 
   /* ---------------------------------------------------------------------------
-     HELPERS: menu open/close and filter toggle
+     HELPERS
   --------------------------------------------------------------------------- */
   const closeAllMenus = () => {
     setShowResourceMenu(false); setShowProjectMenu(false); setShowCategoryMenu(false);
     setShowLeaderMenu(false); setShowRequestorMenu(false); setShowRequestorVPMenu(false);
     setShowRequestingDeptMenu(false); setShowManagerMenu(false); setShowStartMonthMenu(false);
-    setResourceSearch(""); // Clear search when any menu closes
+    setResourceSearch("");
   };
-
-  // Toggle-aware: clicking the same ▼ button closes the menu
+ 
   const openMenu = (e, setFn, currentlyOpen) => {
     e.stopPropagation();
     if (currentlyOpen) { closeAllMenus(); return; }
@@ -215,16 +162,11 @@ export default function AssignmentsAllocationsPage() {
     closeAllMenus();
     setFn(true);
   };
-
+ 
   const toggleSelection = (value, setFn, current) => {
     setFn(current.includes(value) ? current.filter(v => v !== value) : [...current, value]);
   };
-
-  /* ---------------------------------------------------------------------------
-     KEY HANDLER: allocation cell input
-     Enter — commits the edit by blurring.
-     Escape — cancels without saving.
-  --------------------------------------------------------------------------- */
+ 
   const handleAllocationKey = (e, index) => {
     if (e.key === "Enter") e.target.blur();
     if (e.key === "Escape") {
@@ -234,23 +176,11 @@ export default function AssignmentsAllocationsPage() {
       setFilteredRows(clearEditing);
     }
   };
-
-  /* ---------------------------------------------------------------------------
-     BLUR HANDLER: save allocation to DB
-     ---------------------------------------------------------------------------
-     Optimistically updates allRows, mine, AND filteredRows — all three must
-     be updated to prevent Effect 6 from resurrecting stale values on any
-     filter change that triggers a re-derive.
-
-     SECURITY:
-     • emp_id and month key come from server-sourced data — never user input.
-     • amount parsed with parseFloat — NaN → null → triggers DELETE.
-  --------------------------------------------------------------------------- */
+ 
   const handleAllocationBlur = async (e, row, m, index) => {
     const raw      = e.target.value;
     const newValue = raw === "" ? null : parseFloat(raw);
-
-    // If clearing the last allocation — show confirm dialog before deleting
+ 
     if (newValue === null) {
       const otherMonths = Object.entries(row.allocations || {}).filter(
         ([key, val]) => key !== m.key && val !== null && val !== undefined && val !== "" && !Number.isNaN(Number(val))
@@ -260,47 +190,37 @@ export default function AssignmentsAllocationsPage() {
         const clearEditing = (prev) =>
           prev.map(r =>
             r.employee?.emp_id === row.employee?.emp_id && r.assignment?.project_name === row.assignment?.project_name
-              ? { ...r, editing: null }
-              : r
+              ? { ...r, editing: null } : r
           );
         setAllRows(clearEditing); setMine(clearEditing); setFilteredRows(clearEditing);
-        return; // Don't save yet — wait for user confirmation
+        return;
       }
     }
-
-    // Over-allocation check — fetch capacity and compare total before saving
+ 
     if (newValue !== null && !isNaN(newValue)) {
       try {
         const capRes   = await api.get(`/resources/employees/${row.employee.emp_id}/capacity`);
         const capData  = Array.isArray(capRes.data) ? capRes.data : [];
         const capEntry = capData.find(c => String(c.date) === String(m.key));
         const maxCapacity = capEntry ? parseFloat(capEntry.amount) : 1;
-
-        // Sum all other allocations for this employee in this month
         const otherTotal = allRows
           .filter(r => r.employee?.emp_id === row.employee?.emp_id && r.assignment?.project_name !== row.assignment?.project_name)
           .reduce((sum, r) => { const val = parseFloat(r.allocations?.[m.key]); return sum + (isNaN(val) ? 0 : val); }, 0);
-
         if (otherTotal + newValue > maxCapacity) {
           setOverAllocConfirm({ row, m, index, newValue, maxCapacity });
-          return; // Wait for user confirmation
+          return;
         }
-      } catch (err) {
-        console.error("Failed to fetch capacity:", err);
-        // Fall through and save anyway if capacity fetch fails
-      }
+      } catch (err) { console.error("Failed to fetch capacity:", err); }
     }
-
-    // Optimistic update — update all three arrays so Effect 6 re-derives correctly
+ 
     const updateAllocations = (prev) =>
       prev.map(r =>
         r.employee?.emp_id === row.employee?.emp_id && r.assignment?.project_name === row.assignment?.project_name
-          ? { ...r, allocations: { ...r.allocations, [m.key]: newValue }, editing: null }
-          : r
+          ? { ...r, allocations: { ...r.allocations, [m.key]: newValue }, editing: null } : r
       );
     setAllRows(updateAllocations);
     setMine(updateAllocations);
-
+ 
     try {
       if (newValue === null) {
         await api.delete(`/assignments-allocations/delete`, { data: { emp_id: row.employee.emp_id, month: m.key, activity: row.assignment.project_name, category: row.assignment.category } });
@@ -309,9 +229,9 @@ export default function AssignmentsAllocationsPage() {
       }
     } catch (err) { console.error("Failed to update allocation:", err); }
   };
-
+ 
   /* ---------------------------------------------------------------------------
-     EFFECT 1: LOAD USER SESSION
+     EFFECTS
   --------------------------------------------------------------------------- */
   useEffect(() => {
     try {
@@ -319,17 +239,9 @@ export default function AssignmentsAllocationsPage() {
       if (stored) setUser(JSON.parse(stored));
     } catch { setUser(null); }
   }, []);
-
-  /* ---------------------------------------------------------------------------
-     EFFECT 2: LOAD ASSIGNMENTS
-     ---------------------------------------------------------------------------
-     Skips until user.username is available. Cache-Control headers force a
-     fresh response — prevents stale data after an edit on another page.
-     &ts=Date.now() cache-busts the URL on re-navigation.
-  --------------------------------------------------------------------------- */
+ 
   useEffect(() => {
     if (!user?.username) return;
-
     const loadAll = async () => {
       try {
         setLoading(true);
@@ -346,71 +258,45 @@ export default function AssignmentsAllocationsPage() {
         setAllRows([]); setMine([]); setFilteredRows([]); setMonths([]);
       } finally { setLoading(false); }
     };
-
     loadAll();
   }, [user, refresh]);
-
-  /* ---------------------------------------------------------------------------
-     EFFECT 3: DEFAULT START MONTH
-     Defaults to the current calendar month once months are loaded.
-  --------------------------------------------------------------------------- */
+ 
   useEffect(() => {
     if (!months.length || startMonth) return;
     const now     = new Date();
     const current = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
     setStartMonth(months.includes(current) ? current : months[0]);
   }, [months, startMonth]);
-
-  /* ---------------------------------------------------------------------------
-     MEMO: visibleMonths + monthLabels
-     16 months starting from startMonth.
-     monthLabels converts YYYYMM strings to { key, label } for header rendering.
-  --------------------------------------------------------------------------- */
+ 
   const visibleMonths = useMemo(() => {
     if (!months.length) return [];
     const start = startMonth && months.includes(startMonth) ? startMonth : months[0];
     const idx   = months.indexOf(start);
     return months.slice(idx, idx + 16);
   }, [months, startMonth]);
-
+ 
   const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
+ 
   const monthLabels = useMemo(() => {
     return visibleMonths.map(m => ({
       key:   m,
       label: `${monthNames[parseInt(m.substring(4, 6), 10) - 1]} ${m.substring(0, 4)}`
     }));
   }, [visibleMonths]);
-
-  /* ---------------------------------------------------------------------------
-     MEMO: rowsWithVisibleAllocations
-     Tab-aware — uses mine when on My Assignments so filter lists only show
-     values relevant to the logged-in user. Only includes rows with at least
-     one allocation in the visible month window.
-  --------------------------------------------------------------------------- */
+ 
   const rowsWithVisibleAllocations = useMemo(() => {
     const source = activeTab === "mine" ? mine : allRows;
-    let rows = source.filter(row =>
+    return source.filter(row =>
       visibleMonths.some(m => {
         const val = row.allocations?.[m];
         return val !== null && val !== undefined && val !== "";
       })
     );
-    if (resourceSort === "asc")  rows = [...rows].sort((a, b) => a.employee.emp_name.localeCompare(b.employee.emp_name));
-    if (resourceSort === "desc") rows = [...rows].sort((a, b) => b.employee.emp_name.localeCompare(a.employee.emp_name));
-    return rows;
-  }, [allRows, mine, activeTab, visibleMonths, resourceSort]);
-
-  /* ---------------------------------------------------------------------------
-     EFFECT 4: BUILD FILTER OPTION LISTS
-     Derived from rowsWithVisibleAllocations — tab-aware, server data only.
-  --------------------------------------------------------------------------- */
+  }, [allRows, mine, activeTab, visibleMonths]);
+ 
   useEffect(() => {
     const uniq = (arr) => [...new Set(arr)].filter(Boolean);
-    let res = uniq(rowsWithVisibleAllocations.map(r => r.employee?.emp_name || ""));
-    if (resourceSort === "asc")  res.sort((a, b) => a.localeCompare(b));
-    if (resourceSort === "desc") res.sort((a, b) => b.localeCompare(a));
-    setAvailableResources(res);
+    setAvailableResources(uniq(rowsWithVisibleAllocations.map(r => r.employee?.emp_name || "")));
     setAvailableProjects(uniq(rowsWithVisibleAllocations.map(r => r.assignment?.project_name || "")));
     setAvailableCategories(uniq(rowsWithVisibleAllocations.map(r => r.assignment?.category || "")));
     setAvailableLeaders(uniq(rowsWithVisibleAllocations.map(r => r.assignment?.leader || "")));
@@ -418,97 +304,96 @@ export default function AssignmentsAllocationsPage() {
     setAvailableRequestorVPs(uniq(rowsWithVisibleAllocations.map(r => r.assignment?.requestor_vp || "")));
     setAvailableRequestingDepts(uniq(rowsWithVisibleAllocations.map(r => r.assignment?.requesting_dept_name || r.assignment?.requesting_dept || "")));
     setAvailableManagers(uniq(rowsWithVisibleAllocations.map(r => r.employee?.manager_name || "")));
-  }, [rowsWithVisibleAllocations, resourceSort]);
-
-  /* ---------------------------------------------------------------------------
-     EFFECT 5: CLOSE MENUS ON OUTSIDE CLICK
-  --------------------------------------------------------------------------- */
+  }, [rowsWithVisibleAllocations]);
+ 
   useEffect(() => {
     const handler = (e) => { if (!e.target.closest(".dropdown-menu")) closeAllMenus(); };
     window.addEventListener("click", handler);
     return () => window.removeEventListener("click", handler);
   }, []);
-
-  /* ---------------------------------------------------------------------------
-     EFFECT 6: MAIN FILTERING LOGIC
-     Applies all active filter selections. Row must have at least one
-     allocation in the visible month window to be included.
-  --------------------------------------------------------------------------- */
+ 
   useEffect(() => {
-  if (!user) return;
-
-  let filtered = activeTab === "mine" ? mine : allRows;
-
-  if (searchTerm) {
-    const term = searchTerm.toLowerCase();
-
+    if (!user) return;
+ 
+    let filtered = activeTab === "mine" ? mine : allRows;
+ 
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(row => {
+        const empName        = row.employee?.emp_name?.toLowerCase() || "";
+        const deptName       = row.employee?.dept_name?.toLowerCase() || "";
+        const managerName    = row.employee?.manager_name?.toLowerCase() || "";
+        const project        = row.assignment?.project_name?.toLowerCase() || "";
+        const category       = row.assignment?.category?.toLowerCase() || "";
+        const leader         = row.assignment?.leader?.toLowerCase() || "";
+        const requestor      = row.assignment?.requestor?.toLowerCase() || "";
+        const requestorVP    = row.assignment?.requestor_vp?.toLowerCase() || "";
+        const requestingDept = (row.assignment?.requesting_dept_name || row.assignment?.requesting_dept || "").toLowerCase();
+        return empName.includes(term) || deptName.includes(term) || managerName.includes(term) ||
+          project.includes(term) || category.includes(term) || leader.includes(term) ||
+          requestor.includes(term) || requestorVP.includes(term) || requestingDept.includes(term);
+      });
+    }
+ 
     filtered = filtered.filter(row => {
-      const empName        = row.employee?.emp_name?.toLowerCase() || "";
-      const deptName       = row.employee?.dept_name?.toLowerCase() || "";
-      const managerName    = row.employee?.manager_name?.toLowerCase() || "";
-      const project        = row.assignment?.project_name?.toLowerCase() || "";
-      const category       = row.assignment?.category?.toLowerCase() || "";
-      const leader         = row.assignment?.leader?.toLowerCase() || "";
-      const requestor      = row.assignment?.requestor?.toLowerCase() || "";
-      const requestorVP    = row.assignment?.requestor_vp?.toLowerCase() || "";
-      const requestingDept = (row.assignment?.requesting_dept_name || row.assignment?.requesting_dept || "").toLowerCase();
-
-      return (
-        empName.includes(term) ||
-        deptName.includes(term) ||
-        managerName.includes(term) ||
-        project.includes(term) ||
-        category.includes(term) ||
-        leader.includes(term) ||
-        requestor.includes(term) ||
-        requestorVP.includes(term) ||
-        requestingDept.includes(term)
-      );
+      const empName        = row.employee?.emp_name || "";
+      const project        = row.assignment?.project_name || "";
+      const category       = row.assignment?.category || "";
+      const leader         = row.assignment?.leader || "";
+      const requestor      = row.assignment?.requestor || "";
+      const requestorVP    = row.assignment?.requestor_vp || "";
+      const requestingDept = row.assignment?.requesting_dept_name || row.assignment?.requesting_dept || "";
+      const managerName    = row.employee?.manager_name || "";
+ 
+      const passesFilters =
+        (!selectedResources.length     || selectedResources.includes(empName)) &&
+        (!selectedProjects.length      || selectedProjects.includes(project)) &&
+        (!selectedCategories.length    || selectedCategories.includes(category)) &&
+        (!selectedLeaders.length       || selectedLeaders.includes(leader)) &&
+        (!selectedRequestors.length    || selectedRequestors.includes(requestor)) &&
+        (!selectedRequestorVPs.length  || selectedRequestorVPs.includes(requestorVP)) &&
+        (!selectedRequestingDepts.length || selectedRequestingDepts.includes(requestingDept)) &&
+        (!selectedManagers.length      || selectedManagers.includes(managerName));
+ 
+      if (!passesFilters) return false;
+      return visibleMonths.some(m => {
+        const val = row.allocations?.[m];
+        return val !== null && val !== undefined && val !== "";
+      });
     });
-  }
-
-  filtered = filtered.filter(row => {
-    const empName        = row.employee?.emp_name || "";
-    const project        = row.assignment?.project_name || "";
-    const category       = row.assignment?.category || "";
-    const leader         = row.assignment?.leader || "";
-    const requestor      = row.assignment?.requestor || "";
-    const requestorVP    = row.assignment?.requestor_vp || "";
-    const requestingDept = row.assignment?.requesting_dept_name || row.assignment?.requesting_dept || "";
-    const managerName    = row.employee?.manager_name || "";
-
-    const passesFilters =
-      (!selectedResources.length || selectedResources.includes(empName)) &&
-      (!selectedProjects.length || selectedProjects.includes(project)) &&
-      (!selectedCategories.length || selectedCategories.includes(category)) &&
-      (!selectedLeaders.length || selectedLeaders.includes(leader)) &&
-      (!selectedRequestors.length || selectedRequestors.includes(requestor)) &&
-      (!selectedRequestorVPs.length || selectedRequestorVPs.includes(requestorVP)) &&
-      (!selectedRequestingDepts.length || selectedRequestingDepts.includes(requestingDept)) &&
-      (!selectedManagers.length || selectedManagers.includes(managerName));
-
-    if (!passesFilters) return false;
-
-    return visibleMonths.some(m => {
-      const val = row.allocations?.[m];
-      return val !== null && val !== undefined && val !== "";
-    });
-  });
-
-  if (resourceSort === "asc") filtered.sort((a, b) => a.employee.emp_name.localeCompare(b.employee.emp_name));
-  if (resourceSort === "desc") filtered.sort((a, b) => b.employee.emp_name.localeCompare(a.employee.emp_name));
-
-  setFilteredRows(filtered);
-}, [
-  user, activeTab, mine, allRows, visibleMonths, searchTerm,
-  selectedResources, selectedProjects, selectedCategories,
-  selectedLeaders, selectedRequestors, selectedRequestorVPs,
-  selectedRequestingDepts, selectedManagers, resourceSort
-]);
-
-  /* ---------------------------------------------------------------------------
-     HANDLER: navigate to edit allocation page for a row
-  --------------------------------------------------------------------------- */
+ 
+    // --- SORT — numbers always go to the bottom regardless of direction ---
+    const { column, direction } = sortConfig;
+    if (column) {
+      const dir = direction === "asc" ? 1 : -1;
+      const isNumericStart = (s) => /^\d/.test(s || "");
+      filtered = [...filtered].sort((a, b) => {
+        let aVal = "";
+        let bVal = "";
+        if (column === "resource")  { aVal = a.employee?.emp_name || "";                                          bVal = b.employee?.emp_name || ""; }
+        if (column === "manager")   { aVal = a.employee?.manager_name || "";                                      bVal = b.employee?.manager_name || ""; }
+        if (column === "project")   { aVal = a.assignment?.project_name || "";                                    bVal = b.assignment?.project_name || ""; }
+        if (column === "category")  { aVal = a.assignment?.category || "";                                        bVal = b.assignment?.category || ""; }
+        if (column === "leader")    { aVal = a.assignment?.leader || "";                                          bVal = b.assignment?.leader || ""; }
+        if (column === "requestor") { aVal = a.assignment?.requestor || "";                                       bVal = b.assignment?.requestor || ""; }
+        if (column === "vp")        { aVal = a.assignment?.requestor_vp || "";                                    bVal = b.assignment?.requestor_vp || ""; }
+        if (column === "dept")      { aVal = a.assignment?.requesting_dept_name || a.assignment?.requesting_dept || ""; bVal = b.assignment?.requesting_dept_name || b.assignment?.requesting_dept || ""; }
+        const aIsNum = isNumericStart(aVal);
+        const bIsNum = isNumericStart(bVal);
+        if (aIsNum && !bIsNum) return 1;
+        if (!aIsNum && bIsNum) return -1;
+        return aVal.localeCompare(bVal) * dir;
+      });
+    }
+ 
+    setFilteredRows(filtered);
+  }, [
+    user, activeTab, mine, allRows, visibleMonths, searchTerm, sortConfig,
+    selectedResources, selectedProjects, selectedCategories,
+    selectedLeaders, selectedRequestors, selectedRequestorVPs,
+    selectedRequestingDepts, selectedManagers,
+  ]);
+ 
   const handleEditAllocation = (row) => {
     router.push(
       `/resource-manager/assign-edit-allocation/edit-allocation` +
@@ -517,24 +402,17 @@ export default function AssignmentsAllocationsPage() {
       `&category=${encodeURIComponent(row.assignment?.category)}`
     );
   };
-
-  /* ---------------------------------------------------------------------------
-     HANDLER: handleOverAllocConfirm
-     User clicked "Yes" on the over-allocation warning — save anyway.
-  --------------------------------------------------------------------------- */
+ 
   const handleOverAllocConfirm = async () => {
     const { row, m, newValue } = overAllocConfirm;
     setOverAllocConfirm(null);
-
     const updateAllocations = (prev) =>
       prev.map(r =>
         r.employee?.emp_id === row.employee?.emp_id && r.assignment?.project_name === row.assignment?.project_name
-          ? { ...r, allocations: { ...r.allocations, [m.key]: newValue }, editing: null }
-          : r
+          ? { ...r, allocations: { ...r.allocations, [m.key]: newValue }, editing: null } : r
       );
     setAllRows(updateAllocations);
     setMine(updateAllocations);
-
     try {
       await api.put(`/assignments-allocations/${row.employee.emp_id}/amount`, {
         emp_id: row.employee.emp_id, month: m.key, amount: newValue,
@@ -542,34 +420,22 @@ export default function AssignmentsAllocationsPage() {
       });
     } catch (err) { console.error("Failed to update allocation:", err); }
   };
-
-  /* ---------------------------------------------------------------------------
-     HANDLER: handleConfirmDelete
-     User confirmed deletion of the last allocation on a row.
-     Refreshes the page after deletion so the empty row disappears.
-  --------------------------------------------------------------------------- */
+ 
   const handleConfirmDelete = async () => {
     const { row, m } = confirmDialog;
     setConfirmDialog(null);
-
     const updateAllocations = (prev) =>
       prev.map(r =>
         r.employee?.emp_id === row.employee?.emp_id && r.assignment?.project_name === row.assignment?.project_name
-          ? { ...r, allocations: { ...r.allocations, [m.key]: null }, editing: null }
-          : r
+          ? { ...r, allocations: { ...r.allocations, [m.key]: null }, editing: null } : r
       );
     setAllRows(updateAllocations); setMine(updateAllocations); setFilteredRows(updateAllocations);
-
     try {
       await api.delete(`/assignments-allocations/delete`, { data: { emp_id: row.employee.emp_id, month: m.key, activity: row.assignment.project_name, category: row.assignment.category } });
-      // Refresh so the now-empty row disappears cleanly
       router.replace(`/resource-manager/assign-edit-allocation?refresh=${Date.now()}`);
     } catch (err) { console.error("Failed to delete last allocation:", err); }
   };
-
-  /* ---------------------------------------------------------------------------
-     LOADING STATE
-  --------------------------------------------------------------------------- */
+ 
   if (!user || loading) {
     return (
       <div className="h-[600px] bg-white flex items-center justify-center">
@@ -577,47 +443,44 @@ export default function AssignmentsAllocationsPage() {
       </div>
     );
   }
-
-  /* ---------------------------------------------------------------------------
-     RENDER HELPER: renderMenuItems
-     Renders sort options (resource column only), "All", and the option list.
-     If searchable, the resource dropdown also includes a search input.
-  --------------------------------------------------------------------------- */
+ 
   const renderMenuItems = (available, selected, setSelected, sortOptions = null, searchable = false) => {
     const displayList = searchable && resourceSearch
       ? available.filter(n => n.toLowerCase().includes(resourceSearch.toLowerCase()))
       : available;
-
+ 
     return (
       <>
         {sortOptions && (
           <>
             {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
               <div key={val}
-                className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${resourceSort === val ? "font-bold" : ""}`}
-                onClick={() => setResourceSort(resourceSort === val ? "" : val)}
+                className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${sortConfig.column === "resource" && sortConfig.direction === val ? "font-bold" : ""}`}
+                onClick={() => setSortConfig(prev =>
+                  prev.column === "resource" && prev.direction === val
+                    ? { column: null, direction: "asc" }
+                    : { column: "resource", direction: val }
+                )}
               >
-                <Checkbox checked={resourceSort === val} />{label}
+                <Checkbox checked={sortConfig.column === "resource" && sortConfig.direction === val} />{label}
               </div>
             ))}
             <div className="border-t my-2" />
           </>
         )}
-
         {searchable && (
-        <div className="px-2 pt-1 pb-1 border-b border-gray-300">
-          <input type="text" placeholder="Search name..." value={resourceSearch} onChange={e => setResourceSearch(e.target.value)} className="w-full px-2 py-1 text-sm border border-gray-400 rounded text-black hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black" onClick={e => e.stopPropagation()} />
-        </div>
+          <div className="px-2 pt-1 pb-1 border-b border-gray-300">
+            <input type="text" placeholder="Search name..." value={resourceSearch} onChange={e => setResourceSearch(e.target.value)}
+              className="w-full px-2 py-1 text-sm border border-gray-400 rounded text-black hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black"
+              onClick={e => e.stopPropagation()} />
+          </div>
         )}
-
-        {/* "All" clears the filter */}
         <div
           className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.length === 0 ? "font-bold" : ""}`}
           onClick={() => setSelected([])}
         >
           <Checkbox checked={selected.length === 0} />All
         </div>
-
         {displayList.map(name => (
           <div key={name}
             className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 ${selected.includes(name) ? "font-bold" : ""}`}
@@ -626,28 +489,22 @@ export default function AssignmentsAllocationsPage() {
             <Checkbox checked={selected.includes(name)} />{name}
           </div>
         ))}
-
         {searchable && resourceSearch && displayList.length === 0 && (
           <div className="px-3 py-2 text-sm text-gray-400">No results</div>
         )}
       </>
     );
   };
-
-  /* ===========================================================================
-     RENDER
-  =========================================================================== */
+ 
   return (
     <div className="h-[600px] bg-white">
-
-      {/* CONFIRM DIALOG — shown when clearing the last allocation on a row */}
+ 
+      {/* CONFIRM DIALOG */}
       {confirmDialog && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] px-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
             <h2 className="text-lg font-bold text-black mb-2" style={styles.outfitFont}>Remove Allocation</h2>
-            <p className="text-sm text-gray-700 mb-6" style={styles.outfitFont}>
-              This is the last allocation for this assignment. Are you sure you want to remove it?
-            </p>
+            <p className="text-sm text-gray-700 mb-6" style={styles.outfitFont}>This is the last allocation for this assignment. Are you sure you want to remove it?</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setConfirmDialog(null)} className="px-4 py-2 rounded text-sm bg-gray-200 text-black border border-black/50 hover:bg-[#017ACB]/20 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]" style={styles.outfitFont}>No</button>
               <button onClick={handleConfirmDelete} className="px-4 py-2 rounded text-sm bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]" style={styles.outfitFont}>Yes</button>
@@ -655,8 +512,8 @@ export default function AssignmentsAllocationsPage() {
           </div>
         </div>
       )}
-
-      {/* OVER-ALLOCATION WARNING DIALOG */}
+ 
+      {/* OVER-ALLOCATION WARNING */}
       {overAllocConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] px-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
@@ -671,44 +528,32 @@ export default function AssignmentsAllocationsPage() {
           </div>
         </div>
       )}
-
+ 
       <main className="max-w-full mx-auto px-3 sm:px-4 lg:px-6 py-4">
-
+ 
         {/* PAGE HEADER */}
         <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl sm:text-4xl font-bold text-gray-900" style={styles.outfitFont}>
-              Assignments &amp; Allocations
-            </h2>
+            <h2 className="text-2xl sm:text-4xl font-bold text-gray-900" style={styles.outfitFont}>Assignments &amp; Allocations</h2>
             <button
               onClick={() => router.push('/resource-manager/dashboard')}
-              className="
-                px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50
-                hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700
-                shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-                relative before:content-[''] before:absolute before:inset-0 before:rounded
-                before:pointer-events-none
-                before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-              "
+              className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 transition-colors hover:text-gray-700 shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]"
               style={styles.outfitFont}
             >
               Back to Dashboard
             </button>
           </div>
-           <div className="flex-1 flex justify-center min-w-[220px]">
-         <input
-           type="text"
-           placeholder="Search..."
-           value={searchTerm}
-           onChange={e => setSearchTerm(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
-           maxLength={100}
-           className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
-           style={styles.outfitFont}
-          />
+          <div className="flex-1 flex justify-center min-w-[220px]">
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
+              maxLength={100}
+              className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
+              style={styles.outfitFont}
+            />
           </div>
-
-          {/* TABS + ADD — switching tabs clears all active filters */}
           <div className="flex flex-wrap gap-2 items-center">
             {["all", "mine"].map(tab => (
               <button
@@ -719,6 +564,7 @@ export default function AssignmentsAllocationsPage() {
                   setSelectedResources([]); setSelectedProjects([]); setSelectedCategories([]);
                   setSelectedLeaders([]); setSelectedRequestors([]); setSelectedRequestorVPs([]);
                   setSelectedRequestingDepts([]); setSelectedManagers([]);
+                  setSortConfig({ column: null, direction: "asc" });
                 }}
                 aria-pressed={activeTab === tab}
                 className={tabClass(activeTab === tab)}
@@ -727,29 +573,31 @@ export default function AssignmentsAllocationsPage() {
                 {tab === "all" ? "All Assignments" : "My Assignments"}
               </button>
             ))}
-            <button onClick={() => router.push("/resource-manager/assign-edit-allocation/add-allocation")} aria-label="Add a new allocation" className={btnClass} style={styles.outfitFont}>
+            <button onClick={() => router.push("/resource-manager/assign-edit-allocation/add-allocation")} className={btnClass} style={styles.outfitFont}>
               + Add Allocation
             </button>
           </div>
         </div>
-
-        {/* ASSIGNMENTS TABLE */}
+ 
+        {/* TABLE */}
         <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
           <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
             <table className="min-w-max w-full border-collapse text-sm">
-
+ 
               <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
                 <tr>
-
-                  {/* EDIT — sticky left, always visible while scrolling right */}
+ 
+                  {/* EDIT */}
                   <th className="sticky left-0 top-0 z-[9999] bg-[#017ACB] px-2 sm:px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle [background-clip:padding-box]" style={styles.outfitFont}>
                     Edit
                   </th>
-
-                  {/* RESOURCE NAME — sort + search + filter */}
+ 
+                  {/* RESOURCE NAME */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
-                      <span>Resource Name</span>
+                      <span className={sortableSpanClass} onClick={() => handleHeaderSort("resource")}>
+                        Resource Name{sortArrow("resource")}
+                      </span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowResourceMenu, showResourceMenu)}>▼</button>
                     </div>
                     {showResourceMenu && (
@@ -758,12 +606,16 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
+ 
+                  {/* DEPARTMENT — no sort */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>Department</th>
-
+ 
+                  {/* REPORTS TO */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
-                      <span>Reports To</span>
+                      <span className={sortableSpanClass} onClick={() => handleHeaderSort("manager")}>
+                        Reports To{sortArrow("manager")}
+                      </span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowManagerMenu, showManagerMenu)}>▼</button>
                     </div>
                     {showManagerMenu && (
@@ -772,10 +624,13 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
+ 
+                  {/* PROJECT */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
-                      <span>Project</span>
+                      <span className={sortableSpanClass} onClick={() => handleHeaderSort("project")}>
+                        Project{sortArrow("project")}
+                      </span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowProjectMenu, showProjectMenu)}>▼</button>
                     </div>
                     {showProjectMenu && (
@@ -784,10 +639,13 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
+ 
+                  {/* ACTIVITY CATEGORY */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
-                      <span>Activity Category</span>
+                      <span className={sortableSpanClass} onClick={() => handleHeaderSort("category")}>
+                        Activity Category{sortArrow("category")}
+                      </span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowCategoryMenu, showCategoryMenu)}>▼</button>
                     </div>
                     {showCategoryMenu && (
@@ -796,10 +654,13 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
+ 
+                  {/* LEADER ACCOUNTABLE */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
-                      <span>Leader Accountable</span>
+                      <span className={sortableSpanClass} onClick={() => handleHeaderSort("leader")}>
+                        Leader Accountable{sortArrow("leader")}
+                      </span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowLeaderMenu, showLeaderMenu)}>▼</button>
                     </div>
                     {showLeaderMenu && (
@@ -808,10 +669,13 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
+ 
+                  {/* REQUESTOR */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
-                      <span>Requestor</span>
+                      <span className={sortableSpanClass} onClick={() => handleHeaderSort("requestor")}>
+                        Requestor{sortArrow("requestor")}
+                      </span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowRequestorMenu, showRequestorMenu)}>▼</button>
                     </div>
                     {showRequestorMenu && (
@@ -820,10 +684,13 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
+ 
+                  {/* REQUESTOR VP */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
-                      <span>Requestor VP</span>
+                      <span className={sortableSpanClass} onClick={() => handleHeaderSort("vp")}>
+                        Requestor VP{sortArrow("vp")}
+                      </span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowRequestorVPMenu, showRequestorVPMenu)}>▼</button>
                     </div>
                     {showRequestorVPMenu && (
@@ -832,10 +699,13 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
+ 
+                  {/* REQUESTING DEPT */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
-                      <span>Requesting Dept</span>
+                      <span className={sortableSpanClass} onClick={() => handleHeaderSort("dept")}>
+                        Requesting Dept{sortArrow("dept")}
+                      </span>
                       <button className={colBtnClass} onClick={e => openMenu(e, setShowRequestingDeptMenu, showRequestingDeptMenu)}>▼</button>
                     </div>
                     {showRequestingDeptMenu && (
@@ -844,14 +714,13 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
-                  {/* START MONTH — first visible month + ▼ to change start */}
+ 
+                  {/* START MONTH */}
                   <th className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap relative bg-[#017ACB]" style={styles.outfitFont}>
                     <div className="flex justify-between items-center">
                       <span>{monthLabels.length ? monthLabels[0].label : "Start Month"}</span>
                       <button className={colBtnClass} onClick={e => {
                         openMenu(e, setShowStartMonthMenu, showStartMonthMenu);
-                        // Scroll to selected month after the menu renders
                         setTimeout(() => {
                           if (startMonthMenuRef.current) {
                             const el = startMonthMenuRef.current.querySelector(`[data-month="${startMonth}"]`);
@@ -876,71 +745,46 @@ export default function AssignmentsAllocationsPage() {
                       </div>
                     )}
                   </th>
-
-                  {/* REMAINING MONTH COLUMNS — months 2–16 */}
+ 
+                  {/* REMAINING MONTH COLUMNS */}
                   {monthLabels.slice(1).map(m => (
                     <th key={m.key} className="px-2 sm:px-4 py-2 border text-sm font-semibold whitespace-nowrap bg-[#017ACB]" style={styles.outfitFont}>
                       {m.label}
                     </th>
                   ))}
-
+ 
                 </tr>
               </thead>
-
+ 
               <tbody>
                 {filteredRows.length === 0 && (
-              <tr>
-                <td
-                colSpan={11 + monthLabels.length}
-                className="border py-8"
-                style={{ height: "120px" }}
-              >
-              <div
-                 className="text-gray-500 text-sm"
-                 style={{
-                 position: "sticky",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  width: "max-content",
-                  fontFamily: "Outfit, sans-serif",
-                }}
-                >
-                     No assignments found.
-                  </div>
-                </td>
-              </tr>
-          )}
-
+                  <tr>
+                    <td colSpan={11 + monthLabels.length} className="border py-8" style={{ height: "120px" }}>
+                      <div className="text-gray-500 text-sm" style={{ position: "sticky", left: "50%", transform: "translateX(-50%)", width: "max-content", fontFamily: "Outfit, sans-serif" }}>
+                        No assignments found.
+                      </div>
+                    </td>
+                  </tr>
+                )}
+ 
                 {filteredRows.map((row, index) => {
                   const empId         = row.employee?.emp_id;
                   const isHighlighted = highlightedEmpId === empId;
-
                   return (
                     <tr
                       key={index}
                       onClick={() => toggleHighlight(empId)}
                       className={`cursor-pointer transition-colors hover:bg-[#017ACB]/20 ${isHighlighted ? "bg-[#CDE6F7]" : "bg-white"}`}
                     >
-                      {/* EDIT — sticky left, stops row click propagation */}
                       <td className="sticky left-0 z-30 px-2 sm:px-4 py-2 bg-white border-r border-black text-black whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <button
                           onClick={e => { e.stopPropagation(); handleEditAllocation(row); }}
-                          className="
-                            px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50
-                            hover:bg-[#017ACB]/20 hover:text-gray-700 transition
-                            shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
-                            active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
-                            relative before:content-[''] before:absolute before:inset-0 before:rounded
-                            before:pointer-events-none
-                            before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-                          "
+                          className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]"
                           style={styles.outfitFont}
                         >
                           Edit
                         </button>
                       </td>
-
-                      {/* DATA CELLS */}
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.employee?.emp_name}</td>
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.employee?.dept_name || ""}</td>
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.employee?.manager_name || ""}</td>
@@ -950,10 +794,6 @@ export default function AssignmentsAllocationsPage() {
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.assignment?.requestor}</td>
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.assignment?.requestor_vp}</td>
                       <td className="px-2 sm:px-4 py-2 border text-sm text-black whitespace-nowrap bg-inherit">{row.assignment?.requesting_dept_name || row.assignment?.requesting_dept}</td>
-
-                      {/* MONTH CELLS — click to edit inline.
-                          editing state is set on all three arrays so it
-                          survives any filter re-run from Effect 6. */}
                       {monthLabels.map(m => (
                         <td
                           key={m.key}
@@ -963,8 +803,7 @@ export default function AssignmentsAllocationsPage() {
                             const setEditing = (prev) =>
                               prev.map(r =>
                                 r.employee?.emp_id === row.employee?.emp_id && r.assignment?.project_name === row.assignment?.project_name
-                                  ? { ...r, editing: m.key }
-                                  : r
+                                  ? { ...r, editing: m.key } : r
                               );
                             setAllRows(setEditing); setMine(setEditing); setFilteredRows(setEditing);
                           }}
@@ -990,11 +829,9 @@ export default function AssignmentsAllocationsPage() {
                   );
                 })}
               </tbody>
-
             </table>
           </div>
         </div>
-
       </main>
     </div>
   );

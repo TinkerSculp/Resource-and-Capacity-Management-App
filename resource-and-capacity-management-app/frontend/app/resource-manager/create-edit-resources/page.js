@@ -1,62 +1,5 @@
 "use client";
-
-/* =============================================================================
-   ResourcesPage.jsx
-   -----------------------------------------------------------------------------
-   PURPOSE:
-     Displays all employees in the Data Management department with their monthly
-     capacity values in a scrollable, filterable table. Supports:
-       • "All" and "Mine" tab views
-       • Column filter dropdowns (name, title, reports to, manager level,
-         director level, status)
-       • Name sort (A→Z / Z→A)
-       • Start month selector — shows 16 months forward from the chosen month
-       • Inline capacity editing — click a cell to edit, blur/enter to save
-       • Row highlight on click
-
-   HOW IT WORKS:
-     1. On mount, generates the month options and reads the user session
-     2. Loads all employees, departments, and managers in parallel
-     3. Fetches capacity for each employee and attaches it to the employee object
-     4. Filters employees to the Data Management department
-     5. On tab/filter/sort changes, re-runs the filter effect
-     6. Inline edits call PUT /resources/employees/:id/capacity and update
-        the local state optimistically on success
-
-   CAPACITY EDITING:
-     • Clicking a month cell opens an inline <input> with min=0 max=1 step=0.25
-     • Blur or Enter saves; Escape cancels
-     • Empty input = clear the capacity record (DELETE on backend)
-     • Values outside 0–1 are rejected with an error banner
-     • The backend uses upsert — creates the record if it doesn't exist
-
-   FIX — "No employees found" CENTRING:
-     The empty state <td> uses a combination of position:sticky left + a fixed
-     width approach so the message stays visually centred in the viewport even
-     when the table is wider than the screen and has been scrolled horizontally.
-
-   SECURITY MODEL:
-     • localStorage read inside try/catch — malformed JSON sets user to null.
-     • All fetch errors are caught and set a visible error banner — never crash.
-     • Capacity save validates 0–1 range before sending — rejects NaN and negatives.
-     • Filter option lists are built from server response data only.
-     • emp_id in API URLs comes from server-sourced employee data, never user input.
-     • Error messages rendered as plain text — no dangerouslySetInnerHTML.
-     • Filter dropdown menus use createPortal + fixed positioning — never push
-       content on small screens or get clipped by overflow containers.
-
-   RESPONSIVENESS:
-     • h-[600px] outer container — fixed height, scrollable table inside.
-     • overflow-x-auto + overflow-y-auto + max-h-[70vh] — scrolls both axes.
-     • Sticky left-0 on Edit column — always visible while scrolling right.
-     • min-w-[60px] on month columns — readable on all screen sizes.
-
-   DEPENDENCIES:
-     • next/navigation — useRouter, useSearchParams
-     • next/link       — Link for Edit and Create Resource buttons
-     • react-dom       — createPortal for dropdown menus rendered to document.body
-     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
-   ============================================================================= */
+export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -70,56 +13,83 @@ const DEPARTMENT_FILTER_NAME = "Data Mgmt";
 
 const btnClass = `
   px-4 py-2 rounded text-sm
-  bg-[#017ACB] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  border border-[#00263F]/50 dark:border-slate-500/60
+  bg-[#017ACB] text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const btnDarkClass = `
   px-4 py-2 rounded text-sm
-  bg-[#003A5C] text-white border border-black/50
-  hover:bg-[#017ACB]/20 hover:text-gray-700 transition
+  border border-black/50 dark:border-slate-500/60
+  bg-[#003A5C] text-white
+  dark:bg-[#0A5F8A] dark:text-white
+  hover:bg-[#017ACB]/20 hover:text-gray-700
+  dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const tabClass = (isActive) => `
-  px-6 py-2 rounded text-sm border border-black/50
+  w-20 px-4 py-2 rounded text-sm
+  border border-[#00263F]/50 dark:border-slate-500/60
   ${isActive
-    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700'
-    : 'bg-gray-200 text-gray-700 border hover:bg-[#017ACB]/20'
+    ? 'bg-[#017ACB] text-white hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:bg-[#017ACB]/30 dark:hover:text-slate-100'
+    : 'bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 hover:text-gray-700 dark:hover:text-slate-100'
   }
+  transition whitespace-nowrap
   shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+  dark:active:shadow-[2px_2px_6px_rgba(0,0,0,0.45)]
   relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)]
-  transition whitespace-nowrap
+  dark:before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.45)]
 `;
 
 const colBtnClass = `
-  ml-2 bg-white text-[#017ACB] px-2 py-1 rounded text-xs font-bold
-  border border-black/50 hover:bg-[#CDE6F7] transition
+  ml-2 px-2 py-1 rounded text-xs font-bold
+  bg-white dark:bg-slate-700
+  text-[#017ACB] dark:text-[#4DAEFF]
+  border border-black/50 dark:border-slate-500
+  hover:bg-[#CDE6F7] dark:hover:bg-slate-600
+  transition
   shadow-[4px_4px_10px_rgba(0,0,0,0.22),-4px_-4px_10px_rgba(255,255,255,0.12)]
+  dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45)]
   active:shadow-[2px_2px_6px_rgba(0,0,0,0.22),-2px_-2px_6px_rgba(255,255,255,0.12)]
   relative before:content-[''] before:absolute before:inset-0 before:rounded
   before:pointer-events-none
   before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),inset_0_-1px_2px_rgba(0,0,0,0.08)]
 `;
 
-/* =============================================================================
-   COMPONENT: Checkbox
-   ============================================================================= */
+// Sortable column header text — 3D pop on hover, matching Initiatives style
+const sortableSpanClass = `
+  cursor-pointer select-none px-2 py-1 rounded transition
+  hover:bg-white hover:text-[#017ACB] hover:border hover:border-black/50
+  hover:shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)]
+  active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)]
+`;
+
 function Checkbox({ checked }) {
   return (
-    <span className="w-4 h-4 border border-black rounded-sm flex items-center justify-center relative overflow-hidden flex-shrink-0">
+    <span className="w-4 h-4 border border-black dark:border-slate-400 rounded-sm flex items-center justify-center relative overflow-hidden flex-shrink-0">
       <input type="checkbox" checked={checked} readOnly className="opacity-0 absolute w-4 h-4 cursor-pointer" />
       {checked && (
         <>
@@ -133,17 +103,11 @@ function Checkbox({ checked }) {
   );
 }
 
-/* =============================================================================
-   MAIN COMPONENT
-   ============================================================================= */
 export default function ResourcesPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const refresh      = searchParams.get("refresh");
 
-  /* ---------------------------------------------------------------------------
-     STATE
-  --------------------------------------------------------------------------- */
   const [user, setUser]                                         = useState(null);
   const [employees, setEmployees]                               = useState([]);
   const [employeesWithCapacity, setEmployeesWithCapacity]       = useState([]);
@@ -169,7 +133,22 @@ export default function ResourcesPage() {
   const [selectedManagerLevels, setSelectedManagerLevels]     = useState([]);
   const [selectedDirectorLevels, setSelectedDirectorLevels]   = useState([]);
 
-  const [nameSort, setNameSort] = useState("none");
+  // Single sortConfig — column: "name"|"title"|"reportsTo"|"managerLevel"|"directorLevel"|null
+  // Cycles: asc → desc → null (3rd click clears), matching Initiatives page
+  const [sortConfig, setSortConfig] = useState({ column: null, direction: 'asc' });
+
+  const handleHeaderSort = (column) => {
+    setSortConfig(prev => {
+      if (prev.column !== column)               return { column, direction: 'asc' };
+      if (prev.direction === 'asc')             return { column, direction: 'desc' };
+      return { column: null, direction: 'asc' }; // 3rd click clears
+    });
+  };
+
+  const sortArrow = (column) => {
+    if (sortConfig.column !== column) return '';
+    return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+  };
 
   const [showNameMenu, setShowNameMenu]                   = useState(false);
   const [showTitleMenu, setShowTitleMenu]                 = useState(false);
@@ -192,12 +171,6 @@ export default function ResourcesPage() {
   const [availableManagerLevels, setAvailableManagerLevels]     = useState([]);
   const [availableDirectorLevels, setAvailableDirectorLevels]   = useState([]);
 
-  // Ref to the scrollable table wrapper — used to compute viewport-centred empty state
-  const tableWrapperRef = useRef(null);
-
-  /* ---------------------------------------------------------------------------
-     HELPERS
-  --------------------------------------------------------------------------- */
   const closeAllMenus = () => {
     setShowNameMenu(false); setShowTitleMenu(false); setShowReportsToMenu(false);
     setShowCurrentStatusMenu(false); setShowManagerLevelMenu(false);
@@ -219,9 +192,6 @@ export default function ResourcesPage() {
     setFn(current.includes(value) ? current.filter(v => v !== value) : [...current, value]);
   };
 
-  /* ---------------------------------------------------------------------------
-     MONTH HELPERS
-  --------------------------------------------------------------------------- */
   function generate12MonthsBackward() {
     const arr = [];
     const now = new Date();
@@ -253,9 +223,6 @@ export default function ResourcesPage() {
     setShowMonthMenu(false);
   };
 
-  /* ---------------------------------------------------------------------------
-     EFFECTS: SETUP
-  --------------------------------------------------------------------------- */
   useEffect(() => {
     const backward = generate12MonthsBackward();
     setMonthOptions(backward);
@@ -286,9 +253,6 @@ export default function ResourcesPage() {
     }
   }, [showMonthMenu, selectedMonth]);
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: LOAD EMPLOYEES + CAPACITY
-  --------------------------------------------------------------------------- */
   useEffect(() => {
     const load = async () => {
       try {
@@ -337,13 +301,9 @@ export default function ResourcesPage() {
         setLoading(false);
       }
     };
-
     load();
   }, [refresh]);
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: BUILD FILTER OPTION LISTS
-  --------------------------------------------------------------------------- */
   useEffect(() => {
     const source = (activeFilter === "mine" && user)
       ? employeesWithCapacity.filter(emp => String(emp.emp_id) === String(user.emp_id))
@@ -361,9 +321,6 @@ export default function ResourcesPage() {
     setAvailableDirectorLevels(uniq(source.map(e => getLevelLocal(e.director_level))));
   }, [activeFilter, employeesWithCapacity, allEmployeesWithCapacity, managers, user]);
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: MAIN FILTERING + SORT
-  --------------------------------------------------------------------------- */
   useEffect(() => {
     let filtered = [...employeesWithCapacity];
 
@@ -390,20 +347,36 @@ export default function ResourcesPage() {
     if (selectedManagerLevels.length > 0)   filtered = filtered.filter(e => selectedManagerLevels.includes(getLevelName(e.manager_level)));
     if (selectedDirectorLevels.length > 0)  filtered = filtered.filter(e => selectedDirectorLevels.includes(getLevelName(e.director_level)));
 
-    if (nameSort === "asc")  filtered.sort((a, b) => a.emp_name.localeCompare(b.emp_name));
-    if (nameSort === "desc") filtered.sort((a, b) => b.emp_name.localeCompare(a.emp_name));
+    // Single sortConfig — numbers always go to the bottom regardless of direction
+    const { column, direction } = sortConfig;
+    if (column) {
+      const dir = direction === 'asc' ? 1 : -1;
+      const isNumericStart = (s) => /^\d/.test(s || '');
+      filtered = [...filtered].sort((a, b) => {
+        let aVal = '';
+        let bVal = '';
+        if (column === 'name')          { aVal = a.emp_name;                bVal = b.emp_name; }
+        if (column === 'title')         { aVal = a.emp_title;               bVal = b.emp_title; }
+        if (column === 'reportsTo')     { aVal = getReportsToName(a);       bVal = getReportsToName(b); }
+        if (column === 'managerLevel')  { aVal = getLevelName(a.manager_level);  bVal = getLevelName(b.manager_level); }
+        if (column === 'directorLevel') { aVal = getLevelName(a.director_level); bVal = getLevelName(b.director_level); }
+        const aIsNum = isNumericStart(aVal);
+        const bIsNum = isNumericStart(bVal);
+        if (aIsNum && !bIsNum) return 1;
+        if (!aIsNum && bIsNum) return -1;
+        return aVal.localeCompare(bVal) * dir;
+      });
+    }
 
     setEmployees(filtered);
   }, [
-    employeesWithCapacity, activeFilter, searchTerm, user, nameSort,
+    employeesWithCapacity, activeFilter, searchTerm, user,
+    sortConfig,
     selectedNames, selectedTitles, selectedReportsTo,
     selectedCurrentStatuses, selectedManagerLevels, selectedDirectorLevels,
     departments,
   ]);
 
-  /* ---------------------------------------------------------------------------
-     DISPLAY HELPERS
-  --------------------------------------------------------------------------- */
   const getDepartmentName = (deptNo) =>
     departments.find(d => d.dept_no === deptNo)?.dept_name || deptNo;
 
@@ -422,9 +395,6 @@ export default function ResourcesPage() {
     return typeof val === "number" ? val : "";
   };
 
-  /* ---------------------------------------------------------------------------
-     CELL EDIT HANDLERS
-  --------------------------------------------------------------------------- */
   const startEditMonth  = (emp, key) => {
     setEditingCell({ empId: emp.emp_id, monthKey: key });
     const v = getMonthValue(emp, key);
@@ -478,9 +448,6 @@ export default function ResourcesPage() {
     }
   };
 
-  /* ---------------------------------------------------------------------------
-     PORTAL HELPER
-  --------------------------------------------------------------------------- */
   const renderDropdownPortal = (menu) => {
     if (!portalReady) return null;
     return createPortal(
@@ -495,29 +462,43 @@ export default function ResourcesPage() {
     );
   };
 
-  const dropMenuClass = "dropdown-menu bg-white text-black shadow-lg rounded min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto border border-gray-300 pointer-events-auto";
+  const dropMenuClass = "dropdown-menu bg-white dark:bg-slate-800 text-black dark:text-slate-100 shadow-lg dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded min-w-[12rem] w-max max-w-xs max-h-[min(80vh,580px)] overflow-y-auto border border-gray-300 dark:border-slate-600 pointer-events-auto";
 
-  /* ---------------------------------------------------------------------------
-     LOADING STATE
-  --------------------------------------------------------------------------- */
+  // Filter-only dropdown items (no sort rows) — matching Initiatives page
+  const renderMenuItems = (available, selected, setSelected) => (
+    <>
+      <div
+        className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.length === 0 ? 'font-bold' : ''}`}
+        onClick={() => setSelected([])}
+      >
+        <Checkbox checked={selected.length === 0} />All
+      </div>
+      {available.map(val => (
+        <div
+          key={val}
+          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 ${selected.includes(val) ? 'font-bold' : ''}`}
+          onClick={() => toggleSelection(val, setSelected, selected)}
+        >
+          <Checkbox checked={selected.includes(val)} />{val}
+        </div>
+      ))}
+    </>
+  );
+
   if (loading) {
     return (
-      <div className="h-[600px] bg-white flex items-center justify-center">
+      <div className="h-[600px] bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" aria-label="Loading resources" />
       </div>
     );
   }
 
-  /* ===========================================================================
-     RENDER
-  =========================================================================== */
   return (
-    <div className="h-[600px] bg-white p-2 flex flex-col">
+    <div className="h-[600px] page-surface p-2 flex flex-col">
 
-      {/* PAGE HEADER */}
       <div className="flex items-center justify-between mb-4 shrink-0 flex-wrap gap-2">
         <div className="flex items-center gap-4 flex-wrap">
-          <h2 className="text-4xl font-bold text-gray-900" style={styles.outfitFont}>Resources</h2>
+          <h2 className="text-4xl font-bold text-gray-900 dark:text-white" style={styles.outfitFont}>Resources</h2>
           <button onClick={() => router.push("/resource-manager/dashboard")} className={btnDarkClass} style={styles.outfitFont}>
             Back to Dashboard
           </button>
@@ -529,7 +510,7 @@ export default function ResourcesPage() {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value.replace(/[^a-zA-Z ]/g, ""))}
             maxLength={100}
-            className="px-3 py-2 border border-gray-500 bg-gray-200 rounded text-gray-700 text-sm w-64 hover:bg-[#017ACB]/20 transition-colors"
+            className="px-3 py-2 border border-gray-500 dark:border-slate-600 bg-[#f5f5f5] dark:bg-[#1f1f1f] rounded text-gray-700 dark:text-slate-100 placeholder:text-gray-600 dark:placeholder:text-slate-400 text-sm w-64 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 transition-colors focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-slate-400"
             style={styles.outfitFont}
           />
         </div>
@@ -542,6 +523,7 @@ export default function ResourcesPage() {
                   setActiveFilter(tab);
                   setSelectedNames([]); setSelectedTitles([]); setSelectedReportsTo([]);
                   setSelectedCurrentStatuses([]); setSelectedManagerLevels([]); setSelectedDirectorLevels([]);
+                  setSortConfig({ column: null, direction: 'asc' });
                 }}
                 aria-pressed={activeFilter === tab}
                 className={tabClass(activeFilter === tab)}
@@ -557,144 +539,105 @@ export default function ResourcesPage() {
         </div>
       </div>
 
-      {/* ERROR BANNER */}
       {error && (
-        <div role="alert" className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded shrink-0 text-sm">
+        <div role="alert" className="mb-4 p-4 bg-red-100 dark:bg-red-900/40 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 rounded shrink-0 text-sm">
           {error}
-          <button onClick={() => setError("")} className="ml-4 text-red-900 font-bold" aria-label="Dismiss error">×</button>
+          <button onClick={() => setError("")} className="ml-4 text-red-900 dark:text-red-200 font-bold" aria-label="Dismiss error">×</button>
         </div>
       )}
 
-      {/* TABLE WRAPPER */}
-      <div className="border rounded-lg shadow-sm bg-white overflow-hidden shrink-0">
-        <div
-          ref={tableWrapperRef}
-          className="overflow-x-auto overflow-y-auto max-h-[70vh] relative"
-        >
+      <div className="table-surface border dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 overflow-hidden shrink-0">
+        <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
           <table className="min-w-max w-full border-collapse text-sm">
 
             <thead className="bg-[#017ACB] text-white sticky top-0 z-[100]">
               <tr>
 
-                {/* EDIT */}
-                <th className="sticky left-0 top-0 z-[9999] bg-[#017ACB] px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle [background-clip:padding-box]" style={styles.outfitFont}>
+                <th className="sticky left-0 top-0 z-[9999] w-19 min-w-19 bg-[#017ACB] px-4 py-2 text-sm font-semibold whitespace-nowrap align-middle bg-clip-padding" style={styles.outfitFont}>
                   Edit
                 </th>
 
-                {/* NAME */}
-                <th className="px-2 py-2 text-left font-semibold border-l border-black border-r border-black min-w-[150px] relative" style={styles.outfitFont}>
+                {/* NAME — sortable header text + filter dropdown */}
+                <th className="sticky left-19 top-0 z-[9998] bg-[#017ACB] px-2 py-2 text-left font-semibold border-x border-black min-w-[150px] bg-clip-padding" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Name</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('name')}>
+                      Name{sortArrow('name')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowNameMenu, showNameMenu)}>▼</button>
                   </div>
                   {showNameMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 text-center">Sort by name</div>
-                      {[{ val: "asc", label: "A → Z" }, { val: "desc", label: "Z → A" }].map(({ val, label }) => (
-                        <div key={val} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setNameSort(prev => prev === val ? "none" : val)}>
-                          <Checkbox checked={nameSort === val} />{label}
-                        </div>
-                      ))}
-                      <div className="border-t mt-1 pt-1 px-3 py-2 text-xs font-semibold text-gray-500 text-center">Filter by name</div>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedNames([])}>
-                        <Checkbox checked={selectedNames.length === 0} />All
-                      </div>
-                      {availableNames.map(name => (
-                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(name, setSelectedNames, selectedNames)}>
-                          <Checkbox checked={selectedNames.includes(name)} />{name}
-                        </div>
-                      ))}
+                      {renderMenuItems(availableNames, selectedNames, setSelectedNames)}
                     </div>
                   )}
                 </th>
 
-                {/* TITLE */}
+                {/* TITLE — sortable header text + filter dropdown */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[150px] relative" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Title</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('title')}>
+                      Title{sortArrow('title')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowTitleMenu, showTitleMenu)}>▼</button>
                   </div>
                   {showTitleMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedTitles([])}>
-                        <Checkbox checked={selectedTitles.length === 0} />All
-                      </div>
-                      {availableTitles.map(title => (
-                        <div key={title} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(title, setSelectedTitles, selectedTitles)}>
-                          <Checkbox checked={selectedTitles.includes(title)} />{title}
-                        </div>
-                      ))}
+                      {renderMenuItems(availableTitles, selectedTitles, setSelectedTitles)}
                     </div>
                   )}
                 </th>
 
-                {/* DEPARTMENT */}
+                {/* DEPARTMENT — no sort, no filter */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[150px]" style={styles.outfitFont}>Department</th>
 
-                {/* REPORTS TO */}
+                {/* REPORTS TO — sortable header text + filter dropdown */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[150px] relative" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Reports To</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('reportsTo')}>
+                      Reports To{sortArrow('reportsTo')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowReportsToMenu, showReportsToMenu)}>▼</button>
                   </div>
                   {showReportsToMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedReportsTo([])}>
-                        <Checkbox checked={selectedReportsTo.length === 0} />All
-                      </div>
-                      {availableReportsTo.map(name => (
-                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(name, setSelectedReportsTo, selectedReportsTo)}>
-                          <Checkbox checked={selectedReportsTo.includes(name)} />{name}
-                        </div>
-                      ))}
+                      {renderMenuItems(availableReportsTo, selectedReportsTo, setSelectedReportsTo)}
                     </div>
                   )}
                 </th>
 
-                {/* MANAGER LEVEL */}
+                {/* MANAGER LEVEL — sortable header text + filter dropdown */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[150px] relative" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Manager Level</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('managerLevel')}>
+                      Manager Level{sortArrow('managerLevel')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowManagerLevelMenu, showManagerLevelMenu)}>▼</button>
                   </div>
                   {showManagerLevelMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedManagerLevels([])}>
-                        <Checkbox checked={selectedManagerLevels.length === 0} />All
-                      </div>
-                      {availableManagerLevels.map(name => (
-                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(name, setSelectedManagerLevels, selectedManagerLevels)}>
-                          <Checkbox checked={selectedManagerLevels.includes(name)} />{name}
-                        </div>
-                      ))}
+                      {renderMenuItems(availableManagerLevels, selectedManagerLevels, setSelectedManagerLevels)}
                     </div>
                   )}
                 </th>
 
-                {/* DIRECTOR LEVEL */}
+                {/* DIRECTOR LEVEL — sortable header text + filter dropdown */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[150px] relative" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
-                    <span>Director Level</span>
+                    <span className={sortableSpanClass} onClick={() => handleHeaderSort('directorLevel')}>
+                      Director Level{sortArrow('directorLevel')}
+                    </span>
                     <button className={colBtnClass} onClick={e => openMenu(e, setShowDirectorLevelMenu, showDirectorLevelMenu)}>▼</button>
                   </div>
                   {showDirectorLevelMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedDirectorLevels([])}>
-                        <Checkbox checked={selectedDirectorLevels.length === 0} />All
-                      </div>
-                      {availableDirectorLevels.map(name => (
-                        <div key={name} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(name, setSelectedDirectorLevels, selectedDirectorLevels)}>
-                          <Checkbox checked={selectedDirectorLevels.includes(name)} />{name}
-                        </div>
-                      ))}
+                      {renderMenuItems(availableDirectorLevels, selectedDirectorLevels, setSelectedDirectorLevels)}
                     </div>
                   )}
                 </th>
 
-                {/* OTHER INFORMATION */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[200px] max-w-[200px]" style={styles.outfitFont}>Other Information</th>
 
-                {/* STATUS */}
+                {/* STATUS — filter only, no sort */}
                 <th className="px-2 py-2 text-left font-semibold border-r border-black min-w-[130px] relative" style={styles.outfitFont}>
                   <div className="flex justify-between items-center">
                     <span>Status</span>
@@ -702,19 +645,11 @@ export default function ResourcesPage() {
                   </div>
                   {showCurrentStatusMenu && renderDropdownPortal(
                     <div className={dropMenuClass}>
-                      <div className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => setSelectedCurrentStatuses([])}>
-                        <Checkbox checked={selectedCurrentStatuses.length === 0} />All
-                      </div>
-                      {availableCurrentStatuses.map(status => (
-                        <div key={status} className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold" onClick={() => toggleSelection(status, setSelectedCurrentStatuses, selectedCurrentStatuses)}>
-                          <Checkbox checked={selectedCurrentStatuses.includes(status)} />{status}
-                        </div>
-                      ))}
+                      {renderMenuItems(availableCurrentStatuses, selectedCurrentStatuses, setSelectedCurrentStatuses)}
                     </div>
                   )}
                 </th>
 
-                {/* MONTH COLUMNS */}
                 {visibleMonths.map((month, index) => (
                   <th key={month.key} className="px-2 py-2 text-center text-white border-r border-black min-w-[60px] relative" style={styles.outfitFont}>
                     <div className="flex justify-center items-center gap-1">
@@ -730,7 +665,7 @@ export default function ResourcesPage() {
                   <div ref={monthMenuRef} className={dropMenuClass}>
                     {[...monthOptions].reverse().map(m => (
                       <div key={m.key} data-month-key={m.key}
-                        className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 font-semibold"
+                        className="px-3 py-2 cursor-pointer text-sm flex items-center gap-2 hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/30 font-semibold"
                         onClick={() => handleMonthSelect(m)}
                       >
                         <Checkbox checked={selectedMonth?.key === m.key} />
@@ -746,31 +681,8 @@ export default function ResourcesPage() {
             <tbody>
               {employees.length === 0 ? (
                 <tr>
-                  {/* -------------------------------------------------------
-                      EMPTY STATE — viewport-centred regardless of scroll.
-                      The <td> spans all columns but has no width of its own.
-                      The inner <div> uses position:sticky + left + transform
-                      to pin itself to the horizontal centre of the visible
-                      viewport area, so it never drifts when the table is
-                      scrolled left or right.
-                  ------------------------------------------------------- */}
-                  <td
-                    colSpan={9 + visibleMonths.length}
-                    className="border-t border-black py-8"
-                    style={{ height: "120px" }}
-                  >
-                    <div
-                      className="text-black text-sm"
-                      style={{
-                        position: "sticky",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: "max-content",
-                        fontFamily: "Outfit, sans-serif",
-                      }}
-                    >
-                      No employees found.
-                    </div>
+                  <td colSpan={9 + visibleMonths.length} className="px-4 py-8 text-center text-black dark:text-slate-300 border-t border-black dark:border-slate-700" style={styles.outfitFont}>
+                    No employees found.
                   </td>
                 </tr>
               ) : employees.map(employee => {
@@ -778,14 +690,13 @@ export default function ResourcesPage() {
                 return (
                   <tr
                     key={employee.emp_id}
-                    className={`border-t border-black cursor-pointer transition-colors hover:bg-[#017ACB]/20 ${isSelected ? "bg-[#CDE6F7]" : ""}`}
+                    className={`border-t border-black dark:border-slate-700 cursor-pointer transition-colors hover:bg-[#017ACB]/20 dark:hover:bg-[#017ACB]/20 ${isSelected ? "bg-[#CDE6F7] dark:bg-[#0A5F8A]/30" : ""}`}
                     onClick={() => setSelectedEmpId(isSelected ? null : employee.emp_id)}
                   >
-                    {/* EDIT — sticky left */}
-                    <td className="sticky left-0 z-30 px-4 py-2 bg-white border-r border-black text-black whitespace-nowrap">
+                    <td className={`sticky left-0 z-30 w-19 min-w-19 px-4 py-2 border-r border-black dark:border-slate-700 text-black whitespace-nowrap ${isSelected ? "bg-[#CDE6F7] dark:bg-[#0A5F8A]/30" : "bg-white dark:bg-slate-900"}`}>
                       <Link
                         href={`/resource-manager/create-edit-resources/edit-resource?id=${employee.emp_id}`}
-                        className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] inline-block"
+                        className="px-2 py-1 rounded text-xs bg-[#017ACB] text-white border border-black/50 dark:border-slate-500 hover:bg-[#017ACB]/20 hover:text-gray-700 dark:hover:text-white transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08),inset_0_-1px_2px_rgba(0,0,0,0.15)] inline-block"
                         style={styles.outfitFont}
                         onClick={e => e.stopPropagation()}
                       >
@@ -793,27 +704,28 @@ export default function ResourcesPage() {
                       </Link>
                     </td>
 
-                    {/* DATA CELLS */}
-                    <td className="px-2 py-2 text-black border-l border-black border-r border-black" style={styles.outfitFont}>{employee.emp_name}</td>
-                    <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{employee.emp_title}</td>
-                    <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{getDepartmentName(employee.dept_no)}</td>
-                    <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{getReportsToName(employee)}</td>
-                    <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{getLevelName(employee.manager_level)}</td>
-                    <td className="px-2 py-2 text-black border-r border-black" style={styles.outfitFont}>{getLevelName(employee.director_level)}</td>
-                    <td className="px-2 py-2 text-black border-r border-black max-w-[500px]" style={styles.outfitFont}>{employee.other_info || ""}</td>
+                    <td className={`sticky left-19 z-20 px-2 py-2 text-black dark:text-slate-100 border-x border-black dark:border-slate-700 min-w-[150px] ${isSelected ? "bg-[#CDE6F7] dark:bg-[#0A5F8A]/30" : "bg-white dark:bg-slate-900"}`} style={styles.outfitFont}>{employee.emp_name}</td>
+                    <td className="px-2 py-2 text-black dark:text-slate-100 border-r border-black dark:border-slate-700" style={styles.outfitFont}>{employee.emp_title}</td>
+                    <td className="px-2 py-2 text-black dark:text-slate-100 border-r border-black dark:border-slate-700" style={styles.outfitFont}>{getDepartmentName(employee.dept_no)}</td>
+                    <td className="px-2 py-2 text-black dark:text-slate-100 border-r border-black dark:border-slate-700" style={styles.outfitFont}>{getReportsToName(employee)}</td>
+                    <td className="px-2 py-2 text-black dark:text-slate-100 border-r border-black dark:border-slate-700" style={styles.outfitFont}>{getLevelName(employee.manager_level)}</td>
+                    <td className="px-2 py-2 text-black dark:text-slate-100 border-r border-black dark:border-slate-700" style={styles.outfitFont}>{getLevelName(employee.director_level)}</td>
+                    <td className="px-2 py-2 text-black dark:text-slate-100 border-r border-black dark:border-slate-700 max-w-[500px]" style={styles.outfitFont}>{employee.other_info || ""}</td>
 
-                    {/* STATUS BADGE */}
-                    <td className="px-2 py-2 border-r border-black" style={styles.outfitFont}>
-                      <span className={`px-2 py-1 text-xs rounded text-black ${getCurrentStatus(employee) === "Active" ? "bg-green-100" : "bg-red-100"}`}>
+                    <td className="px-2 py-2 border-r border-black dark:border-slate-700" style={styles.outfitFont}>
+                      <span className={`px-2 py-1 text-xs rounded font-semibold ${
+                        getCurrentStatus(employee) === "Active"
+                          ? "bg-green-100 dark:bg-green-900/40 text-black dark:text-green-200"
+                          : "bg-red-100 dark:bg-red-900/40 text-black dark:text-red-200"
+                      }`}>
                         {getCurrentStatus(employee)}
                       </span>
                     </td>
 
-                    {/* MONTH CELLS */}
                     {visibleMonths.map(month => (
                       <td
                         key={month.key}
-                        className="px-2 py-2 text-center text-black border-r border-black cursor-pointer"
+                        className="px-2 py-2 text-center text-black dark:text-slate-100 border-r border-black dark:border-slate-700 cursor-pointer"
                         style={styles.outfitFont}
                         onClick={e => { e.stopPropagation(); startEditMonth(employee, month.key); }}
                       >
@@ -839,7 +751,7 @@ export default function ResourcesPage() {
                               if (e.key === "Escape") { e.preventDefault(); cancelEditMonth(); }
                             }}
                             autoFocus
-                            className="w-14 px-1 py-0.5 border border-gray-300 rounded text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40"
+                            className="w-14 px-1 py-0.5 border border-gray-300 dark:border-slate-500 rounded text-center text-sm bg-white dark:bg-slate-700 text-black dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#017ACB]/40"
                             onClick={e => e.stopPropagation()}
                           />
                         ) : (
@@ -856,8 +768,7 @@ export default function ResourcesPage() {
         </div>
       </div>
 
-      {/* FOOTER */}
-      <div className="mt-3 text-gray-600 text-sm shrink-0" style={styles.outfitFont}>
+      <div className="mt-3 text-gray-600 dark:text-slate-400 text-sm shrink-0" style={styles.outfitFont}>
         Showing {employees.length} of {employeesWithCapacity.length} employees
       </div>
 

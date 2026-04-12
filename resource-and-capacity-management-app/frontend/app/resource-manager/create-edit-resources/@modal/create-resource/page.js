@@ -1,44 +1,7 @@
 'use client';
 
-/* =============================================================================
-   CreateResourceModal.jsx
-   -----------------------------------------------------------------------------
-   PURPOSE:
-     Full-page modal for creating a new employee record. Navigated to via the
-     + Create Resource button on the Resources page. Validates the form and
-     POSTs to /resources/employees.
-
-   HOW IT WORKS:
-     1. On mount, fetches departments and managers in parallel
-     2. Form uses display names for hierarchy dropdowns (converted to IDs on save)
-     3. On submit: validates → profanity check → duplicate ID/name check → POST
-     4. On success: navigates back and triggers a refresh on the Resources page
-
-   FORM FIELD RULES:
-     • emp_id      — numbers only, must be unique
-     • emp_name    — letters, spaces, some punctuation; must be unique
-     • emp_title   — letters, spaces, some punctuation
-     • dept_no     — selected from department dropdown, scoped to "Data Mgmt"
-     • reports_to, manager_level, director_level, requestor_vp — searchable
-       dropdown from managers list; display names converted to IDs on save
-     • other_info  — letters, numbers, spaces, dots, commas; max 500 chars
-     • current_status — Active or Inactive toggle
-
-   SECURITY MODEL:
-     • Profanity checks on emp_name, emp_title, and other_info before submit.
-     • Duplicate emp_id check against the employees list before POSTing.
-     • Duplicate emp_name check (case-insensitive) before POSTing.
-     • emp_id is coerced to Number() in the payload — backend expects an integer.
-     • All hierarchy field values resolved to IDs via getEmpId() before sending.
-     • API errors surfaced via error banner — never exposed as raw exceptions.
-
-   DEPENDENCIES:
-     • @/lib/api       — Axios instance with JWT Bearer token auto-injection
-     • next/navigation  — useRouter for navigation
-   ============================================================================= */
-
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 
 const btnClass = `
@@ -67,11 +30,8 @@ function containsBlockedWords(text) {
   return BLOCKED_WORDS.some(word => new RegExp(`\\b${word}\\b`, 'i').test(text));
 }
 
-const inputClass = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:border-black [&:focus]:shadow-[0_0_0_1px_black] w-full';
+const inputClass = 'bg-white text-black border border-black p-2 rounded hover:bg-[#017ACB]/20 transition focus:outline-none focus:ring-1 focus:ring-black w-full';
 
-/* =============================================================================
-   COMPONENT: StyledDropdown — fixed option list, used for Department.
-   ============================================================================= */
 function StyledDropdown({ label, value, onChange, options }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -98,9 +58,6 @@ function StyledDropdown({ label, value, onChange, options }) {
   );
 }
 
-/* =============================================================================
-   COMPONENT: SearchableDropdown — searchable, used for hierarchy fields.
-   ============================================================================= */
 function SearchableDropdown({ label, value, onChange, list }) {
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState('');
@@ -131,68 +88,113 @@ function SearchableDropdown({ label, value, onChange, list }) {
   );
 }
 
-/* =============================================================================
-   MAIN COMPONENT: CreateResourceModal
-   ============================================================================= */
-export default function CreateResourceModal() {
-  const router = useRouter();
+export default function EditResourceModal() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const empId        = searchParams.get('id');
 
-  const [departments, setDepartments] = useState([]);
-  const [managers, setManagers]       = useState([]);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState('');
-  const [success, setSuccess]         = useState(false);
+  const [departments, setDepartments]             = useState([]);
+  const [managers, setManagers]                   = useState([]);
+  const [employee, setEmployee]                   = useState(null);
+  const [loading, setLoading]                     = useState(false);
+  const [error, setError]                         = useState('');
+  const [success, setSuccess]                     = useState(false);
+  const [statusValue, setStatusValue]             = useState('Active');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting]                   = useState(false);
+
   const [formData, setFormData] = useState({
     emp_id: '', emp_name: '', emp_title: '', dept_no: '',
-    reports_to: '', manager_level: '', director_level: '', requestor_vp: '',
-    other_info: '', current_status: 'Active',
+    reports_to: '', manager_level: '', director_level: '', requestor_vp: '', other_info: '',
   });
 
-  /* ---------------------------------------------------------------------------
-     EFFECT: LOAD DEPARTMENTS + MANAGERS
-  --------------------------------------------------------------------------- */
+  const getNameById = (id)   => managers.find(m => m.emp_id === id)?.emp_name || '';
+  const getDeptName = (no)   => departments.find(d => d.dept_no === no)?.dept_name || '';
+  const getDeptNo   = (name) => departments.find(d => d.dept_name === name)?.dept_no || null;
+  const getEmpId    = (name) => managers.find(m => m.emp_name === name)?.emp_id || null;
+
   useEffect(() => {
+    if (!empId) return;
     const load = async () => {
       try {
-        const [deptRes, mgrRes] = await Promise.all([
+        const [empRes, deptRes, mgrRes] = await Promise.all([
+          api.get(`/resources/employees/${encodeURIComponent(empId)}`),
           api.get('/resources/departments'),
           api.get('/resources/managers'),
         ]);
-        setDepartments(deptRes.data || []);
-        setManagers(mgrRes.data    || []);
-      } catch { setError('Failed to load departments or managers.'); }
+        const empData  = empRes.data;
+        const deptData = deptRes.data || [];
+        const mgrData  = mgrRes.data  || [];
+        if (!empData) { setError('Employee not found.'); return; }
+        setEmployee(empData);
+        setDepartments(deptData);
+        setManagers(mgrData);
+        setStatusValue(empData.current_status || 'Active');
+        setFormData({
+          emp_id:         empData.emp_id         || '',
+          emp_name:       empData.emp_name       || '',
+          emp_title:      empData.emp_title      || '',
+          dept_no:        empData.dept_no        || '',
+          reports_to:     empData.reports_to     || '',
+          manager_level:  empData.manager_level  || '',
+          director_level: empData.director_level || '',
+          requestor_vp:   empData.requestor_vp   || '',
+          other_info:     empData.other_info     || '',
+        });
+      } catch { setError('Failed to load employee data. Please try again.'); }
     };
     load();
-  }, []);
+  }, [empId]);
 
-  // ID lookup helpers — convert display names back to IDs before sending
-  const getDeptNo = (name) => departments.find(d => d.dept_name === name)?.dept_no || null;
-  const getEmpId  = (name) => managers.find(m => m.emp_name === name)?.emp_id || null;
+  useEffect(() => {
+    if (!managers.length) return;
+    setFormData(prev => ({
+      ...prev,
+      reports_to:     getNameById(prev.reports_to),
+      manager_level:  getNameById(prev.manager_level),
+      director_level: getNameById(prev.director_level),
+      requestor_vp:   getNameById(prev.requestor_vp),
+    }));
+  }, [managers]);
 
-  /* ---------------------------------------------------------------------------
-     HANDLER: handleCreate
-     ---------------------------------------------------------------------------
-     Validates → profanity → duplicate emp_id → duplicate emp_name → POST.
-     emp_id is coerced to Number() in the payload — backend expects an integer.
-  --------------------------------------------------------------------------- */
-  const handleCreate = async (e) => {
+  useEffect(() => {
+    if (!departments.length) return;
+    setFormData(prev => ({ ...prev, dept_no: getDeptName(prev.dept_no) }));
+  }, [departments]);
+
+  const handleTextField = (field) => (e) => {
+    setFormData(prev => ({ ...prev, [field]: e.target.value.replace(/[^a-zA-Z0-9 .,\-']/g, '') }));
+  };
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+      await api.delete(`/resources/employees/${encodeURIComponent(empId)}`);
+      router.back();
+      setTimeout(() => router.replace(`/resource-manager/create-edit-resources?refresh=${Date.now()}`), 50);
+    } catch {
+      setError('Failed to delete employee. Please try again.');
+      setShowDeleteConfirm(false);
+    } finally { setDeleting(false); }
+  };
+
+  const handleEdit = async (e) => {
     e.preventDefault();
     setError('');
 
     if (containsBlockedWords(formData.emp_name))   return setError('Name contains inappropriate language. Please revise.');
     if (containsBlockedWords(formData.emp_title))  return setError('Title contains inappropriate language. Please revise.');
     if (containsBlockedWords(formData.other_info)) return setError('Other Information contains inappropriate language. Please revise.');
-    if (!formData.emp_id.trim())   return setError('Employee ID is required.');
-    if (!formData.emp_name.trim()) return setError('Name is required.');
+    if (!formData.emp_name.trim())  return setError('Name is required.');
 
-    // Duplicate checks — non-fatal if the endpoint is unavailable
     try {
       const { data: existing } = await api.get('/resources/employees');
-      if (existing.some(e => String(e.emp_id) === String(formData.emp_id.trim())))
-        return setError(`Employee ID ${formData.emp_id.trim()} is already in use.`);
-      if (existing.some(e => e.emp_name?.toLowerCase().trim() === formData.emp_name.toLowerCase().trim()))
-        return setError(`An employee named "${formData.emp_name.trim()}" already exists.`);
-    } catch { /* non-fatal — skip duplicate check if endpoint unavailable */ }
+      const nameTaken = existing.some(e =>
+        e.emp_name?.toLowerCase().trim() === formData.emp_name.toLowerCase().trim() &&
+        String(e.emp_id) !== String(empId)
+      );
+      if (nameTaken) return setError(`An employee named "${formData.emp_name.trim()}" already exists.`);
+    } catch { /* non-fatal */ }
 
     if (!formData.emp_title.trim()) return setError('Title is required.');
     if (!formData.dept_no)          return setError('Department is required.');
@@ -201,9 +203,8 @@ export default function CreateResourceModal() {
     if (!formData.director_level)   return setError('Director Level is required.');
     if (!formData.requestor_vp)     return setError('VP is required.');
 
-    // Build payload — convert display names to IDs, emp_id coerced to Number
     const payload = {
-      emp_id:         Number(formData.emp_id.trim()), // Backend expects integer
+      emp_id:         formData.emp_id,
       emp_name:       formData.emp_name.trim(),
       emp_title:      formData.emp_title.trim(),
       dept_no:        getDeptNo(formData.dept_no),
@@ -212,77 +213,115 @@ export default function CreateResourceModal() {
       director_level: getEmpId(formData.director_level),
       requestor_vp:   getEmpId(formData.requestor_vp),
       other_info:     formData.other_info.trim(),
-      current_status: formData.current_status,
+      current_status: statusValue,
     };
 
     try {
       setLoading(true);
-      await api.post('/resources/employees', payload);
+      await api.put(`/resources/employees/${encodeURIComponent(empId)}`, payload);
       setSuccess(true);
-      // Navigate back and trigger a refresh on the Resources page
       setTimeout(() => {
         router.back();
         setTimeout(() => router.replace(`/resource-manager/create-edit-resources?refresh=${Date.now()}`), 50);
       }, 1500);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to create resource. Please try again.');
+      setError(err?.response?.data?.message || 'Failed to save changes. Please try again.');
     } finally { setLoading(false); }
   };
 
-  /* ===========================================================================
-     RENDER
-  =========================================================================== */
+  if (!employee || !managers.length || !departments.length) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#017ACB]" role="status" aria-label="Loading" />
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         {success && (
           <div role="status" className="mx-6 mt-6 p-3 bg-green-100 border border-green-400 text-green-800 rounded text-sm text-center font-semibold" style={styles.outfitFont}>
-            ✓ Resource added successfully.
+            ✓ Changes saved successfully.
           </div>
         )}
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-6 text-black" style={styles.outfitFont}>Create Resource</h2>
+
+          {/* HEADER — title on left, X exit button on right */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-black" style={styles.outfitFont}>Edit Resource</h2>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              disabled={loading}
+              aria-label="Close"
+              className="text-gray-500 hover:text-black transition text-2xl font-bold leading-none px-2 py-1 rounded hover:bg-gray-100"
+              style={styles.outfitFont}
+            >
+              ×
+            </button>
+          </div>
+
           {error && (
             <div role="alert" className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm" style={styles.outfitFont}>
               {error}<button onClick={() => setError('')} className="ml-3 font-bold text-red-900">×</button>
             </div>
           )}
-          <form onSubmit={handleCreate} noValidate>
+
+          <form onSubmit={handleEdit} noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col">
-                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Employee ID *</label>
-                <input type="text" inputMode="numeric" value={formData.emp_id} onChange={e => setFormData(prev => ({ ...prev, emp_id: e.target.value.replace(/[^0-9]/g, '') }))} placeholder="e.g. 12345" maxLength={10} required className={inputClass} style={styles.outfitFont} />
-                <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Numbers only</span>
+                <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Employee ID</label>
+                <input type="text" value={formData.emp_id} readOnly className="bg-gray-100 text-gray-500 border border-black p-2 rounded cursor-not-allowed w-full" style={styles.outfitFont} />
+                <span className="text-[10px] text-gray-400 mt-0.5" style={styles.outfitFont}>Cannot be changed</span>
               </div>
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Name *</label>
-                <input type="text" value={formData.emp_name} onChange={e => setFormData(prev => ({ ...prev, emp_name: e.target.value.replace(/[^a-zA-Z0-9 .,\-']/g, '') }))} placeholder="e.g. Jane Smith" maxLength={100} required className={inputClass} style={styles.outfitFont} />
+                <input type="text" value={formData.emp_name} onChange={handleTextField('emp_name')} maxLength={100} required className={inputClass} style={styles.outfitFont} />
               </div>
               <div className="flex flex-col">
                 <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Title *</label>
-                <input type="text" value={formData.emp_title} onChange={e => setFormData(prev => ({ ...prev, emp_title: e.target.value.replace(/[^a-zA-Z0-9 .,\-']/g, '') }))} placeholder="e.g. Solution Analyst II" maxLength={100} required className={inputClass} style={styles.outfitFont} />
+                <input type="text" value={formData.emp_title} onChange={handleTextField('emp_title')} maxLength={100} required className={inputClass} style={styles.outfitFont} />
               </div>
-              {/* Department scoped to Data Mgmt only */}
               <StyledDropdown label="Department *" value={formData.dept_no} onChange={val => setFormData(prev => ({ ...prev, dept_no: val }))} options={departments.filter(d => d.dept_name === "Data Mgmt").map(d => d.dept_name)} />
               <SearchableDropdown label="Reports To *"     value={formData.reports_to}     onChange={val => setFormData(prev => ({ ...prev, reports_to: val }))}     list={managers} />
               <SearchableDropdown label="Manager Level *"  value={formData.manager_level}  onChange={val => setFormData(prev => ({ ...prev, manager_level: val }))}  list={managers} />
               <SearchableDropdown label="Director Level *" value={formData.director_level} onChange={val => setFormData(prev => ({ ...prev, director_level: val }))} list={managers} />
               <SearchableDropdown label="VP *"             value={formData.requestor_vp}   onChange={val => setFormData(prev => ({ ...prev, requestor_vp: val }))}   list={managers} />
             </div>
+
             <div className="flex flex-col mt-4">
               <label className="text-xs text-black mb-1 font-semibold" style={styles.outfitFont}>Other Information</label>
               <textarea value={formData.other_info} onChange={e => setFormData(prev => ({ ...prev, other_info: e.target.value.replace(/[^a-zA-Z0-9 .,]/g, '') }))} rows={3} maxLength={500} className={inputClass} style={styles.outfitFont} />
             </div>
-            <div className="mt-4">
-              <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Status</label>
-              <div className="flex gap-3 flex-wrap">
-                <button type="button" onClick={() => setFormData(prev => ({ ...prev, current_status: 'Active' }))} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${formData.current_status === 'Active' ? 'bg-green-200 border-green-600' : 'bg-green-50 hover:bg-green-100'}`} style={styles.outfitFont}>Active</button>
-                <button type="button" onClick={() => setFormData(prev => ({ ...prev, current_status: 'Inactive' }))} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${formData.current_status === 'Inactive' ? 'bg-red-200 border-red-600' : 'bg-red-50 hover:bg-red-100'}`} style={styles.outfitFont}>Inactive</button>
+
+            {/* STATUS + DELETE side by side */}
+            <div className="mt-4 flex gap-8 flex-wrap items-start">
+              <div>
+                <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Status</label>
+                <div className="flex gap-3 flex-wrap">
+                  <button type="button" onClick={() => setStatusValue('Active')} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Active' ? 'bg-green-200 border-green-600' : 'bg-green-50 hover:bg-green-100'}`} style={styles.outfitFont}>Active</button>
+                  <button type="button" onClick={() => setStatusValue('Inactive')} className={`px-4 py-2 rounded text-sm text-black font-semibold border border-black/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] ${statusValue === 'Inactive' ? 'bg-red-200 border-red-600' : 'bg-red-50 hover:bg-red-100'}`} style={styles.outfitFont}>Inactive</button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-black font-semibold block mb-2" style={styles.outfitFont}>Delete</label>
+                {!showDeleteConfirm ? (
+                  <button type="button" onClick={() => setShowDeleteConfirm(true)} className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]" style={styles.outfitFont}>Delete Resource</button>
+                ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-red-700 font-semibold" style={styles.outfitFont}>Are you sure?</span>
+                    <button type="button" disabled={deleting} onClick={handleDelete} className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]" style={styles.outfitFont}>{deleting ? 'Deleting...' : 'Yes, Delete'}</button>
+                    <button type="button" onClick={() => setShowDeleteConfirm(false)} className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition" style={styles.outfitFont}>Cancel</button>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Cancel + Save */}
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
               <button type="button" onClick={() => router.back()} disabled={loading} className="px-4 py-2 rounded text-sm bg-[#003A5C] text-white border border-black/50 hover:bg-[#017ACB]/20 hover:text-gray-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25),-2px_-2px_6px_rgba(255,255,255,0.4)] relative before:content-[''] before:absolute before:inset-0 before:rounded before:pointer-events-none before:shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),inset_0_-1px_2px_rgba(0,0,0,0.15)] w-full sm:w-auto" style={styles.outfitFont}>Cancel</button>
-              <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Creating...' : 'Create'}</button>
+              <button type="submit" disabled={loading || success} className={`${btnClass} w-full sm:w-auto`} style={styles.outfitFont}>{loading ? 'Saving...' : 'Save Changes'}</button>
             </div>
           </form>
         </div>

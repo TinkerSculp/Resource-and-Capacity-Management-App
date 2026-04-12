@@ -191,7 +191,6 @@ export default function EditAllocationModal() {
 
   /* ---------------------------------------------------------------------------
      HANDLER: handleDelete
-     Deletes the entire allocation row for this employee + project combination.
   --------------------------------------------------------------------------- */
   const handleDelete = async () => {
     try {
@@ -284,9 +283,21 @@ export default function EditAllocationModal() {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-        <h2 className="text-xl sm:text-2xl font-bold font-[Outfit] mb-4 text-black">
-          Edit Allocation — {employeeData?.emp_name}
-        </h2>
+
+        {/* HEADER — title + X close button */}
+        <div className="flex items-start justify-between mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold font-[Outfit] text-black">
+            Edit Allocation — {employeeData?.emp_name}
+          </h2>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Close"
+            className="text-gray-500 hover:text-black transition text-2xl font-bold leading-none px-2 py-1 rounded hover:bg-gray-100"
+          >
+            ×
+          </button>
+        </div>
 
         {error   && <div role="alert"  className="mb-4 p-3 bg-red-100   text-red-700   rounded border border-red-300   text-sm">{error}</div>}
         {success && <div role="status" className="mb-4 p-3 bg-green-100 text-green-800 rounded border border-green-400 text-sm flex items-center gap-2"><svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 11 8 15 16 6" /></svg>Allocation updated successfully.</div>}
@@ -312,45 +323,49 @@ export default function EditAllocationModal() {
           ))}
         </div>
 
-        {/* DELETE SECTION */}
-        <div className="mt-6">
-          <label className="text-xs text-black font-semibold block mb-2 font-[Outfit]">Delete</label>
-          {!showDeleteConfirm ? (
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]"
-            >
-              Delete Allocation
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-red-700 font-semibold font-[Outfit]">Are you sure?</span>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={handleDelete}
-                className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]"
-              >
-                {deleting ? 'Deleting...' : 'Yes, Delete'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
+        {/* BOTTOM ROW — Delete (left) + Close & Save Changes (right) */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
 
-        {/* CLOSE + SAVE */}
-        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
-          <button type="button" onClick={() => router.back()} className={`${btnClass} bg-[#003A5C] text-white`}>Close</button>
-          <button type="button" onClick={handleSave} disabled={loading || success} aria-disabled={loading} className={`${btnClass} bg-[#017ACB] text-white disabled:opacity-50 disabled:cursor-not-allowed`}>
-            Save Changes
-          </button>
+          {/* DELETE — left side */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {!showDeleteConfirm ? (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 rounded text-sm text-white font-semibold border border-red-800/50 bg-red-600 hover:bg-red-700 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25),-4px_-4px_10px_rgba(255,255,255,0.4)] active:shadow-[2px_2px_6px_rgba(0,0,0,0.25)]"
+              >
+                Delete Allocation
+              </button>
+            ) : (
+              <>
+                <span className="text-xs text-red-700 font-semibold font-[Outfit]">Are you sure?</span>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={handleDelete}
+                  className="px-3 py-1.5 rounded text-xs text-white font-semibold bg-red-600 hover:bg-red-700 border border-red-800/50 transition shadow-[4px_4px_10px_rgba(0,0,0,0.25)]"
+                >
+                  {deleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-3 py-1.5 rounded text-xs text-black font-semibold bg-gray-100 hover:bg-gray-200 border border-black/30 transition"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* CLOSE + SAVE — right side */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button type="button" onClick={() => router.back()} className={`${btnClass} bg-[#003A5C] text-white`}>Close</button>
+            <button type="button" onClick={handleSave} disabled={loading || success} aria-disabled={loading} className={`${btnClass} bg-[#017ACB] text-white disabled:opacity-50 disabled:cursor-not-allowed`}>
+              Save Changes
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
