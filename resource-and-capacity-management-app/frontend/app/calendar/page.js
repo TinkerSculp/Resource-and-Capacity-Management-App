@@ -1,3 +1,4 @@
+'use client';
 export const dynamic = 'force-dynamic';
 
 /* =============================================================================
@@ -25,7 +26,7 @@ export const dynamic = 'force-dynamic';
      • CalendarView — @/components/layout/CalendarView
    ============================================================================= */
 
-'use client';
+
 
 import CalendarView from '@/components/layout/CalendarView';
 

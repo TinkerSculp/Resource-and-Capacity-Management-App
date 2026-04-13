@@ -1,3 +1,4 @@
+'use client';
 export const dynamic = 'force-dynamic';
 
 /* =============================================================================
@@ -25,7 +26,7 @@ export const dynamic = 'force-dynamic';
      • CapacitySummary — @/components/layout/CapacitySummary
    ============================================================================= */
 
-'use client';
+
 
 import CapacitySummary from '@/components/layout/CapacitySummary';
 
