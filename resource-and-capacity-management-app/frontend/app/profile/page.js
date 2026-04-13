@@ -1,3 +1,5 @@
+'use client';
+
 export const dynamic = 'force-dynamic';
 
 /* =============================================================================
@@ -24,8 +26,6 @@ export const dynamic = 'force-dynamic';
    DEPENDENCIES:
      • ProfileCard — @/components/layout/ProfileCard
    ============================================================================= */
-
-'use client';
 
 import ProfileCard from '@/components/layout/ProfileCard';
 
