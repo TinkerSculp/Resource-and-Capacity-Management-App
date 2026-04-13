@@ -39,6 +39,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 
+    experimental: {
+    missingSuspenseWithCSRBailout: false,
+    },
+
   /* ---------------------------------------------------------------------------
      STANDALONE OUTPUT — required for Railway single-service deployment.
      Produces a self-contained Node.js server at .next/standalone/server.js
