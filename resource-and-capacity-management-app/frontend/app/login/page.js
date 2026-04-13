@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic';
+'use client';
 
-// 'use client';
+export const dynamic = 'force-dynamic';
 
 // /* =============================================================================
 //    LoginPage.jsx
@@ -267,8 +267,6 @@ export const dynamic = 'force-dynamic';
 //     </>
 //   );
 // }
-
-'use client';
 
 /* =============================================================================
    LoginPage.jsx

@@ -1,3 +1,5 @@
+'use client';
+
 export const dynamic = 'force-dynamic';
 
 /* =============================================================================
@@ -24,8 +26,6 @@ export const dynamic = 'force-dynamic';
    DEPENDENCIES:
      • CapacitySummary — @/components/layout/CapacitySummary
    ============================================================================= */
-
-'use client';
 
 import CapacitySummary from '@/components/layout/CapacitySummary';
 
