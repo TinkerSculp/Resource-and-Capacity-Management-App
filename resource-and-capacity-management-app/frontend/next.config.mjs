@@ -39,9 +39,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 
-    experimental: {
-    missingSuspenseWithCSRBailout: false,
-    },
 
   /* ---------------------------------------------------------------------------
      STANDALONE OUTPUT — required for Railway single-service deployment.
