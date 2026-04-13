@@ -1,4 +1,8 @@
+export const dynamic = 'force-dynamic';
 
+export default function ForgotPasswordPage() {
+  return null;
+}
 
 // 'use client';
 
