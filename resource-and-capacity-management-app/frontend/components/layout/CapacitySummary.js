@@ -173,7 +173,22 @@ export default function CapacitySummary() {
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const monthDropdownRef                          = useRef(null);
 
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
   const router = useRouter();
+
+  /* ---------------------------------------------------------------------------
+     EFFECT: DETECT DARK MODE
+     Uses matchMedia inside useEffect — safe because it only runs client-side
+     after hydration. Updates if the user changes their system preference.
+  --------------------------------------------------------------------------- */
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDarkMode(mq.matches);
+    const handler = (e) => setIsDarkMode(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   /* ---------------------------------------------------------------------------
      EFFECT 1: LOAD USER SESSION
@@ -306,8 +321,7 @@ export default function CapacitySummary() {
     ]
   };
 
-  const isMobile   = false; // Safe default — avoids window access during SSR/hydration
-  const isDarkMode = false; // Chart colours use light mode defaults; Tailwind handles dark mode
+  const isMobile   = false; // Safe default — chart uses desktop aspect ratio
 
   const chartOptions = {
     responsive:          true,
@@ -381,7 +395,7 @@ export default function CapacitySummary() {
 
               {/* Dropdown options — normal weight text, no bold */}
               {showMonthDropdown && (
-                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-black dark:border-slate-600 rounded shadow-lg z-50 max-h-60 overflow-y-auto min-w-full">
+                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-black dark:border-slate-600 rounded shadow-lg z-50 max-h-100 overflow-y-auto min-w-full">
                   {selectableMonths.map(m => (
                     <div
                       key={m.value}
