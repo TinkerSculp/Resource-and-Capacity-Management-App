@@ -302,8 +302,11 @@ export default function CapacitySummary() {
     ]
   };
 
-  const isMobile  = typeof window !== 'undefined' && window.innerWidth < 640;
-  const isDarkMode = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  // const isMobile  = typeof window !== 'undefined' && window.innerWidth < 640;
+  // const isDarkMode = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+const isMobile   = false;  // Chart will use desktop aspect ratio — acceptable default
+const isDarkMode = false;  // Chart will use light mode colours — Tailwind handles dark mode
 
   /* ---------------------------------------------------------------------------
      CHART OPTIONS — responsive design, dark mode support, stacked bars
