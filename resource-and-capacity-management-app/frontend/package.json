@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node server.js",
-    "lint": "eslint"
+    "start": "next start",
+    "lint": "next lint"
   },
   "engines": {
     "node": ">=20.9.0"
